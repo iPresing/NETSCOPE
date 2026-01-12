@@ -1,0 +1,13 @@
+[Unit]
+Description=NETSCOPE USB Gadget Initialization
+After=network-pre.target
+Before=network.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/modprobe g_ether
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

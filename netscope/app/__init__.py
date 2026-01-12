@@ -26,11 +26,17 @@ def create_app(config_name='default'):
     # Configure logging
     _configure_logging(app, config_name)
 
+    # Detect network interface and configure IP
+    _configure_network(app)
+
     # Register blueprints
     _register_blueprints(app)
 
     # Register error handlers
     _register_error_handlers(app)
+
+    # Register context processors
+    _register_context_processors(app)
 
     app.logger.info(f'Application created (config={config_name})')
 
@@ -52,6 +58,66 @@ def _configure_logging(app, config_name):
         format=log_format,
         datefmt=date_format
     )
+
+
+def _configure_network(app):
+    """Detect and configure network interface at startup.
+
+    Detects the active network interface and stores the IP address
+    and connection mode in app.config for use throughout the application.
+
+    Args:
+        app: Flask application instance
+    """
+    from app.core.capture.interface_detector import (
+        detect_interfaces,
+        get_recommended_interface,
+        InterfaceType,
+    )
+
+    try:
+        interfaces = detect_interfaces()
+        recommended = get_recommended_interface(interfaces)
+
+        if recommended:
+            app.config['NETSCOPE_IP'] = recommended.ip_address
+            app.config['NETSCOPE_INTERFACE'] = recommended.name
+            app.config['NETSCOPE_CONNECTION_MODE'] = _get_connection_mode(recommended.type)
+            app.logger.info(
+                f'Network configured (ip={recommended.ip_address}, '
+                f'interface={recommended.name}, mode={app.config["NETSCOPE_CONNECTION_MODE"]})'
+            )
+        else:
+            app.config['NETSCOPE_IP'] = None
+            app.config['NETSCOPE_INTERFACE'] = None
+            app.config['NETSCOPE_CONNECTION_MODE'] = 'unknown'
+            app.logger.warning('No active network interface detected')
+
+    except Exception as e:
+        app.logger.error(f'Failed to detect network interface (error={str(e)})')
+        app.config['NETSCOPE_IP'] = None
+        app.config['NETSCOPE_INTERFACE'] = None
+        app.config['NETSCOPE_CONNECTION_MODE'] = 'unknown'
+
+
+def _get_connection_mode(interface_type):
+    """Get human-readable connection mode from interface type.
+
+    Args:
+        interface_type: InterfaceType enum value
+
+    Returns:
+        Connection mode string
+    """
+    from app.core.capture.interface_detector import InterfaceType
+
+    mode_map = {
+        InterfaceType.USB_GADGET: 'USB Gadget',
+        InterfaceType.ETHERNET: 'Ethernet',
+        InterfaceType.WIFI: 'WiFi',
+        InterfaceType.UNKNOWN: 'Unknown',
+    }
+    return mode_map.get(interface_type, 'Unknown')
 
 
 def _register_blueprints(app):
@@ -98,3 +164,22 @@ def _register_error_handlers(app):
                 'details': {}
             }
         }), 500
+
+
+def _register_context_processors(app):
+    """Register context processors for Jinja2 templates.
+
+    Provides global variables available in all templates.
+
+    Args:
+        app: Flask application instance
+    """
+
+    @app.context_processor
+    def inject_network_info():
+        """Inject network information into all templates."""
+        return {
+            'netscope_ip': app.config.get('NETSCOPE_IP'),
+            'netscope_interface': app.config.get('NETSCOPE_INTERFACE'),
+            'netscope_connection_mode': app.config.get('NETSCOPE_CONNECTION_MODE'),
+        }

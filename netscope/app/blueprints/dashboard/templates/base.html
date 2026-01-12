@@ -10,7 +10,23 @@
 <body>
     <header>
         <nav>
-            <h1>NETSCOPE</h1>
+            <div class="nav-brand">
+                <h1>NETSCOPE</h1>
+            </div>
+            <div class="nav-network-status">
+                {% if netscope_ip %}
+                <span class="network-indicator connected" title="{{ netscope_connection_mode }}">
+                    <span class="status-dot"></span>
+                    <span class="network-ip">{{ netscope_ip }}</span>
+                    <span class="network-mode">({{ netscope_connection_mode }})</span>
+                </span>
+                {% else %}
+                <span class="network-indicator disconnected" title="Aucune connexion">
+                    <span class="status-dot"></span>
+                    <span class="network-ip">Non connect&#233;</span>
+                </span>
+                {% endif %}
+            </div>
         </nav>
     </header>
 
