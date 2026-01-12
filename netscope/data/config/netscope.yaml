@@ -1,0 +1,112 @@
+# NETSCOPE Configuration
+# Version: 1.0.0
+
+# =============================================================================
+# CAPTURE SETTINGS
+# =============================================================================
+capture:
+  default_duration: 120          # Duree defaut en secondes (2 min)
+  max_duration: 600              # Duree max autorisee (10 min)
+  headers_only: true             # Mode headers-only (100 bytes/paquet)
+  snap_length: 100               # Bytes captures par paquet
+  interface: "auto"              # "auto" = detection automatique, ou "eth0", "usb0"
+  bpf_filter: "not port 22"      # Filtre BPF par defaut (exclut SSH)
+
+# =============================================================================
+# ANALYSIS SETTINGS
+# =============================================================================
+analysis:
+  scoring:
+    blacklist_weight: 40         # Poids blacklist dans score (0-100)
+    heuristic_weight: 30         # Poids heuristiques
+    volume_weight: 15            # Poids volume anormal
+    port_weight: 15              # Poids ports suspects
+
+  thresholds:
+    critical: 80                 # Score >= 80 = critique
+    warning: 50                  # Score >= 50 = attention
+    normal: 0                    # Score < 50 = normal
+
+  health_score:
+    base_score: 100              # Score sante initial
+    decay_per_critical: 15       # Points perdus par anomalie critique
+    decay_per_warning: 5         # Points perdus par anomalie warning
+
+# =============================================================================
+# INSPECTION SETTINGS (Scapy Jobs)
+# =============================================================================
+inspection:
+  max_concurrent_jobs: 2         # Jobs simultanes max (semaphore)
+  default_timeout: 30            # Timeout job en secondes
+  max_timeout: 120               # Timeout max autorise
+  default_packet_count: 100      # Paquets a capturer par job
+
+# =============================================================================
+# BLACKLISTS SETTINGS
+# =============================================================================
+blacklists:
+  paths:
+    user_ips: "data/blacklists/ips.txt"
+    user_domains: "data/blacklists/domains.txt"
+    user_terms: "data/blacklists/terms.txt"
+  defaults:
+    ips_malware: "data/blacklists_defaults/ips_malware.txt"
+    ips_c2: "data/blacklists_defaults/ips_c2.txt"
+    domains_phishing: "data/blacklists_defaults/domains_phishing.txt"
+    domains_malware: "data/blacklists_defaults/domains_malware.txt"
+    terms_suspect: "data/blacklists_defaults/terms_suspect.txt"
+  reload_on_change: true         # Hot-reload si fichier modifie
+
+# =============================================================================
+# RESOURCE MANAGEMENT
+# =============================================================================
+resources:
+  cpu_threshold: 80              # % CPU declenchant graceful degradation
+  ram_threshold: 70              # % RAM declenchant warning
+  temp_threshold: 70             # Celsius declenchant throttling
+  storage_threshold: 70          # % storage declenchant rotation
+  check_interval: 5              # Secondes entre checks
+
+# =============================================================================
+# LOGGING SETTINGS
+# =============================================================================
+logging:
+  level: "INFO"                  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  tmpfs_path: "/run/netscope"    # Chemin logs tmpfs
+  persistent_path: "/var/log/netscope"
+  flush_interval: 300            # Flush vers disk toutes les 5 min
+  max_file_size: "10MB"          # Taille max avant rotation
+  retention_days: 7              # Jours conservation logs
+
+# =============================================================================
+# NETWORK SETTINGS
+# =============================================================================
+network:
+  web_host: "0.0.0.0"            # Interface ecoute Flask
+  web_port: 80                   # Port web (80 = pas de :port dans URL)
+  usb_gadget_ip: "192.168.50.1"  # IP mode USB gadget
+
+# =============================================================================
+# EXPORT SETTINGS
+# =============================================================================
+export:
+  formats: ["csv", "json"]       # Formats supportes
+  include_whitelist_hits: false  # Inclure elements whitelistes dans export
+  timestamp_format: "%Y%m%d_%H%M%S"  # Format timestamp nom fichier
+
+# =============================================================================
+# UPDATE SETTINGS (OTA)
+# =============================================================================
+update:
+  github_repo: "netscope/netscope"
+  check_url: "https://api.github.com/repos/{repo}/releases/latest"
+  auto_check: false              # Check auto au demarrage
+  backup_before_update: true     # Backup avant mise a jour
+
+# =============================================================================
+# APPLICATION INFO
+# =============================================================================
+application:
+  name: NETSCOPE
+  version: "0.1.0"
+  debug: false

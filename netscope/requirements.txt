@@ -1,0 +1,6 @@
+# NETSCOPE Production Dependencies
+Flask>=3.0.0
+gunicorn>=21.0.0
+PyYAML>=6.0.0
+scapy>=2.5.0
+python-dotenv>=1.0.0

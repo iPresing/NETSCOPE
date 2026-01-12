@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NETSCOPE{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <nav>
+            <h1>NETSCOPE</h1>
+        </nav>
+    </header>
+
+    <main>
+        {% block content %}
+        <p>Network Traffic Analyzer</p>
+        {% endblock %}
+    </main>
+
+    <footer>
+        <p>NETSCOPE v0.1.0</p>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
