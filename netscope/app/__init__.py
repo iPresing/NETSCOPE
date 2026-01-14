@@ -26,6 +26,9 @@ def create_app(config_name='default'):
     # Configure logging
     _configure_logging(app, config_name)
 
+    # Detect hardware and configure performance targets
+    _configure_hardware(app)
+
     # Detect network interface and configure IP
     _configure_network(app)
 
@@ -44,20 +47,53 @@ def create_app(config_name='default'):
 
 
 def _configure_logging(app, config_name):
-    """Configure application logging with structured format.
+    """Configure application logging with NETSCOPE structured format.
+
+    Uses custom NetScopeFormatter to produce short module names conforming
+    to architecture standard: [TIME][LEVEL][module.submodule] Message
 
     Args:
         app: Flask application instance
         config_name: Current configuration name
     """
-    log_format = '[%(asctime)s][%(levelname)s][%(name)s] %(message)s'
-    date_format = '%Y-%m-%d %H:%M:%S'
+    from app.logging_config import configure_logging
+    configure_logging(app, config_name)
 
-    logging.basicConfig(
-        level=logging.DEBUG if app.config.get('DEBUG') else logging.INFO,
-        format=log_format,
-        datefmt=date_format
-    )
+
+def _configure_hardware(app):
+    """Detect hardware and configure performance targets.
+
+    Detects the Raspberry Pi model at startup and stores hardware info
+    and performance targets in app.config for use throughout the application.
+
+    Args:
+        app: Flask application instance
+    """
+    from app.services import get_hardware_info, get_current_targets
+
+    try:
+        # Detect hardware
+        hardware_info = get_hardware_info()
+
+        # Get performance targets based on detected hardware
+        performance_targets = get_current_targets()
+
+        # Store in app.config
+        app.config['NETSCOPE_HARDWARE_INFO'] = hardware_info
+        app.config['NETSCOPE_PERFORMANCE_TARGETS'] = performance_targets
+
+        app.logger.info(
+            f'Hardware configured (model={hardware_info.model_name}, '
+            f'cpu_count={hardware_info.cpu_count}, ram_mb={hardware_info.ram_mb}, '
+            f'cpu_threshold={performance_targets.cpu_threshold_percent}%, '
+            f'max_jobs={performance_targets.max_concurrent_jobs})'
+        )
+
+    except Exception as e:
+        app.logger.error(f'Failed to detect hardware (error={str(e)})')
+        # Set defaults for graceful degradation
+        app.config['NETSCOPE_HARDWARE_INFO'] = None
+        app.config['NETSCOPE_PERFORMANCE_TARGETS'] = None
 
 
 def _configure_network(app):
@@ -182,4 +218,40 @@ def _register_context_processors(app):
             'netscope_ip': app.config.get('NETSCOPE_IP'),
             'netscope_interface': app.config.get('NETSCOPE_INTERFACE'),
             'netscope_connection_mode': app.config.get('NETSCOPE_CONNECTION_MODE'),
+        }
+
+    @app.context_processor
+    def inject_hardware_info():
+        """Inject hardware information and performance targets into all templates.
+
+        Provides the following template variables:
+        - hardware_model: Human-readable model name
+        - hardware_model_code: PiModel enum value
+        - hardware_cpu_count: Number of CPU cores
+        - hardware_ram_mb: RAM in megabytes
+        - performance_cpu_threshold: CPU usage threshold percent
+        - performance_ram_threshold: RAM usage threshold percent
+        - performance_max_jobs: Maximum concurrent jobs allowed
+        """
+        hardware_info = app.config.get('NETSCOPE_HARDWARE_INFO')
+        performance_targets = app.config.get('NETSCOPE_PERFORMANCE_TARGETS')
+
+        if hardware_info and performance_targets:
+            return {
+                'hardware_model': hardware_info.model_name,
+                'hardware_model_code': hardware_info.model.value,
+                'hardware_cpu_count': hardware_info.cpu_count,
+                'hardware_ram_mb': hardware_info.ram_mb,
+                'performance_cpu_threshold': performance_targets.cpu_threshold_percent,
+                'performance_ram_threshold': performance_targets.ram_threshold_percent,
+                'performance_max_jobs': performance_targets.max_concurrent_jobs,
+            }
+        return {
+            'hardware_model': 'Unknown',
+            'hardware_model_code': 'UNKNOWN',
+            'hardware_cpu_count': 0,
+            'hardware_ram_mb': 0,
+            'performance_cpu_threshold': 30,
+            'performance_ram_threshold': 30,
+            'performance_max_jobs': 1,
         }
