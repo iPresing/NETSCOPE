@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - NETSCOPE{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    {# Configuration Capture Section #}
+    <section class="capture-config card">
+        <h2 class="card-title">Configuration Capture</h2>
+        <div class="capture-form">
+            <div class="form-group">
+                <label for="interface">Interface:</label>
+                <select id="interface" class="form-control" disabled>
+                    <option value="eth0">eth0</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="duration">Durée:</label>
+                <select id="duration" class="form-control" disabled>
+                    <option value="60">1 min</option>
+                    <option value="120" selected>2 min</option>
+                    <option value="300">5 min</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="filter">Filtre:</label>
+                <input type="text" id="filter" class="form-control" value="not port 22" disabled>
+            </div>
+            <button class="btn btn-primary btn-capture" disabled>
+                <span class="btn-icon">🚀</span>
+                Lancer Capture
+            </button>
+        </div>
+        <p class="capture-hint text-muted">Module capture disponible dans Story 1.5</p>
+    </section>
+
+    {# Score and Jobs Row #}
+    <div class="dashboard-row">
+        {# Score Santé Section #}
+        <section class="score-health card">
+            <h2 class="card-title">Score Santé</h2>
+            <div class="score-display">
+                <span class="score-value">--</span>
+                <span class="score-max">/100</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%"></div>
+            </div>
+            <p class="score-percent">--%</p>
+            <a href="#" class="btn btn-sm">Détails</a>
+        </section>
+
+        {# Jobs Inspection Section #}
+        <section class="jobs-inspection card">
+            <h2 class="card-title">
+                <span class="title-icon">🔬</span>
+                Jobs Inspection
+            </h2>
+            <div class="jobs-placeholder">
+                <p class="text-muted">Aucune capture effectuée</p>
+                <p class="text-muted text-sm">Les jobs d'inspection apparaîtront ici</p>
+            </div>
+        </section>
+    </div>
+
+    {# Status Cards Row #}
+    <div class="status-cards">
+        <div class="status-card card">
+            <div class="status-card-header">
+                <span class="status-indicator status-normal"></span>
+                <span class="status-title">TOP IPs</span>
+            </div>
+            <div class="status-card-value">--</div>
+            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir →</a>
+        </div>
+
+        <div class="status-card card">
+            <div class="status-card-header">
+                <span class="status-indicator status-normal"></span>
+                <span class="status-title">PROTOCOLES</span>
+            </div>
+            <div class="status-card-value">--</div>
+            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir →</a>
+        </div>
+
+        <div class="status-card card">
+            <div class="status-card-header">
+                <span class="status-indicator status-normal"></span>
+                <span class="status-title">PORTS</span>
+            </div>
+            <div class="status-card-value">--</div>
+            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir →</a>
+        </div>
+
+        <div class="status-card card">
+            <div class="status-card-header">
+                <span class="status-indicator status-normal"></span>
+                <span class="status-title">VOLUME</span>
+            </div>
+            <div class="status-card-value">-- pkts</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{# Card Component - NETSCOPE
+   Reusable card component for status display
+
+   Parameters:
+   - title: Card title
+   - icon: Optional icon emoji
+   - status: 'normal', 'warning', 'critical', 'info'
+   - value: Main value to display
+   - link: Optional link URL
+   - link_text: Optional link text (default: "Voir →")
+
+   Usage:
+   {% include 'components/_card.html' with context %}
+   Or use the macro:
+   {{ card('TOP IPs', '🟢', 'normal', '--', url_for('dashboard.anomalies')) }}
+#}
+
+{% macro card(title, icon, status, value, link, link_text) %}
+<div class="status-card card">
+    <div class="status-card-header">
+        {% if status %}
+        <span class="status-indicator status-{{ status }}"></span>
+        {% endif %}
+        {% if icon %}
+        <span class="status-icon">{{ icon }}</span>
+        {% endif %}
+        <span class="status-title">{{ title }}</span>
+    </div>
+    <div class="status-card-value">{{ value }}</div>
+    {% if link %}
+    <a href="{{ link }}" class="status-card-link">{{ link_text or 'Voir →' }}</a>
+    {% endif %}
+</div>
+{% endmacro %}

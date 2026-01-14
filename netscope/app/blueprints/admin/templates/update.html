@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Mise à Jour - NETSCOPE{% endblock %}
+
+{% block content %}
+<div class="update-container">
+    <section class="page-header">
+        <h2>Mise à Jour Système</h2>
+        <p class="text-muted">Gérer les mises à jour OTA de NETSCOPE</p>
+    </section>
+
+    <section class="current-version card">
+        <h3>Version Actuelle</h3>
+        <div class="version-info">
+            <div class="version-number">
+                <span class="version-label">Version installée:</span>
+                <span class="version-value">v0.1.0</span>
+            </div>
+            <div class="version-date">
+                <span class="version-label">Date d'installation:</span>
+                <span class="version-value">--</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="check-update card">
+        <h3>Vérifier les Mises à Jour</h3>
+        <div class="update-check-form">
+            <button class="btn btn-primary" id="check-update-btn" disabled>
+                <span class="btn-icon">🔍</span>
+                Vérifier sur GitHub
+            </button>
+            <p class="text-muted text-sm">Vérifie les nouvelles versions disponibles sur le dépôt GitHub</p>
+        </div>
+        <div class="update-status">
+            <p class="text-muted">Module mise à jour disponible dans Epic 5</p>
+        </div>
+    </section>
+
+    <section class="update-history card">
+        <h3>Historique des Mises à Jour</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Date</th>
+                    <th>Statut</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>v0.1.0</td>
+                    <td>--</td>
+                    <td><span class="badge badge-success">Actuelle</span></td>
+                    <td>Installation initiale</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="update-settings card">
+        <h3>Paramètres de Mise à Jour</h3>
+        <div class="settings-form">
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" disabled>
+                    Vérification automatique au démarrage
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" checked disabled>
+                    Créer une sauvegarde avant mise à jour
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" checked disabled>
+                    Rollback automatique en cas d'échec
+                </label>
+            </div>
+        </div>
+        <p class="text-muted text-sm">Configuration disponible dans Epic 5</p>
+    </section>
+
+    <div class="page-actions">
+        <a href="{{ url_for('admin.admin_index') }}" class="btn">← Retour à l'administration</a>
+    </div>
+</div>
+{% endblock %}

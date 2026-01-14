@@ -1,0 +1,37 @@
+{# Navigation Component - NETSCOPE
+   Reusable navigation component with active page highlighting
+   Usage: {% include 'components/_nav.html' %}
+#}
+
+<nav class="main-nav">
+    <ul class="nav-links">
+        <li class="nav-item">
+            <a href="{{ url_for('dashboard.index') }}"
+               class="nav-link {% if request.endpoint == 'dashboard.index' %}is-active{% endif %}">
+                <span class="nav-icon">📊</span>
+                <span class="nav-text">Dashboard</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('dashboard.anomalies') }}"
+               class="nav-link {% if request.endpoint == 'dashboard.anomalies' %}is-active{% endif %}">
+                <span class="nav-icon">⚠️</span>
+                <span class="nav-text">Anomalies</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('dashboard.jobs') }}"
+               class="nav-link {% if request.endpoint == 'dashboard.jobs' %}is-active{% endif %}">
+                <span class="nav-icon">🔬</span>
+                <span class="nav-text">Jobs</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('admin.admin_index') }}"
+               class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.') %}is-active{% endif %}">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">Admin</span>
+            </a>
+        </li>
+    </ul>
+</nav>

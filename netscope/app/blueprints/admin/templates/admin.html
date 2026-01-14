@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Administration - NETSCOPE{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <section class="page-header">
+        <h2>Administration NETSCOPE</h2>
+        <p class="text-muted">Configuration et gestion du système</p>
+    </section>
+
+    <section class="admin-info card">
+        <h3>Informations Système</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Version:</span>
+                <span class="info-value">NETSCOPE v0.1.0</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Interface Réseau:</span>
+                <span class="info-value">{{ netscope_interface or 'Non détectée' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Adresse IP:</span>
+                <span class="info-value">{{ netscope_ip or 'Non disponible' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Mode Connexion:</span>
+                <span class="info-value">{{ netscope_connection_mode or 'Inconnu' }}</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-actions">
+        <div class="admin-cards">
+            <a href="{{ url_for('admin.update') }}" class="admin-card card">
+                <div class="admin-card-icon">🔄</div>
+                <h4>Mise à Jour</h4>
+                <p class="text-muted">Gérer les mises à jour du système</p>
+            </a>
+
+            <a href="{{ url_for('admin.config') }}" class="admin-card card">
+                <div class="admin-card-icon">⚙️</div>
+                <h4>Configuration</h4>
+                <p class="text-muted">Paramètres du système</p>
+            </a>
+
+            <div class="admin-card card disabled">
+                <div class="admin-card-icon">📊</div>
+                <h4>Logs</h4>
+                <p class="text-muted">Consulter les journaux (bientôt)</p>
+            </div>
+
+            <div class="admin-card card disabled">
+                <div class="admin-card-icon">💾</div>
+                <h4>Sauvegarde</h4>
+                <p class="text-muted">Backup et restauration (bientôt)</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-health card">
+        <h3>État du Système</h3>
+        <div class="health-indicators">
+            <div class="health-item">
+                <span class="health-indicator status-normal"></span>
+                <span class="health-label">Application Flask</span>
+                <span class="health-status">Opérationnel</span>
+            </div>
+            <div class="health-item">
+                <span class="health-indicator status-normal"></span>
+                <span class="health-label">Connectivité Réseau</span>
+                <span class="health-status">{{ 'Connecté' if netscope_ip else 'Déconnecté' }}</span>
+            </div>
+            <div class="health-item">
+                <span class="health-indicator status-info"></span>
+                <span class="health-label">Module Capture</span>
+                <span class="health-status">Non initialisé</span>
+            </div>
+            <div class="health-item">
+                <span class="health-indicator status-info"></span>
+                <span class="health-label">Module Inspection</span>
+                <span class="health-status">Non initialisé</span>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

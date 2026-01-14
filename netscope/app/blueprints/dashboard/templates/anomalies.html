@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Anomalies - NETSCOPE{% endblock %}
+
+{% block content %}
+<div class="anomalies-container">
+    <section class="page-header">
+        <h2>Liste des Anomalies</h2>
+        <p class="text-muted">Anomalies détectées lors des captures réseau</p>
+    </section>
+
+    <section class="anomalies-filters card">
+        <div class="filter-row">
+            <div class="form-group">
+                <label for="severity-filter">Sévérité:</label>
+                <select id="severity-filter" class="form-control" disabled>
+                    <option value="all">Toutes</option>
+                    <option value="critical">Critique</option>
+                    <option value="warning">Avertissement</option>
+                    <option value="info">Information</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="type-filter">Type:</label>
+                <select id="type-filter" class="form-control" disabled>
+                    <option value="all">Tous</option>
+                    <option value="blacklist">Blacklist</option>
+                    <option value="behavioral">Comportemental</option>
+                    <option value="protocol">Protocole</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" disabled>Filtrer</button>
+        </div>
+    </section>
+
+    <section class="anomalies-table card">
+        <div class="table-placeholder">
+            <table class="data-table" id="anomalies-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Sévérité</th>
+                        <th>Type</th>
+                        <th>Source IP</th>
+                        <th>Destination</th>
+                        <th>Description</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="placeholder-row">
+                        <td colspan="7" class="text-center text-muted">
+                            <p>Aucune anomalie détectée</p>
+                            <p class="text-sm">Les anomalies apparaîtront après une capture</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="anomalies-summary card">
+        <h3>Résumé</h3>
+        <div class="summary-stats">
+            <div class="stat-item">
+                <span class="stat-value status-critical">0</span>
+                <span class="stat-label">Critiques</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value status-warning">0</span>
+                <span class="stat-label">Avertissements</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value status-info">0</span>
+                <span class="stat-label">Informations</span>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

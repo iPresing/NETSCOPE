@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Configuration - NETSCOPE{% endblock %}
+
+{% block content %}
+<div class="config-container">
+    <section class="page-header">
+        <h2>Configuration Système</h2>
+        <p class="text-muted">Paramètres et configuration de NETSCOPE</p>
+    </section>
+
+    <section class="config-network card">
+        <h3>Configuration Réseau</h3>
+        <div class="config-form">
+            <div class="form-group">
+                <label for="interface-select">Interface par défaut:</label>
+                <select id="interface-select" class="form-control" disabled>
+                    <option value="auto">Automatique</option>
+                    <option value="eth0">eth0</option>
+                    <option value="usb0">usb0 (USB Gadget)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="default-filter">Filtre tcpdump par défaut:</label>
+                <input type="text" id="default-filter" class="form-control" value="not port 22" disabled>
+            </div>
+        </div>
+        <p class="text-muted text-sm">Configuration réseau avancée disponible prochainement</p>
+    </section>
+
+    <section class="config-capture card">
+        <h3>Configuration Capture</h3>
+        <div class="config-form">
+            <div class="form-group">
+                <label for="default-duration">Durée de capture par défaut:</label>
+                <select id="default-duration" class="form-control" disabled>
+                    <option value="60">1 minute</option>
+                    <option value="120" selected>2 minutes</option>
+                    <option value="300">5 minutes</option>
+                    <option value="600">10 minutes</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="max-packets">Limite de paquets:</label>
+                <input type="number" id="max-packets" class="form-control" value="10000" disabled>
+            </div>
+        </div>
+        <p class="text-muted text-sm">Module capture disponible dans Story 1.5</p>
+    </section>
+
+    <section class="config-detection card">
+        <h3>Configuration Détection</h3>
+        <div class="config-form">
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" checked disabled>
+                    Activer détection blacklist
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" checked disabled>
+                    Activer analyse comportementale
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" checked disabled>
+                    Activer scoring cascade
+                </label>
+            </div>
+        </div>
+        <p class="text-muted text-sm">Modules détection disponibles dans Epic 2</p>
+    </section>
+
+    <section class="config-whitelist card">
+        <h3>Gestion Whitelist</h3>
+        <div class="whitelist-info">
+            <p class="text-muted">0 entrées dans la whitelist</p>
+            <button class="btn" disabled>Gérer la Whitelist</button>
+        </div>
+        <p class="text-muted text-sm">Gestion whitelist disponible dans Epic 3</p>
+    </section>
+
+    <section class="config-actions card">
+        <h3>Actions</h3>
+        <div class="action-buttons">
+            <button class="btn" disabled>Exporter Configuration</button>
+            <button class="btn" disabled>Importer Configuration</button>
+            <button class="btn btn-danger" disabled>Réinitialiser</button>
+        </div>
+    </section>
+
+    <div class="page-actions">
+        <a href="{{ url_for('admin.admin_index') }}" class="btn">← Retour à l'administration</a>
+    </div>
+</div>
+{% endblock %}

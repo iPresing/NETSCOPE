@@ -1,0 +1,26 @@
+{# Footer Component - NETSCOPE
+   Enhanced footer with version and status info
+
+   Usage: {% include 'components/_footer.html' %}
+#}
+
+<div class="footer-content">
+    <div class="footer-info">
+        <span class="footer-version">NETSCOPE v0.1.0</span>
+        <span class="footer-separator">|</span>
+        <span class="footer-status">
+            {% if netscope_ip %}
+            <span class="status-dot connected"></span>
+            Connecté ({{ netscope_connection_mode }})
+            {% else %}
+            <span class="status-dot disconnected"></span>
+            Non connecté
+            {% endif %}
+        </span>
+    </div>
+    <div class="footer-links">
+        <a href="https://github.com/netscope" target="_blank" rel="noopener">GitHub</a>
+        <span class="footer-separator">|</span>
+        <a href="{{ url_for('admin.admin_index') }}">Administration</a>
+    </div>
+</div>

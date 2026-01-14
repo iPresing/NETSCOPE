@@ -8,9 +8,10 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <header>
-        <nav>
+    <header class="site-header">
+        <div class="header-top">
             <div class="nav-brand">
+                <span class="brand-icon">🛡️</span>
                 <h1>NETSCOPE</h1>
             </div>
             <div class="nav-network-status">
@@ -23,11 +24,12 @@
                 {% else %}
                 <span class="network-indicator disconnected" title="Aucune connexion">
                     <span class="status-dot"></span>
-                    <span class="network-ip">Non connect&#233;</span>
+                    <span class="network-ip">Non connecté</span>
                 </span>
                 {% endif %}
             </div>
-        </nav>
+        </div>
+        {% include 'components/_nav.html' %}
     </header>
 
     <main>
@@ -36,10 +38,17 @@
         {% endblock %}
     </main>
 
-    <footer>
-        <p>NETSCOPE v0.1.0</p>
+    <footer class="site-footer">
+        {% block footer %}
+        {% include 'components/_footer.html' %}
+        {% endblock %}
     </footer>
 
+    {% include 'components/_toast.html' %}
+
+    <script src="{{ url_for('static', filename='js/api.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/toasts.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

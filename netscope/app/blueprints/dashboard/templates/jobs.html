@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Jobs Inspection - NETSCOPE{% endblock %}
+
+{% block content %}
+<div class="jobs-container">
+    <section class="page-header">
+        <h2>Jobs d'Inspection</h2>
+        <p class="text-muted">Inspection approfondie avec Scapy</p>
+    </section>
+
+    <section class="jobs-actions card">
+        <h3>Nouvelle Inspection</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="job-target">Cible IP:</label>
+                <input type="text" id="job-target" class="form-control" placeholder="192.168.1.x" disabled>
+            </div>
+            <div class="form-group">
+                <label for="job-type">Type:</label>
+                <select id="job-type" class="form-control" disabled>
+                    <option value="port-scan">Scan de ports</option>
+                    <option value="deep-packet">Deep Packet</option>
+                    <option value="protocol-analysis">Analyse protocole</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" disabled>
+                <span class="btn-icon">🔬</span>
+                Lancer Inspection
+            </button>
+        </div>
+        <p class="text-muted text-sm">Module inspection disponible dans Epic 4</p>
+    </section>
+
+    <section class="jobs-queue card">
+        <h3>File d'Attente</h3>
+        <div class="queue-list">
+            <p class="text-muted text-center">Aucun job en attente</p>
+        </div>
+    </section>
+
+    <section class="jobs-active card">
+        <h3>Jobs en Cours</h3>
+        <div class="active-list">
+            <p class="text-muted text-center">Aucun job en cours d'exécution</p>
+        </div>
+    </section>
+
+    <section class="jobs-history card">
+        <h3>Historique des Jobs</h3>
+        <table class="data-table" id="jobs-history-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Démarré</th>
+                    <th>Cible</th>
+                    <th>Type</th>
+                    <th>Statut</th>
+                    <th>Durée</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="placeholder-row">
+                    <td colspan="7" class="text-center text-muted">
+                        <p>Aucun job exécuté</p>
+                        <p class="text-sm">L'historique des inspections apparaîtra ici</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}
