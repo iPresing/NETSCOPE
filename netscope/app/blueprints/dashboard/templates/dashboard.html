@@ -9,36 +9,73 @@
         <h2 class="card-title">Configuration Capture</h2>
         <div class="capture-form">
             <div class="form-group">
-                <label for="interface">Interface:</label>
-                <select id="interface" class="form-control" disabled>
-                    <option value="eth0">eth0</option>
+                <label for="capture-interface">Interface:</label>
+                <select id="capture-interface" class="form-control">
+                    <option value="auto">Auto (eth0)</option>
+                    <option value="eth0">eth0 - Ethernet</option>
+                    <option value="usb0">usb0 - USB Gadget</option>
+                    <option value="wlan0">wlan0 - WiFi</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="duration">Durée:</label>
-                <select id="duration" class="form-control" disabled>
-                    <option value="60">1 min</option>
-                    <option value="120" selected>2 min</option>
-                    <option value="300">5 min</option>
+                <label for="capture-duration">Dur&eacute;e:</label>
+                <select id="capture-duration" class="form-control">
+                    <option value="30">30 secondes</option>
+                    <option value="60">1 minute</option>
+                    <option value="120" selected>2 minutes (d&eacute;faut)</option>
+                    <option value="300">5 minutes</option>
+                    <option value="600">10 minutes</option>
                 </select>
             </div>
             <div class="form-group">
-                <label for="filter">Filtre:</label>
-                <input type="text" id="filter" class="form-control" value="not port 22" disabled>
+                <label for="capture-filter">Filtre BPF:</label>
+                <input type="text" id="capture-filter" class="form-control" value="not port 22" placeholder="not port 22">
             </div>
-            <button class="btn btn-primary btn-capture" disabled>
-                <span class="btn-icon">🚀</span>
-                Lancer Capture
-            </button>
+            <div class="capture-actions">
+                <button id="btn-start-capture" class="btn btn-primary btn-capture">
+                    <span class="btn-icon">&#128640;</span>
+                    Lancer Capture
+                </button>
+                <button id="btn-stop-capture" class="btn btn-danger btn-capture" style="display: none;">
+                    <span class="btn-icon">&#9632;</span>
+                    Arr&ecirc;ter
+                </button>
+            </div>
         </div>
-        <p class="capture-hint text-muted">Module capture disponible dans Story 1.5</p>
+
+        {# Capture Status Indicator #}
+        <div id="capture-status" class="capture-status" style="display: none;">
+            <span class="status-indicator running"></span>
+            <span class="status-text">Capture en cours...</span>
+            <span class="packet-animation">....&gt;</span>
+            <span id="capture-timer" class="capture-timer">0s</span>
+        </div>
+
+        {# Capture Result #}
+        <div id="capture-result" class="capture-result" style="display: none;">
+            <div class="result-header">
+                <span class="status-indicator completed"></span>
+                <span class="result-title">Capture termin&eacute;e</span>
+            </div>
+            <div class="result-summary">
+                <span id="result-packets">0 paquets</span> |
+                <span id="result-duration">0s</span> |
+                <span id="result-ips">0 IPs</span>
+            </div>
+        </div>
+
+        {# Error Display #}
+        <div id="capture-error" class="capture-error" style="display: none;">
+            <span class="error-icon">&#9888;</span>
+            <span id="error-message" class="error-message"></span>
+        </div>
     </section>
 
     {# Score and Jobs Row #}
     <div class="dashboard-row">
-        {# Score Santé Section #}
+        {# Score Sant&eacute; Section #}
         <section class="score-health card">
-            <h2 class="card-title">Score Santé</h2>
+            <h2 class="card-title">Score Sant&eacute;</h2>
             <div class="score-display">
                 <span class="score-value">--</span>
                 <span class="score-max">/100</span>
@@ -47,18 +84,18 @@
                 <div class="progress-fill" style="width: 0%"></div>
             </div>
             <p class="score-percent">--%</p>
-            <a href="#" class="btn btn-sm">Détails</a>
+            <a href="#" class="btn btn-sm">D&eacute;tails</a>
         </section>
 
         {# Jobs Inspection Section #}
         <section class="jobs-inspection card">
             <h2 class="card-title">
-                <span class="title-icon">🔬</span>
+                <span class="title-icon">&#128300;</span>
                 Jobs Inspection
             </h2>
             <div class="jobs-placeholder">
-                <p class="text-muted">Aucune capture effectuée</p>
-                <p class="text-muted text-sm">Les jobs d'inspection apparaîtront ici</p>
+                <p class="text-muted">Aucune capture effectu&eacute;e</p>
+                <p class="text-muted text-sm">Les jobs d'inspection appara&icirc;tront ici</p>
             </div>
         </section>
     </div>
@@ -70,8 +107,8 @@
                 <span class="status-indicator status-normal"></span>
                 <span class="status-title">TOP IPs</span>
             </div>
-            <div class="status-card-value">--</div>
-            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir →</a>
+            <div class="status-card-value" id="stat-top-ips">--</div>
+            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
         <div class="status-card card">
@@ -79,8 +116,8 @@
                 <span class="status-indicator status-normal"></span>
                 <span class="status-title">PROTOCOLES</span>
             </div>
-            <div class="status-card-value">--</div>
-            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir →</a>
+            <div class="status-card-value" id="stat-protocols">--</div>
+            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
         <div class="status-card card">
@@ -88,8 +125,8 @@
                 <span class="status-indicator status-normal"></span>
                 <span class="status-title">PORTS</span>
             </div>
-            <div class="status-card-value">--</div>
-            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir →</a>
+            <div class="status-card-value" id="stat-ports">--</div>
+            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
         <div class="status-card card">
@@ -97,8 +134,12 @@
                 <span class="status-indicator status-normal"></span>
                 <span class="status-title">VOLUME</span>
             </div>
-            <div class="status-card-value">-- pkts</div>
+            <div class="status-card-value" id="stat-volume">-- pkts</div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/capture.js') }}"></script>
 {% endblock %}
