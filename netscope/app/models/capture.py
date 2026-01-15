@@ -6,7 +6,7 @@ Defines dataclasses and enums for capture sessions, results, and packet informat
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -91,6 +91,8 @@ class CaptureSummary:
         unique_ports: Number of unique ports
         protocols: Dictionary of protocol counts
         top_ips: List of top IP addresses by packet count
+        top_ports: List of top ports by packet count
+        bytes_per_protocol: Dictionary of bytes per protocol
         duration_actual: Actual capture duration in seconds
     """
 
@@ -100,6 +102,8 @@ class CaptureSummary:
     unique_ports: int = 0
     protocols: dict[str, int] = field(default_factory=dict)
     top_ips: list[tuple[str, int]] = field(default_factory=list)
+    top_ports: list[tuple[int, int]] = field(default_factory=list)
+    bytes_per_protocol: dict[str, int] = field(default_factory=dict)
     duration_actual: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -111,6 +115,8 @@ class CaptureSummary:
             "unique_ports": self.unique_ports,
             "protocols": self.protocols,
             "top_ips": [{"ip": ip, "count": count} for ip, count in self.top_ips],
+            "top_ports": [{"port": port, "count": count} for port, count in self.top_ports],
+            "bytes_per_protocol": self.bytes_per_protocol,
             "duration_actual_seconds": self.duration_actual,
         }
 
@@ -162,7 +168,7 @@ class CaptureSession:
         """Get elapsed duration in seconds."""
         if self.start_time is None:
             return 0.0
-        end = self.end_time or datetime.utcnow()
+        end = self.end_time or datetime.now(timezone.utc)
         return (end - self.start_time).total_seconds()
 
 

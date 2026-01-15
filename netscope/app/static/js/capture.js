@@ -18,6 +18,22 @@
     const errorDiv = document.getElementById('capture-error');
     const timerSpan = document.getElementById('capture-timer');
 
+    // Detailed results elements
+    const resultsSection = document.getElementById('capture-results-section');
+    const rawDataSection = document.getElementById('raw-data-section');
+    const btnShowRawData = document.getElementById('btn-show-raw-data');
+    const btnCloseRawData = document.getElementById('btn-close-raw-data');
+
+    // Well-known port names
+    const PORT_NAMES = {
+        20: 'FTP-Data', 21: 'FTP', 22: 'SSH', 23: 'Telnet', 25: 'SMTP',
+        53: 'DNS', 67: 'DHCP', 68: 'DHCP', 80: 'HTTP', 110: 'POP3',
+        123: 'NTP', 143: 'IMAP', 161: 'SNMP', 443: 'HTTPS', 465: 'SMTPS',
+        587: 'SMTP', 993: 'IMAPS', 995: 'POP3S', 3306: 'MySQL',
+        3389: 'RDP', 5432: 'PostgreSQL', 5900: 'VNC', 8080: 'HTTP-Alt',
+        8443: 'HTTPS-Alt', 27017: 'MongoDB'
+    };
+
     // State
     let captureTimer = null;
     let elapsedSeconds = 0;
@@ -32,6 +48,12 @@
         }
         if (btnStop) {
             btnStop.addEventListener('click', stopCapture);
+        }
+        if (btnShowRawData) {
+            btnShowRawData.addEventListener('click', showRawDataSection);
+        }
+        if (btnCloseRawData) {
+            btnCloseRawData.addEventListener('click', hideRawDataSection);
         }
 
         // Check initial status
@@ -156,6 +178,46 @@
     }
 
     /**
+     * Format bytes to human-readable format (KB/MB/GB)
+     */
+    function formatBytes(bytes) {
+        if (bytes === 0 || bytes === null || bytes === undefined) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    /**
+     * Format duration in seconds to human-readable format
+     */
+    function formatDuration(seconds) {
+        if (!seconds) return '0s';
+        const mins = Math.floor(seconds / 60);
+        const secs = (seconds % 60).toFixed(1);
+        return mins > 0 ? mins + 'm ' + secs + 's' : secs + 's';
+    }
+
+    /**
+     * Get port name if known
+     */
+    function getPortName(port) {
+        return PORT_NAMES[port] || '';
+    }
+
+    /**
+     * Generate a progress bar HTML
+     */
+    function createProgressBar(percent) {
+        const filled = Math.ceil(percent / 10);
+        const empty = 10 - filled;
+        return '<span class="progress-bar-inline">' +
+            '<span class="progress-filled">' + '\u2588'.repeat(filled) + '</span>' +
+            '<span class="progress-empty">' + '\u2591'.repeat(empty) + '</span>' +
+            '</span>';
+    }
+
+    /**
      * Update result display with capture data
      */
     function updateResultDisplay(result) {
@@ -167,7 +229,130 @@
             if (packets) packets.textContent = result.summary.total_packets + ' paquets';
             if (duration) duration.textContent = Math.round(result.summary.duration_actual_seconds || 0) + 's';
             if (ips) ips.textContent = result.summary.unique_ips + ' IPs';
+
+            // Update detailed results section
+            updateDetailedResults(result.summary);
         }
+
+        // Show results section
+        if (resultsSection) {
+            showElement(resultsSection);
+        }
+    }
+
+    /**
+     * Update detailed results section
+     */
+    function updateDetailedResults(summary) {
+        // Summary stats
+        const totalPackets = document.getElementById('result-total-packets');
+        const durationFormatted = document.getElementById('result-duration-formatted');
+        const volumeFormatted = document.getElementById('result-volume-formatted');
+        const uniqueIps = document.getElementById('result-unique-ips');
+
+        if (totalPackets) totalPackets.textContent = (summary.total_packets || 0).toLocaleString();
+        if (durationFormatted) durationFormatted.textContent = formatDuration(summary.duration_actual_seconds);
+        if (volumeFormatted) volumeFormatted.textContent = formatBytes(summary.total_bytes);
+        if (uniqueIps) uniqueIps.textContent = summary.unique_ips || 0;
+
+        // Top IPs table
+        updateTopIpsTable(summary.top_ips || []);
+
+        // Top Ports table
+        updateTopPortsTable(summary.top_ports || []);
+
+        // Protocols distribution
+        updateProtocolsBars(summary.protocols || {}, summary.bytes_per_protocol || {}, summary.total_packets || 0);
+    }
+
+    /**
+     * Update top IPs table
+     */
+    function updateTopIpsTable(topIps) {
+        const tbody = document.getElementById('top-ips-table-body');
+        if (!tbody) return;
+
+        if (!topIps || topIps.length === 0) {
+            tbody.innerHTML = '<tr class="placeholder-row"><td colspan="3" class="text-muted text-center">Aucune donn\u00e9e</td></tr>';
+            return;
+        }
+
+        const maxCount = topIps[0]?.count || 1;
+        let html = '';
+
+        topIps.slice(0, 5).forEach(function(item) {
+            const percent = Math.round((item.count / maxCount) * 100);
+            html += '<tr>' +
+                '<td class="ip-cell">' + item.ip + '</td>' +
+                '<td class="count-cell">' + item.count + '</td>' +
+                '<td class="bar-cell">' + createProgressBar(percent) + '</td>' +
+                '</tr>';
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    /**
+     * Update top ports table
+     */
+    function updateTopPortsTable(topPorts) {
+        const tbody = document.getElementById('top-ports-table-body');
+        if (!tbody) return;
+
+        if (!topPorts || topPorts.length === 0) {
+            tbody.innerHTML = '<tr class="placeholder-row"><td colspan="3" class="text-muted text-center">Aucune donn\u00e9e</td></tr>';
+            return;
+        }
+
+        const maxCount = topPorts[0]?.count || 1;
+        let html = '';
+
+        topPorts.slice(0, 5).forEach(function(item) {
+            const percent = Math.round((item.count / maxCount) * 100);
+            const portName = getPortName(item.port);
+            const portDisplay = portName ? item.port + ' (' + portName + ')' : item.port;
+
+            html += '<tr>' +
+                '<td class="port-cell">' + portDisplay + '</td>' +
+                '<td class="count-cell">' + item.count + '</td>' +
+                '<td class="bar-cell">' + createProgressBar(percent) + '</td>' +
+                '</tr>';
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    /**
+     * Update protocols distribution bars
+     */
+    function updateProtocolsBars(protocols, bytesPerProtocol, totalPackets) {
+        const container = document.getElementById('protocols-bars');
+        if (!container) return;
+
+        const protoKeys = Object.keys(protocols);
+        if (protoKeys.length === 0) {
+            container.innerHTML = '<div class="protocol-placeholder text-muted text-center">Aucune donn\u00e9e</div>';
+            return;
+        }
+
+        let html = '';
+        protoKeys.forEach(function(proto) {
+            const count = protocols[proto] || 0;
+            const bytes = bytesPerProtocol[proto] || 0;
+            const percent = totalPackets > 0 ? Math.round((count / totalPackets) * 100) : 0;
+
+            html += '<div class="protocol-bar-item">' +
+                '<span class="protocol-name">' + proto + '</span>' +
+                '<div class="protocol-bar-container">' +
+                '<div class="protocol-bar-fill" style="width: ' + percent + '%;"></div>' +
+                '</div>' +
+                '<span class="protocol-percent">' + percent + '%</span>' +
+                '<span class="protocol-count">' + count + ' pkts</span>' +
+                '<span class="protocol-bytes">' + formatBytes(bytes) + '</span>' +
+                '</div>';
+        });
+
+        container.innerHTML = html;
     }
 
     /**
@@ -177,26 +362,51 @@
         if (!summary) return;
 
         const topIps = document.getElementById('stat-top-ips');
+        const topIpsList = document.getElementById('stat-top-ips-list');
         const protocols = document.getElementById('stat-protocols');
+        const protocolsList = document.getElementById('stat-protocols-list');
         const ports = document.getElementById('stat-ports');
+        const topPortsList = document.getElementById('stat-top-ports-list');
         const volume = document.getElementById('stat-volume');
+        const volumeBytes = document.getElementById('stat-volume-bytes');
 
+        // Top IPs card
         if (topIps) {
             topIps.textContent = summary.unique_ips || '--';
         }
-
-        if (protocols && summary.protocols) {
-            const protoList = Object.keys(summary.protocols);
-            protocols.textContent = protoList.length > 0 ? protoList.join(', ') : '--';
+        if (topIpsList && summary.top_ips && summary.top_ips.length > 0) {
+            const topIp = summary.top_ips[0];
+            topIpsList.innerHTML = '<span class="detail-item">#1: ' + topIp.ip + ' (' + topIp.count + ')</span>';
         }
 
+        // Protocols card
+        if (protocols && summary.protocols) {
+            const protoList = Object.keys(summary.protocols);
+            protocols.textContent = protoList.length > 0 ? protoList.length : '--';
+        }
+        if (protocolsList && summary.protocols) {
+            const protoList = Object.keys(summary.protocols);
+            protocolsList.innerHTML = '<span class="detail-item">' + (protoList.length > 0 ? protoList.join(', ') : '--') + '</span>';
+        }
+
+        // Ports card
         if (ports) {
             ports.textContent = summary.unique_ports || '--';
         }
+        if (topPortsList && summary.top_ports && summary.top_ports.length > 0) {
+            const topPort = summary.top_ports[0];
+            const portName = getPortName(topPort.port);
+            const display = portName ? topPort.port + ' (' + portName + ')' : topPort.port;
+            topPortsList.innerHTML = '<span class="detail-item">#1: ' + display + '</span>';
+        }
 
+        // Volume card
         if (volume) {
             const pkts = summary.total_packets || 0;
             volume.textContent = pkts > 1000 ? Math.round(pkts / 1000) + 'k pkts' : pkts + ' pkts';
+        }
+        if (volumeBytes) {
+            volumeBytes.innerHTML = '<span class="detail-item">' + formatBytes(summary.total_bytes) + '</span>';
         }
     }
 
@@ -329,6 +539,84 @@
      */
     function hideElement(el) {
         if (el) el.style.display = 'none';
+    }
+
+    /**
+     * Show raw data section and load packets
+     */
+    async function showRawDataSection() {
+        if (rawDataSection) {
+            showElement(rawDataSection);
+            await loadRawPackets();
+        }
+    }
+
+    /**
+     * Hide raw data section
+     */
+    function hideRawDataSection() {
+        if (rawDataSection) {
+            hideElement(rawDataSection);
+        }
+    }
+
+    /**
+     * Load raw packets from API
+     */
+    async function loadRawPackets() {
+        const tbody = document.getElementById('raw-data-table-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr class="placeholder-row"><td colspan="7" class="text-muted text-center">Chargement...</td></tr>';
+
+        try {
+            const response = await fetch('/api/captures/latest?parse=true&include_packets=true&limit=100');
+            const data = await response.json();
+
+            if (data.success && data.packets && data.packets.length > 0) {
+                updateRawDataTable(data.packets);
+            } else {
+                tbody.innerHTML = '<tr class="placeholder-row"><td colspan="7" class="text-muted text-center">Aucun paquet disponible</td></tr>';
+            }
+        } catch (error) {
+            console.error('Load raw packets error:', error);
+            tbody.innerHTML = '<tr class="placeholder-row"><td colspan="7" class="text-muted text-center">Erreur de chargement</td></tr>';
+        }
+    }
+
+    /**
+     * Update raw data table with packets
+     */
+    function updateRawDataTable(packets) {
+        const tbody = document.getElementById('raw-data-table-body');
+        if (!tbody) return;
+
+        if (!packets || packets.length === 0) {
+            tbody.innerHTML = '<tr class="placeholder-row"><td colspan="7" class="text-muted text-center">Aucun paquet</td></tr>';
+            return;
+        }
+
+        let html = '';
+        packets.slice(0, 100).forEach(function(pkt) {
+            let timestamp = '--';
+            if (pkt.timestamp) {
+                const dateObj = new Date(pkt.timestamp);
+                if (!isNaN(dateObj.getTime())) {
+                    timestamp = dateObj.toLocaleTimeString();
+                }
+            }
+            html += '<tr>' +
+                '<td class="timestamp-cell">' + timestamp + '</td>' +
+                '<td class="ip-cell">' + (pkt.ip_src || '--') + '</td>' +
+                '<td class="ip-cell">' + (pkt.ip_dst || '--') + '</td>' +
+                '<td class="port-cell">' + (pkt.port_src || '--') + '</td>' +
+                '<td class="port-cell">' + (pkt.port_dst || '--') + '</td>' +
+                '<td class="proto-cell">' + (pkt.protocol || '--') + '</td>' +
+                '<td class="size-cell">' + (pkt.length || 0) + ' B</td>' +
+                '</tr>';
+        });
+
+        tbody.innerHTML = html;
     }
 
     // Initialize when DOM is ready

@@ -98,9 +98,11 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
     ip_counter: Counter = Counter()
     port_counter: Counter = Counter()
     protocol_counter: Counter = Counter()
+    bytes_per_protocol: Counter = Counter()
 
     for pkt in packets_raw:
-        total_bytes += len(pkt)
+        pkt_len = len(pkt)
+        total_bytes += pkt_len
 
         if IP not in pkt:
             continue
@@ -133,6 +135,7 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
             protocol = "ICMP"
 
         protocol_counter[protocol] += 1
+        bytes_per_protocol[protocol] += pkt_len
 
         # Get timestamp from packet
         timestamp = datetime.fromtimestamp(float(pkt.time))
@@ -144,7 +147,7 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
             port_src=port_src,
             port_dst=port_dst,
             protocol=protocol,
-            length=len(pkt),
+            length=pkt_len,
         )
         packets.append(packet_info)
 
@@ -156,11 +159,14 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
         unique_ports=len(port_counter),
         protocols=dict(protocol_counter),
         top_ips=ip_counter.most_common(10),
+        top_ports=port_counter.most_common(10),
+        bytes_per_protocol=dict(bytes_per_protocol),
     )
 
     logger.info(
         f"Parsed {len(packets)} packets "
-        f"(total={len(packets_raw)}, bytes={total_bytes}, ips={len(ip_counter)})"
+        f"(total={len(packets_raw)}, bytes={total_bytes}, ips={len(ip_counter)}, "
+        f"top_ports={len(port_counter)}, protocols={len(protocol_counter)})"
     )
 
     return packets, summary
@@ -181,6 +187,7 @@ def _parse_with_dpkt(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary]
     ip_counter: Counter = Counter()
     port_counter: Counter = Counter()
     protocol_counter: Counter = Counter()
+    bytes_per_protocol: Counter = Counter()
 
     try:
         with open(pcap_path, "rb") as f:
@@ -188,7 +195,8 @@ def _parse_with_dpkt(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary]
 
             for timestamp, buf in pcap:
                 total_packets += 1
-                total_bytes += len(buf)
+                pkt_len = len(buf)
+                total_bytes += pkt_len
 
                 try:
                     eth = dpkt.ethernet.Ethernet(buf)
@@ -224,6 +232,7 @@ def _parse_with_dpkt(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary]
                         protocol = "ICMP"
 
                     protocol_counter[protocol] += 1
+                    bytes_per_protocol[protocol] += pkt_len
 
                     packet_info = PacketInfo(
                         timestamp=datetime.fromtimestamp(timestamp),
@@ -232,7 +241,7 @@ def _parse_with_dpkt(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary]
                         port_src=port_src,
                         port_dst=port_dst,
                         protocol=protocol,
-                        length=len(buf),
+                        length=pkt_len,
                     )
                     packets.append(packet_info)
 
@@ -256,11 +265,14 @@ def _parse_with_dpkt(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary]
         unique_ports=len(port_counter),
         protocols=dict(protocol_counter),
         top_ips=ip_counter.most_common(10),
+        top_ports=port_counter.most_common(10),
+        bytes_per_protocol=dict(bytes_per_protocol),
     )
 
     logger.info(
         f"Parsed {len(packets)} packets with dpkt "
-        f"(total={total_packets}, bytes={total_bytes})"
+        f"(total={total_packets}, bytes={total_bytes}, "
+        f"top_ports={len(port_counter)}, protocols={len(protocol_counter)})"
     )
 
     return packets, summary

@@ -1626,6 +1626,319 @@ select.form-control {
 }
 
 /* =============================================================================
+   Status Card Details
+   ============================================================================= */
+.status-card-details {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+    min-height: 1.2rem;
+}
+
+.status-card-details .detail-item {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* =============================================================================
+   Capture Results Section
+   ============================================================================= */
+.capture-results {
+    margin-top: var(--space-lg);
+}
+
+.results-summary-row {
+    display: flex;
+    justify-content: space-around;
+    gap: var(--space-lg);
+    padding: var(--space-lg);
+    background: var(--void-black);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-lg);
+}
+
+.result-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.result-stat-label {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: var(--space-xs);
+}
+
+.result-stat-value {
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--neon-cyan);
+    text-shadow: var(--glow-cyan);
+}
+
+.results-tables-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.results-table-container {
+    background: var(--void-black);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    border: 1px solid var(--border-subtle);
+}
+
+.results-table-title {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.results-table {
+    width: 100%;
+}
+
+.results-table .ip-cell,
+.results-table .port-cell {
+    font-family: var(--font-mono);
+    color: var(--text-highlight);
+}
+
+.results-table .count-cell {
+    font-family: var(--font-mono);
+    color: var(--neon-cyan);
+    text-align: right;
+    width: 80px;
+}
+
+.results-table .bar-cell {
+    width: 120px;
+    padding-left: var(--space-md);
+}
+
+/* Progress bar inline for tables */
+.progress-bar-inline {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0;
+}
+
+.progress-bar-inline .progress-filled {
+    color: var(--neon-cyan);
+    text-shadow: var(--glow-cyan);
+}
+
+.progress-bar-inline .progress-empty {
+    color: var(--text-muted);
+    opacity: 0.3;
+}
+
+/* =============================================================================
+   Protocols Distribution
+   ============================================================================= */
+.protocols-distribution {
+    background: var(--void-black);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    border: 1px solid var(--border-subtle);
+    margin-bottom: var(--space-lg);
+}
+
+.protocols-bars {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.protocol-bar-item {
+    display: grid;
+    grid-template-columns: 60px 1fr 50px 80px 80px;
+    gap: var(--space-md);
+    align-items: center;
+}
+
+.protocol-name {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-highlight);
+}
+
+.protocol-bar-container {
+    height: 20px;
+    background: var(--panel-bg);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+}
+
+.protocol-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--neon-cyan) 0%, var(--matrix-green) 100%);
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.3);
+    transition: width 0.3s ease-out;
+    min-width: 2px;
+}
+
+.protocol-percent {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--neon-cyan);
+    text-align: right;
+}
+
+.protocol-count {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+.protocol-bytes {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+.protocol-placeholder {
+    padding: var(--space-lg);
+}
+
+/* =============================================================================
+   Raw Data Actions
+   ============================================================================= */
+.raw-data-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: var(--space-md);
+}
+
+/* =============================================================================
+   Raw Data Section
+   ============================================================================= */
+.raw-data-section {
+    margin-top: var(--space-lg);
+}
+
+.raw-data-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+}
+
+.raw-data-table-wrapper {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+
+.raw-data-table {
+    width: 100%;
+    font-size: 0.8rem;
+}
+
+.raw-data-table th,
+.raw-data-table td {
+    padding: var(--space-sm) var(--space-md);
+    white-space: nowrap;
+}
+
+.raw-data-table .timestamp-cell {
+    color: var(--text-muted);
+}
+
+.raw-data-table .ip-cell {
+    font-family: var(--font-mono);
+    color: var(--text-highlight);
+}
+
+.raw-data-table .port-cell {
+    font-family: var(--font-mono);
+    color: var(--neon-cyan);
+}
+
+.raw-data-table .proto-cell {
+    font-family: var(--font-mono);
+    color: var(--matrix-green);
+}
+
+.raw-data-table .size-cell {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+/* =============================================================================
+   Responsive - Results Tables
+   ============================================================================= */
+@media (max-width: 1200px) {
+    .protocol-bar-item {
+        grid-template-columns: 50px 1fr 45px 70px;
+    }
+
+    .protocol-bytes {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .results-tables-row {
+        grid-template-columns: 1fr;
+    }
+
+    .results-summary-row {
+        flex-wrap: wrap;
+        gap: var(--space-md);
+    }
+
+    .result-stat {
+        flex: 1 1 45%;
+    }
+
+    .protocol-bar-item {
+        grid-template-columns: 45px 1fr 40px;
+    }
+
+    .protocol-count,
+    .protocol-bytes {
+        display: none;
+    }
+
+    .raw-data-table .timestamp-cell {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .results-table .bar-cell {
+        display: none;
+    }
+
+    .result-stat-value {
+        font-size: 1.2rem;
+    }
+}
+
+/* =============================================================================
    Print Styles
    ============================================================================= */
 @media print {

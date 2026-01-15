@@ -104,39 +104,151 @@
     <div class="status-cards">
         <div class="status-card card">
             <div class="status-card-header">
-                <span class="status-indicator status-normal"></span>
+                <span class="status-indicator status-normal" id="indicator-ips"></span>
                 <span class="status-title">TOP IPs</span>
             </div>
             <div class="status-card-value" id="stat-top-ips">--</div>
+            <div class="status-card-details" id="stat-top-ips-list"></div>
             <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
         <div class="status-card card">
             <div class="status-card-header">
-                <span class="status-indicator status-normal"></span>
+                <span class="status-indicator status-normal" id="indicator-protocols"></span>
                 <span class="status-title">PROTOCOLES</span>
             </div>
             <div class="status-card-value" id="stat-protocols">--</div>
+            <div class="status-card-details" id="stat-protocols-list"></div>
             <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
         <div class="status-card card">
             <div class="status-card-header">
-                <span class="status-indicator status-normal"></span>
+                <span class="status-indicator status-normal" id="indicator-ports"></span>
                 <span class="status-title">PORTS</span>
             </div>
             <div class="status-card-value" id="stat-ports">--</div>
+            <div class="status-card-details" id="stat-top-ports-list"></div>
             <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
         <div class="status-card card">
             <div class="status-card-header">
-                <span class="status-indicator status-normal"></span>
+                <span class="status-indicator status-normal" id="indicator-volume"></span>
                 <span class="status-title">VOLUME</span>
             </div>
             <div class="status-card-value" id="stat-volume">-- pkts</div>
+            <div class="status-card-details" id="stat-volume-bytes"></div>
         </div>
     </div>
+
+    {# Detailed Results Section #}
+    <section id="capture-results-section" class="capture-results card" style="display: none;">
+        <h2 class="card-title">R&eacute;sultats Capture</h2>
+
+        <div class="results-summary-row">
+            <div class="result-stat">
+                <span class="result-stat-label">Paquets</span>
+                <span class="result-stat-value" id="result-total-packets">0</span>
+            </div>
+            <div class="result-stat">
+                <span class="result-stat-label">Dur&eacute;e</span>
+                <span class="result-stat-value" id="result-duration-formatted">0s</span>
+            </div>
+            <div class="result-stat">
+                <span class="result-stat-label">Volume</span>
+                <span class="result-stat-value" id="result-volume-formatted">0 B</span>
+            </div>
+            <div class="result-stat">
+                <span class="result-stat-label">IPs Uniques</span>
+                <span class="result-stat-value" id="result-unique-ips">0</span>
+            </div>
+        </div>
+
+        <div class="results-tables-row">
+            {# Top IPs Table #}
+            <div class="results-table-container">
+                <h3 class="results-table-title">Top 5 IPs</h3>
+                <table class="results-table data-table">
+                    <thead>
+                        <tr>
+                            <th>IP</th>
+                            <th>Paquets</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="top-ips-table-body">
+                        <tr class="placeholder-row">
+                            <td colspan="3" class="text-muted text-center">Aucune donn&eacute;e</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            {# Top Ports Table #}
+            <div class="results-table-container">
+                <h3 class="results-table-title">Top 5 Ports</h3>
+                <table class="results-table data-table">
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>Paquets</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="top-ports-table-body">
+                        <tr class="placeholder-row">
+                            <td colspan="3" class="text-muted text-center">Aucune donn&eacute;e</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# Protocols Distribution #}
+        <div class="protocols-distribution">
+            <h3 class="results-table-title">Distribution Protocoles</h3>
+            <div id="protocols-bars" class="protocols-bars">
+                <div class="protocol-placeholder text-muted text-center">Aucune donn&eacute;e</div>
+            </div>
+        </div>
+
+        {# Raw Data Button #}
+        <div class="raw-data-actions">
+            <button id="btn-show-raw-data" class="btn btn-sm">
+                Voir Donn&eacute;es Brutes
+            </button>
+        </div>
+    </section>
+
+    {# Raw Data Modal/Section #}
+    <section id="raw-data-section" class="raw-data-section card" style="display: none;">
+        <div class="raw-data-header">
+            <h2 class="card-title">Donn&eacute;es Brutes</h2>
+            <button id="btn-close-raw-data" class="btn btn-sm btn-danger">Fermer</button>
+        </div>
+        <p class="text-muted text-sm">Affichage des 100 premiers paquets</p>
+        <div class="raw-data-table-wrapper">
+            <table class="raw-data-table data-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>IP Src</th>
+                        <th>IP Dst</th>
+                        <th>Port Src</th>
+                        <th>Port Dst</th>
+                        <th>Proto</th>
+                        <th>Taille</th>
+                    </tr>
+                </thead>
+                <tbody id="raw-data-table-body">
+                    <tr class="placeholder-row">
+                        <td colspan="7" class="text-muted text-center">Chargement...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 {% endblock %}
 

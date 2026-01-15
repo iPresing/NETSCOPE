@@ -1,7 +1,7 @@
 """Unit tests for capture models."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.models.capture import (
@@ -119,6 +119,8 @@ class TestCaptureSummary:
         assert summary.unique_ports == 0
         assert summary.protocols == {}
         assert summary.top_ips == []
+        assert summary.top_ports == []
+        assert summary.bytes_per_protocol == {}
 
     def test_to_dict(self):
         """Test conversion to dictionary."""
@@ -129,6 +131,8 @@ class TestCaptureSummary:
             unique_ports=5,
             protocols={"TCP": 80, "UDP": 20},
             top_ips=[("192.168.1.1", 50), ("192.168.1.2", 30)],
+            top_ports=[(443, 40), (80, 30), (53, 20)],
+            bytes_per_protocol={"TCP": 4000, "UDP": 1000},
             duration_actual=120.5,
         )
         result = summary.to_dict()
@@ -140,6 +144,32 @@ class TestCaptureSummary:
         assert len(result["top_ips"]) == 2
         assert result["top_ips"][0]["ip"] == "192.168.1.1"
         assert result["duration_actual_seconds"] == 120.5
+        # New fields
+        assert len(result["top_ports"]) == 3
+        assert result["top_ports"][0]["port"] == 443
+        assert result["top_ports"][0]["count"] == 40
+        assert result["bytes_per_protocol"]["TCP"] == 4000
+        assert result["bytes_per_protocol"]["UDP"] == 1000
+
+    def test_top_ports_serialization(self):
+        """Test top_ports serialization format."""
+        summary = CaptureSummary(
+            top_ports=[(8080, 100), (22, 50)],
+        )
+        result = summary.to_dict()
+
+        assert len(result["top_ports"]) == 2
+        assert result["top_ports"][0] == {"port": 8080, "count": 100}
+        assert result["top_ports"][1] == {"port": 22, "count": 50}
+
+    def test_bytes_per_protocol_serialization(self):
+        """Test bytes_per_protocol serialization."""
+        summary = CaptureSummary(
+            bytes_per_protocol={"TCP": 45000, "UDP": 10000, "ICMP": 500},
+        )
+        result = summary.to_dict()
+
+        assert result["bytes_per_protocol"] == {"TCP": 45000, "UDP": 10000, "ICMP": 500}
 
 
 class TestCaptureSession:
@@ -184,7 +214,7 @@ class TestCaptureSession:
         session = CaptureSession(
             id="test",
             config=config,
-            start_time=datetime.utcnow(),
+            start_time=datetime.now(timezone.utc),
         )
 
         # Should be very small (just created)
