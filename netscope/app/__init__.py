@@ -32,6 +32,9 @@ def create_app(config_name='default'):
     # Detect network interface and configure IP
     _configure_network(app)
 
+    # Initialize blacklist manager
+    _configure_blacklists(app)
+
     # Register blueprints
     _register_blueprints(app)
 
@@ -156,6 +159,69 @@ def _get_connection_mode(interface_type):
     return mode_map.get(interface_type, 'Unknown')
 
 
+def _configure_blacklists(app):
+    """Load and configure blacklists at startup.
+
+    Loads blacklists from configuration file and stores the manager
+    reference in app.extensions for easy access. If reload_on_change
+    is enabled in config, starts a file watcher for hot-reload.
+
+    Args:
+        app: Flask application instance
+    """
+    import yaml
+    from pathlib import Path
+    from app.core.detection import get_blacklist_manager, start_blacklist_watcher
+
+    try:
+        # Get base path (netscope directory)
+        base_path = Path(app.root_path).parent
+
+        # Load config from YAML
+        config_path = base_path / 'data' / 'config' / 'netscope.yaml'
+
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data = yaml.safe_load(f)
+
+            blacklist_config = config_data.get('blacklists', {})
+        else:
+            app.logger.warning(f'Config file not found: {config_path}')
+            blacklist_config = {}
+
+        # Initialize and load blacklists
+        manager = get_blacklist_manager()
+        manager.load_blacklists(blacklist_config, base_path=base_path)
+
+        # Store reference in app for easy access
+        if not hasattr(app, 'extensions'):
+            app.extensions = {}
+        app.extensions['blacklist_manager'] = manager
+
+        # Store stats in config for template access
+        stats = manager.get_stats()
+        app.config['NETSCOPE_BLACKLIST_STATS'] = stats
+
+        app.logger.info(
+            f'Blacklists configured (ips={stats.ips_count}, '
+            f'domains={stats.domains_count}, terms={stats.terms_count})'
+        )
+
+        # Start hot-reload watcher if enabled in config
+        if blacklist_config.get('reload_on_change', False):
+            watcher = start_blacklist_watcher(blacklist_config, base_path=base_path)
+            if watcher:
+                app.extensions['blacklist_watcher'] = watcher
+                app.logger.info('Blacklist hot-reload watcher started')
+            else:
+                app.logger.warning('Failed to start blacklist hot-reload watcher')
+
+    except Exception as e:
+        app.logger.error(f'Failed to configure blacklists (error={str(e)})')
+        # Set defaults for graceful degradation
+        app.config['NETSCOPE_BLACKLIST_STATS'] = None
+
+
 def _register_blueprints(app):
     """Register all application blueprints.
 
@@ -254,4 +320,30 @@ def _register_context_processors(app):
             'performance_cpu_threshold': 30,
             'performance_ram_threshold': 30,
             'performance_max_jobs': 1,
+        }
+
+    @app.context_processor
+    def inject_blacklist_info():
+        """Inject blacklist statistics into all templates.
+
+        Provides the following template variables:
+        - blacklist_ips_count: Number of blacklisted IPs
+        - blacklist_domains_count: Number of blacklisted domains
+        - blacklist_terms_count: Number of suspect terms
+        - blacklist_total_entries: Total number of entries
+        """
+        stats = app.config.get('NETSCOPE_BLACKLIST_STATS')
+
+        if stats:
+            return {
+                'blacklist_ips_count': stats.ips_count,
+                'blacklist_domains_count': stats.domains_count,
+                'blacklist_terms_count': stats.terms_count,
+                'blacklist_total_entries': stats.ips_count + stats.domains_count + stats.terms_count,
+            }
+        return {
+            'blacklist_ips_count': 0,
+            'blacklist_domains_count': 0,
+            'blacklist_terms_count': 0,
+            'blacklist_total_entries': 0,
         }

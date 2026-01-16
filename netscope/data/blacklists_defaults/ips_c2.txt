@@ -1,0 +1,26 @@
+# NETSCOPE Starter Pack - IPs C2 (Command & Control)
+# Sources: Criminal IP (github.com/criminalip/C2-Daily-Feed), OTX AlienVault
+# Dernière mise à jour: 2026-01-16
+#
+# Ces IPs sont associées à des serveurs de Command & Control
+# utilisés pour contrôler des botnets et malwares.
+
+# Cobalt Strike / Beacon C2
+159.100.14.254
+23.106.122.192
+45.77.65.211
+185.141.27.34
+194.147.78.155
+
+# Generic C2 Infrastructure
+37.120.247.39
+45.227.255.190
+185.225.17.0
+193.42.33.0
+194.180.49.0
+
+# RAT C2 Servers
+91.92.240.0
+91.92.241.0
+185.234.216.0
+194.87.218.0

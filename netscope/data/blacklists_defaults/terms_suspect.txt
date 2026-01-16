@@ -1,0 +1,54 @@
+# NETSCOPE Starter Pack - Termes Suspects
+# Sources: Elastic Security Detection Rules, MITRE ATT&CK
+# Dernière mise à jour: 2026-01-16
+#
+# Patterns et termes associés à des activités malveillantes
+# dans le trafic réseau (payload HTTP, DNS queries, etc.)
+
+# Reverse Shells - Bash
+/bin/bash -i
+bash -i >& /dev/tcp/
+/bin/sh -i
+
+# Reverse Shells - Netcat
+nc -e /bin/sh
+nc -e /bin/bash
+ncat -e
+netcat -e
+
+# Reverse Shells - Python
+python -c 'import socket
+python3 -c 'import socket
+python -c "import socket
+
+# PowerShell Malicious
+powershell -enc
+powershell -e
+powershell IEX
+powershell -nop -w hidden
+powershell downloadstring
+powershell -executionpolicy bypass
+
+# Web Shells
+c99shell
+r57shell
+b374k
+weevely
+wso shell
+
+# C2 Beacons
+/beacon/
+/gate.php
+/admin.php?cmd=
+/panel/gate.php
+
+# Cryptomining
+stratum+tcp://
+xmrig
+cryptonight
+monero mining
+
+# Data Exfiltration
+base64 -d
+curl -X POST
+wget --post-data

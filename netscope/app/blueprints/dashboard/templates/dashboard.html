@@ -100,6 +100,40 @@
         </section>
     </div>
 
+    {# Blacklists Actives Section #}
+    <section class="blacklists-section card">
+        <h2 class="card-title">
+            <span class="title-icon">&#128737;</span>
+            Blacklists Actives
+        </h2>
+        <div class="blacklist-stats">
+            <div class="blacklist-stat">
+                <span class="blacklist-stat-icon">&#127760;</span>
+                <span class="blacklist-stat-label">IPs</span>
+                <span class="blacklist-stat-value" id="blacklist-ips-count">{{ blacklist_ips_count }}</span>
+                <span class="blacklist-stat-unit">entr&eacute;es</span>
+            </div>
+            <div class="blacklist-stat">
+                <span class="blacklist-stat-icon">&#128279;</span>
+                <span class="blacklist-stat-label">Domaines</span>
+                <span class="blacklist-stat-value" id="blacklist-domains-count">{{ blacklist_domains_count }}</span>
+                <span class="blacklist-stat-unit">entr&eacute;es</span>
+            </div>
+            <div class="blacklist-stat">
+                <span class="blacklist-stat-icon">&#128221;</span>
+                <span class="blacklist-stat-label">Termes</span>
+                <span class="blacklist-stat-value" id="blacklist-terms-count">{{ blacklist_terms_count }}</span>
+                <span class="blacklist-stat-unit">entr&eacute;es</span>
+            </div>
+        </div>
+        <div class="blacklist-summary">
+            <span class="blacklist-total">Total: <strong id="blacklist-total">{{ blacklist_total_entries }}</strong> entr&eacute;es</span>
+            <button id="btn-reload-blacklists" class="btn btn-sm" title="Recharger les blacklists">
+                &#128260; Recharger
+            </button>
+        </div>
+    </section>
+
     {# Status Cards Row #}
     <div class="status-cards">
         <div class="status-card card">

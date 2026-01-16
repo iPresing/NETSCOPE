@@ -1,0 +1,36 @@
+# NETSCOPE Starter Pack - Domaines Phishing
+# Sources: Phishing Army (phishing.army), OpenPhish
+# Dernière mise à jour: 2026-01-16
+#
+# Domaines utilisés pour des campagnes de phishing.
+# Typosquatting et faux sites de marques connues.
+
+# Typosquatting - Marques financières
+paypa1.com
+paypa1-secure.com
+paypa1-login.com
+secure-paypa1.com
+
+# Typosquatting - E-commerce
+amaz0n.com
+amazn-secure.com
+amazon-verify.com
+
+# Typosquatting - Tech
+micr0soft.com
+microsft-support.com
+apple-id-verify.com
+google-verify-account.com
+
+# Phishing générique
+login-secure-verify.com
+account-update-required.com
+security-alert-verify.com
+update-your-account.com
+verify-your-identity.com
+
+# Crypto phishing
+metamask-verify.com
+metamask-wallet-verify.com
+binance-secure-login.com
+coinbase-verify.com

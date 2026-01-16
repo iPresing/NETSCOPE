@@ -626,3 +626,114 @@
         init();
     }
 })();
+
+/**
+ * NETSCOPE Blacklist Control Module
+ *
+ * Handles blacklist stats display and reload operations.
+ */
+(function() {
+    'use strict';
+
+    // DOM Elements
+    const btnReload = document.getElementById('btn-reload-blacklists');
+    const ipsCount = document.getElementById('blacklist-ips-count');
+    const domainsCount = document.getElementById('blacklist-domains-count');
+    const termsCount = document.getElementById('blacklist-terms-count');
+    const totalCount = document.getElementById('blacklist-total');
+
+    /**
+     * Initialize blacklist controls
+     */
+    function init() {
+        if (btnReload) {
+            btnReload.addEventListener('click', reloadBlacklists);
+        }
+    }
+
+    /**
+     * Reload blacklists from server
+     */
+    async function reloadBlacklists() {
+        if (!btnReload) return;
+
+        // Show loading state
+        btnReload.classList.add('loading');
+        btnReload.disabled = true;
+        const originalText = btnReload.innerHTML;
+        btnReload.innerHTML = '&#8987; Chargement...';
+
+        try {
+            const response = await fetch('/api/blacklists/reload', {
+                method: 'POST'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Update stats display
+                updateBlacklistStats(data.result);
+                showToast('success', 'Blacklists recharg\u00e9es avec succ\u00e8s');
+            } else {
+                showToast('error', data.error.message || 'Erreur de rechargement');
+            }
+        } catch (error) {
+            console.error('Blacklist reload error:', error);
+            showToast('error', 'Erreur de connexion au serveur');
+        } finally {
+            // Reset button state
+            btnReload.classList.remove('loading');
+            btnReload.disabled = false;
+            btnReload.innerHTML = originalText;
+        }
+    }
+
+    /**
+     * Update blacklist stats display
+     */
+    function updateBlacklistStats(stats) {
+        if (ipsCount) ipsCount.textContent = stats.ips_count || 0;
+        if (domainsCount) domainsCount.textContent = stats.domains_count || 0;
+        if (termsCount) termsCount.textContent = stats.terms_count || 0;
+        if (totalCount) totalCount.textContent = stats.total_entries || 0;
+    }
+
+    /**
+     * Show a toast notification
+     */
+    function showToast(type, message) {
+        // Check if toast container exists, create if not
+        let container = document.querySelector('.toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.textContent = message;
+        container.appendChild(toast);
+
+        // Show toast
+        setTimeout(function() {
+            toast.classList.add('toast-visible');
+        }, 10);
+
+        // Hide and remove toast after 3 seconds
+        setTimeout(function() {
+            toast.classList.remove('toast-visible');
+            setTimeout(function() {
+                toast.remove();
+            }, 300);
+        }, 3000);
+    }
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();

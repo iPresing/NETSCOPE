@@ -1958,3 +1958,150 @@ select.form-control {
         border: 1px solid #ccc;
     }
 }
+
+/* =============================================================================
+   Blacklists Section - Threat Intelligence
+   ============================================================================= */
+.blacklists-section {
+    background: linear-gradient(135deg, var(--panel-bg) 0%, rgba(0, 245, 255, 0.02) 100%);
+    border-color: var(--neon-cyan-dim);
+}
+
+.blacklists-section .title-icon {
+    font-size: 1.2rem;
+    margin-right: var(--space-sm);
+}
+
+.blacklist-stats {
+    display: flex;
+    justify-content: space-around;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.blacklist-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--void-black);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    min-width: 120px;
+    transition: var(--transition-normal);
+}
+
+.blacklist-stat:hover {
+    border-color: var(--neon-cyan-dim);
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.1);
+}
+
+.blacklist-stat-icon {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-xs);
+    filter: grayscale(0.3);
+}
+
+.blacklist-stat:hover .blacklist-stat-icon {
+    filter: grayscale(0) drop-shadow(0 0 5px rgba(0, 245, 255, 0.5));
+}
+
+.blacklist-stat-label {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: var(--space-xs);
+}
+
+.blacklist-stat-value {
+    font-family: var(--font-mono);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--neon-cyan);
+    text-shadow: var(--glow-cyan);
+    line-height: 1;
+    margin-bottom: var(--space-xs);
+}
+
+.blacklist-stat-unit {
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.blacklist-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--void-black);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+}
+
+.blacklist-total {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.blacklist-total strong {
+    color: var(--text-highlight);
+    font-weight: 700;
+}
+
+/* Blacklist reload button */
+#btn-reload-blacklists {
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+}
+
+#btn-reload-blacklists:hover {
+    border-color: var(--neon-cyan);
+    color: var(--neon-cyan);
+    background: rgba(0, 245, 255, 0.1);
+}
+
+#btn-reload-blacklists.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* =============================================================================
+   Responsive - Blacklists Section
+   ============================================================================= */
+@media (max-width: 768px) {
+    .blacklist-stats {
+        flex-wrap: wrap;
+        gap: var(--space-md);
+    }
+
+    .blacklist-stat {
+        flex: 1 1 30%;
+        min-width: 100px;
+        padding: var(--space-md);
+    }
+
+    .blacklist-stat-value {
+        font-size: 1.4rem;
+    }
+
+    .blacklist-summary {
+        flex-direction: column;
+        gap: var(--space-md);
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .blacklist-stat {
+        flex: 1 1 100%;
+    }
+}
