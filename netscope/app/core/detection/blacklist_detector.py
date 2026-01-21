@@ -1,0 +1,225 @@
+"""Blacklist-based anomaly detector for NETSCOPE.
+
+Detects IPs, domains, and suspicious terms in captured network packets
+using the centralized BlacklistManager.
+
+Lessons Learned Epic 1:
+- Use Python 3.10+ type hints (X | None, not Optional[X])
+- Use module-level logger, NOT current_app.logger
+- Integrate immediately with capture flow
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime
+
+from app.models.capture import PacketInfo
+from app.models.anomaly import (
+    Anomaly,
+    AnomalyCollection,
+    BlacklistMatch,
+    CriticalityLevel,
+    MatchType,
+    SCORE_IP_BLACKLIST,
+    SCORE_DOMAIN_BLACKLIST,
+    SCORE_TERM_SUSPECT,
+)
+from app.core.detection.blacklist_manager import get_blacklist_manager
+
+# CRITICAL: Logger module-level (Lesson Learned Epic 1 - A4)
+logger = logging.getLogger(__name__)
+
+
+class BlacklistDetector:
+    """Detector for blacklisted IPs, domains, and suspicious terms.
+
+    Uses BlacklistManager singleton to perform lookups against loaded
+    blacklists. Produces Anomaly objects for each match found.
+
+    Usage:
+        detector = BlacklistDetector()
+        collection = detector.detect_all(packets, capture_id="cap_123")
+    """
+
+    def __init__(self) -> None:
+        """Initialize the detector with BlacklistManager reference."""
+        self._manager = get_blacklist_manager()
+        logger.debug("BlacklistDetector initialized")
+
+    def detect_all(
+        self,
+        packets: list[PacketInfo],
+        capture_id: str | None = None,
+    ) -> AnomalyCollection:
+        """Detect all blacklist matches in a list of packets.
+
+        Performs IP, domain, and term detection on all packets.
+        Returns an AnomalyCollection with all detected anomalies.
+
+        Args:
+            packets: List of PacketInfo objects to analyze
+            capture_id: Optional capture session ID for tracking
+
+        Returns:
+            AnomalyCollection with all detected anomalies
+        """
+        logger.info(f"Detection started (packets={len(packets)})")
+
+        collection = AnomalyCollection(capture_id=capture_id)
+
+        if not packets:
+            logger.info("Detection complete (matches=0, no packets)")
+            return collection
+
+        # Detect IPs (exact match) - AC1
+        ip_anomalies = self._detect_ips(packets, capture_id)
+        for anomaly in ip_anomalies:
+            collection.add(anomaly)
+
+        # Detect Domains (exact match lowercase) - AC2
+        domain_anomalies = self._detect_domains(packets, capture_id)
+        for anomaly in domain_anomalies:
+            collection.add(anomaly)
+
+        # Detect Terms (substring match) - AC3
+        term_anomalies = self._detect_terms(packets, capture_id)
+        for anomaly in term_anomalies:
+            collection.add(anomaly)
+
+        logger.info(f"Detection complete (matches={collection.total})")
+        return collection
+
+    def _detect_ips(
+        self,
+        packets: list[PacketInfo],
+        capture_id: str | None,
+    ) -> list[Anomaly]:
+        """Detect blacklisted IPs in packets.
+
+        Checks both source and destination IPs against the blacklist.
+        Uses set to avoid checking the same IP multiple times.
+
+        Args:
+            packets: List of packets to analyze
+            capture_id: Capture session ID
+
+        Returns:
+            List of Anomaly objects for IP matches
+        """
+        anomalies: list[Anomaly] = []
+        checked_ips: set[str] = set()
+
+        for packet in packets:
+            for ip in [packet.ip_src, packet.ip_dst]:
+                if not ip or ip in checked_ips:
+                    continue
+
+                checked_ips.add(ip)
+
+                if self._manager.check_ip(ip):
+                    # Create match and anomaly
+                    # NOTE: MVP limitation - source_file is generic because BlacklistManager
+                    # doesn't track which file each IP came from. Full source tracking
+                    # would require refactoring BlacklistManager (future enhancement).
+                    match = BlacklistMatch(
+                        match_type=MatchType.IP,
+                        matched_value=ip,
+                        source_file="ips_blacklist",  # Generic source for MVP
+                        context=self._build_ip_context(ip, packet),
+                        criticality=CriticalityLevel.CRITICAL,
+                        timestamp=packet.timestamp,
+                    )
+
+                    anomaly = Anomaly(
+                        id=Anomaly.generate_id(),
+                        match=match,
+                        score=SCORE_IP_BLACKLIST,
+                        packet_info=packet.to_dict(),
+                        criticality_level=CriticalityLevel.CRITICAL,
+                        capture_id=capture_id,
+                    )
+
+                    anomalies.append(anomaly)
+                    logger.warning(f"Blacklisted IP detected (ip={ip})")
+
+        return anomalies
+
+    def _detect_domains(
+        self,
+        packets: list[PacketInfo],
+        capture_id: str | None,
+    ) -> list[Anomaly]:
+        """Detect blacklisted domains in packets.
+
+        Note: In MVP without deep packet inspection, domain detection
+        is limited. DNS queries or HTTP headers would need to be parsed
+        from packet payload. This will be enhanced in Story 2.4.
+
+        Args:
+            packets: List of packets to analyze
+            capture_id: Capture session ID
+
+        Returns:
+            List of Anomaly objects for domain matches (empty for MVP)
+        """
+        # MVP: No deep packet inspection available
+        # Domain detection requires DNS query parsing or HTTP header analysis
+        # This will be implemented in Story 2.4 (4 analyses essentielles)
+        return []
+
+    def _detect_terms(
+        self,
+        packets: list[PacketInfo],
+        capture_id: str | None,
+    ) -> list[Anomaly]:
+        """Detect suspicious terms in packets.
+
+        Note: In MVP with headers-only capture (100 bytes), payload
+        inspection is limited. Term detection in actual payload
+        will be enhanced in Story 2.4.
+
+        Args:
+            packets: List of packets to analyze
+            capture_id: Capture session ID
+
+        Returns:
+            List of Anomaly objects for term matches (empty for MVP)
+        """
+        # MVP: Limited payload available (100 bytes headers-only)
+        # Term detection in full payload requires Scapy inspection (Epic 4)
+        # Basic implementation placeholder for future enhancement
+        return []
+
+    def _build_ip_context(self, ip: str, packet: PacketInfo) -> str:
+        """Build human-readable context for an IP match.
+
+        Args:
+            ip: The matched IP address
+            packet: The packet containing the match
+
+        Returns:
+            Context string describing the match location
+        """
+        direction = "source" if ip == packet.ip_src else "destination"
+        port_info = ""
+
+        if direction == "source" and packet.port_src:
+            port_info = f":{packet.port_src}"
+        elif direction == "destination" and packet.port_dst:
+            port_info = f":{packet.port_dst}"
+
+        return (
+            f"IP {ip}{port_info} ({direction}) - "
+            f"{packet.ip_src} -> {packet.ip_dst} ({packet.protocol})"
+        )
+
+
+# Global detector instance (not singleton - new instance per analysis)
+def create_detector() -> BlacklistDetector:
+    """Create a new BlacklistDetector instance.
+
+    Returns:
+        New BlacklistDetector instance
+    """
+    return BlacklistDetector()

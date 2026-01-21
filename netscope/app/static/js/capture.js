@@ -171,6 +171,11 @@
             if (data.success && data.result) {
                 updateResultDisplay(data.result);
                 updateStatsCards(data.result.summary);
+
+                // Load anomalies after capture results (Story 2.2)
+                if (window.loadAnomalies) {
+                    window.loadAnomalies();
+                }
             }
         } catch (error) {
             console.error('Load result error:', error);
@@ -624,6 +629,162 @@
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
+    }
+})();
+
+/**
+ * NETSCOPE Anomaly Display Module (Story 2.2)
+ *
+ * Handles anomaly display in the dashboard.
+ */
+(function() {
+    'use strict';
+
+    // DOM Elements
+    const anomaliesSection = document.getElementById('anomalies-section');
+    const anomaliesList = document.getElementById('anomalies-list');
+    const anomaliesCount = document.getElementById('anomalies-count');
+    const anomaliesCritical = document.getElementById('anomalies-critical');
+    const anomaliesWarning = document.getElementById('anomalies-warning');
+
+    // Criticality icons and labels
+    const CRITICALITY_CONFIG = {
+        critical: {
+            icon: '\u{1F534}',  // Red circle
+            label: 'CRITICAL',
+            class: 'anomaly-critical'
+        },
+        warning: {
+            icon: '\u{1F7E1}',  // Yellow circle
+            label: 'ATTENTION',
+            class: 'anomaly-warning'
+        },
+        normal: {
+            icon: '\u{1F7E2}',  // Green circle
+            label: 'NORMAL',
+            class: 'anomaly-normal'
+        }
+    };
+
+    /**
+     * Load anomalies from API
+     */
+    async function loadAnomalies() {
+        try {
+            const response = await fetch('/api/anomalies?latest=true');
+            const data = await response.json();
+
+            if (data.success && data.result) {
+                updateAnomaliesDisplay(data.result);
+            }
+        } catch (error) {
+            console.error('Load anomalies error:', error);
+        }
+    }
+
+    /**
+     * Update anomalies display with data
+     */
+    function updateAnomaliesDisplay(result) {
+        const anomalies = result.anomalies || [];
+        const byCriticality = result.by_criticality || {};
+
+        // Update counts
+        if (anomaliesCount) {
+            anomaliesCount.textContent = result.total || 0;
+        }
+        if (anomaliesCritical) {
+            anomaliesCritical.textContent = byCriticality.critical || 0;
+        }
+        if (anomaliesWarning) {
+            anomaliesWarning.textContent = byCriticality.warning || 0;
+        }
+
+        // Show/hide section based on anomalies
+        if (anomaliesSection) {
+            if (result.total > 0) {
+                anomaliesSection.style.display = '';
+            } else {
+                anomaliesSection.style.display = 'none';
+            }
+        }
+
+        // Update list
+        if (anomaliesList) {
+            if (anomalies.length === 0) {
+                anomaliesList.innerHTML = '<p class="text-muted text-center">Aucune anomalie d\u00e9tect\u00e9e</p>';
+                return;
+            }
+
+            let html = '';
+            anomalies.forEach(function(anomaly) {
+                html += createAnomalyCard(anomaly);
+            });
+            anomaliesList.innerHTML = html;
+        }
+    }
+
+    /**
+     * Create HTML for an anomaly card
+     */
+    function createAnomalyCard(anomaly) {
+        const config = CRITICALITY_CONFIG[anomaly.criticality] || CRITICALITY_CONFIG.normal;
+        const packetInfo = anomaly.packet_info || {};
+
+        let connectionInfo = '';
+        if (packetInfo.ip_src && packetInfo.ip_dst) {
+            const srcPort = packetInfo.port_src ? ':' + packetInfo.port_src : '';
+            const dstPort = packetInfo.port_dst ? ':' + packetInfo.port_dst : '';
+            connectionInfo = packetInfo.ip_src + srcPort + ' \u2192 ' + packetInfo.ip_dst + dstPort;
+            if (packetInfo.protocol) {
+                connectionInfo += ' (' + packetInfo.protocol + ')';
+            }
+        }
+
+        return '<div class="anomaly-card ' + config.class + '">' +
+            '<div class="anomaly-header">' +
+            '<span class="anomaly-icon">' + config.icon + '</span>' +
+            '<span class="anomaly-value">' + escapeHtml(anomaly.matched_value) + '</span>' +
+            '<span class="anomaly-badge">' + config.label + '</span>' +
+            '</div>' +
+            '<div class="anomaly-details">' +
+            '<span class="anomaly-type">' + getMatchTypeLabel(anomaly.match_type) + '</span>' +
+            (anomaly.source_file ? ' <span class="anomaly-source">(' + escapeHtml(anomaly.source_file) + ')</span>' : '') +
+            '</div>' +
+            (connectionInfo ? '<div class="anomaly-connection">\u2192 ' + escapeHtml(connectionInfo) + '</div>' : '') +
+            '</div>';
+    }
+
+    /**
+     * Get human-readable match type label
+     */
+    function getMatchTypeLabel(matchType) {
+        switch (matchType) {
+            case 'ip': return 'IP blacklist\u00e9e';
+            case 'domain': return 'Domaine blacklist\u00e9';
+            case 'term': return 'Terme suspect';
+            default: return 'Anomalie';
+        }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Expose loadAnomalies globally for use after capture completion
+    window.loadAnomalies = loadAnomalies;
+
+    // Load anomalies on page load if there might be existing data
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadAnomalies);
+    } else {
+        loadAnomalies();
     }
 })();
 

@@ -2105,3 +2105,210 @@ select.form-control {
         flex: 1 1 100%;
     }
 }
+
+/* =============================================================================
+   Anomalies Section - Threat Detection (Story 2.2)
+   ============================================================================= */
+.anomalies-section {
+    background: linear-gradient(135deg, var(--panel-bg) 0%, rgba(255, 51, 85, 0.03) 100%);
+    border-color: var(--danger-red);
+    margin-top: var(--space-lg);
+}
+
+.anomalies-section .card-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.anomalies-section .title-icon {
+    font-size: 1.2rem;
+}
+
+.anomalies-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 var(--space-sm);
+    background: var(--danger-red);
+    color: var(--text-highlight);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 12px;
+    margin-left: var(--space-sm);
+    box-shadow: var(--glow-red);
+}
+
+.anomalies-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.anomaly-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    padding: var(--space-md);
+    background: var(--void-black);
+    border-radius: var(--radius-md);
+    border-left: 4px solid transparent;
+    transition: var(--transition-fast);
+}
+
+.anomaly-card:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.anomaly-card.anomaly-critical {
+    border-left-color: var(--danger-red);
+    box-shadow: inset 0 0 20px rgba(255, 51, 85, 0.05);
+}
+
+.anomaly-card.anomaly-warning {
+    border-left-color: var(--alert-amber);
+    box-shadow: inset 0 0 20px rgba(255, 170, 0, 0.05);
+}
+
+.anomaly-card.anomaly-normal {
+    border-left-color: var(--matrix-green);
+}
+
+.anomaly-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.anomaly-icon {
+    font-size: 1rem;
+}
+
+.anomaly-value {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-highlight);
+    flex: 1;
+}
+
+.anomaly-badge {
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+}
+
+.anomaly-critical .anomaly-badge {
+    background: rgba(255, 51, 85, 0.2);
+    color: var(--danger-red);
+    border: 1px solid var(--danger-red);
+}
+
+.anomaly-warning .anomaly-badge {
+    background: rgba(255, 170, 0, 0.2);
+    color: var(--alert-amber);
+    border: 1px solid var(--alert-amber);
+}
+
+.anomaly-normal .anomaly-badge {
+    background: rgba(0, 255, 136, 0.2);
+    color: var(--matrix-green);
+    border: 1px solid var(--matrix-green);
+}
+
+.anomaly-details {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    padding-left: calc(1rem + var(--space-sm));
+}
+
+.anomaly-type {
+    font-weight: 500;
+}
+
+.anomaly-source {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.anomaly-connection {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding-left: calc(1rem + var(--space-sm));
+}
+
+.anomalies-summary {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-xl);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--void-black);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+}
+
+.anomaly-stat {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.anomaly-stat-icon {
+    font-size: 1rem;
+}
+
+.anomaly-stat-icon.critical {
+    color: var(--danger-red);
+}
+
+.anomaly-stat-icon.warning {
+    color: var(--alert-amber);
+}
+
+.anomaly-stat strong {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--text-highlight);
+}
+
+/* =============================================================================
+   Responsive - Anomalies Section
+   ============================================================================= */
+@media (max-width: 768px) {
+    .anomalies-summary {
+        flex-direction: column;
+        gap: var(--space-md);
+        align-items: center;
+    }
+
+    .anomaly-header {
+        flex-wrap: wrap;
+    }
+
+    .anomaly-value {
+        order: 1;
+        flex: 1 1 100%;
+        margin-top: var(--space-xs);
+    }
+
+    .anomaly-icon {
+        order: 0;
+    }
+
+    .anomaly-badge {
+        order: 2;
+    }
+}

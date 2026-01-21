@@ -12,7 +12,7 @@ import subprocess
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 from app.models.capture import (
     CaptureConfig,
@@ -95,11 +95,11 @@ class TcpdumpManager:
     WSL execution on Windows.
     """
 
-    _instance: Optional["TcpdumpManager"] = None
-    _process: Optional[subprocess.Popen] = None
-    _current_session: Optional[CaptureSession] = None
-    _monitor_thread: Optional[threading.Thread] = None
-    _latest_result: Optional[CaptureResult] = None
+    _instance: TcpdumpManager | None = None
+    _process: subprocess.Popen | None = None
+    _current_session: CaptureSession | None = None
+    _monitor_thread: threading.Thread | None = None
+    _latest_result: CaptureResult | None = None
     _stop_requested: bool = False
 
     def __new__(cls) -> "TcpdumpManager":
@@ -509,7 +509,7 @@ class TcpdumpManager:
         """Create CaptureResult from current session.
 
         Automatically parses the capture file if it exists and the capture
-        completed successfully.
+        completed successfully. Also runs blacklist detection on parsed packets.
 
         Returns:
             CaptureResult or None if no session
@@ -540,6 +540,10 @@ class TcpdumpManager:
                     f"Parsed capture file "
                     f"(capture_id={self._current_session.id}, packets={len(packets)})"
                 )
+
+                # Run blacklist detection on parsed packets (Story 2.2)
+                self._run_detection(packets, self._current_session.id)
+
             except Exception as e:
                 logger.warning(
                     f"Failed to parse capture file "
@@ -554,9 +558,46 @@ class TcpdumpManager:
 
         return result
 
+    def _run_detection(self, packets: list, capture_id: str) -> None:
+        """Run blacklist detection on parsed packets.
+
+        Detects IPs, domains, and terms against loaded blacklists.
+        Stores results in AnomalyStore for API access.
+
+        Args:
+            packets: List of PacketInfo objects
+            capture_id: Capture session ID
+        """
+        try:
+            from app.core.detection import create_detector
+            from app.core.detection.anomaly_store import get_anomaly_store
+
+            detector = create_detector()
+            collection = detector.detect_all(packets, capture_id=capture_id)
+
+            # Store results for API access
+            store = get_anomaly_store()
+            store.store(collection)
+
+            if collection.total > 0:
+                logger.warning(
+                    f"Anomalies detected "
+                    f"(capture_id={capture_id}, count={collection.total}, "
+                    f"critical={collection.by_criticality['critical']}, "
+                    f"warning={collection.by_criticality['warning']})"
+                )
+            else:
+                logger.info(f"No anomalies detected (capture_id={capture_id})")
+
+        except Exception as e:
+            logger.error(
+                f"Detection failed "
+                f"(capture_id={capture_id}, error={str(e)})"
+            )
+
 
 # Module-level singleton accessor
-_tcpdump_manager: Optional[TcpdumpManager] = None
+_tcpdump_manager: TcpdumpManager | None = None
 
 
 def get_tcpdump_manager() -> TcpdumpManager:

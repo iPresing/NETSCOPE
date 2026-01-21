@@ -8,3 +8,4 @@ from app.blueprints.api import routes  # noqa: E402, F401
 from app.blueprints.api import network  # noqa: E402, F401
 from app.blueprints.api import captures  # noqa: E402, F401
 from app.blueprints.api import blacklists  # noqa: E402, F401
+from app.blueprints.api import anomalies  # noqa: E402, F401

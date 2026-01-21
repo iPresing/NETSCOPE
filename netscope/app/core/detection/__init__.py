@@ -12,6 +12,15 @@ from app.core.detection.blacklist_manager import (
     stop_blacklist_watcher,
     get_blacklist_watcher,
 )
+from app.core.detection.blacklist_detector import (
+    BlacklistDetector,
+    create_detector,
+)
+from app.core.detection.anomaly_store import (
+    AnomalyStore,
+    get_anomaly_store,
+    reset_anomaly_store,
+)
 
 __all__ = [
     "BlacklistManager",
@@ -21,4 +30,9 @@ __all__ = [
     "start_blacklist_watcher",
     "stop_blacklist_watcher",
     "get_blacklist_watcher",
+    "BlacklistDetector",
+    "create_detector",
+    "AnomalyStore",
+    "get_anomaly_store",
+    "reset_anomaly_store",
 ]
