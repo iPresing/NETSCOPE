@@ -21,6 +21,8 @@ from app.core.capture import (
     validate_filter,
     DEFAULT_BPF_FILTER,
 )
+from app.core.analysis.four_essentials import get_four_essentials_analyzer
+from app.core.detection.anomaly_store import get_anomaly_store
 
 logger = logging.getLogger(__name__)
 
@@ -264,3 +266,117 @@ def get_capture_config():
             },
         },
     }), 200
+
+
+@api_bp.route('/captures/essentials', methods=['GET'])
+def get_capture_essentials():
+    """Get the 4 essential analyses for a capture.
+
+    Provides quick overview with Top IPs, Protocol Distribution,
+    Ports Used, and Volume Data analyses.
+
+    Query Parameters:
+        capture_id: str - Specific capture ID (default: latest)
+
+    Returns:
+        JSON response with FourEssentialsResult containing:
+        - top_ips: Top active IPs with internal/external distinction
+        - protocols: TCP/UDP/ICMP distribution with alerts
+        - ports: Active ports with suspicious marking
+        - volume: Traffic statistics with anomaly detection
+        - overall_status: Aggregated status (critical/warning/normal)
+        - overall_indicator: Visual indicator emoji
+
+    Example Response:
+        {
+            "success": true,
+            "result": {
+                "capture_id": "cap_20260122_150000",
+                "top_ips": {...},
+                "protocols": {...},
+                "ports": {...},
+                "volume": {...},
+                "overall_status": "normal",
+                "overall_indicator": "🟢"
+            }
+        }
+    """
+    logger.info("GET /api/captures/essentials called")
+
+    capture_id = request.args.get("capture_id")
+
+    try:
+        manager = get_tcpdump_manager()
+
+        # Get capture result
+        if capture_id:
+            # Future: support getting specific capture by ID
+            # For now, just use latest
+            result = manager.get_latest_result()
+            if result is None or result.session.id != capture_id:
+                return jsonify({
+                    "success": False,
+                    "error": {
+                        "code": "CAPTURE_NOT_FOUND",
+                        "message": f"Capture {capture_id} non trouvee",
+                        "details": {},
+                    },
+                }), 404
+        else:
+            result = manager.get_latest_result()
+
+        if result is None:
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "ANALYSIS_NO_CAPTURE",
+                    "message": "Aucune capture disponible pour analyse",
+                    "details": {},
+                },
+            }), 404
+
+        # Parse capture file if needed
+        if not result.packets and result.session.capture_path and result.session.capture_path.exists():
+            try:
+                packets, summary = parse_capture_file(result.session.capture_path)
+                result.packets = packets
+                result.summary = summary
+            except Exception as e:
+                logger.warning(f"Failed to parse capture file (error={str(e)})")
+
+        # Get anomalies from store
+        anomaly_store = get_anomaly_store()
+        anomaly_collection = anomaly_store.get_by_capture(result.session.id)
+        anomalies = anomaly_collection.anomalies if anomaly_collection else []
+
+        # Run four essentials analysis
+        analyzer = get_four_essentials_analyzer()
+        essentials_result = analyzer.analyze(result, anomalies)
+
+        logger.info(
+            f"Four essentials analysis returned "
+            f"(capture_id={result.session.id}, overall={essentials_result.overall_status.value})"
+        )
+
+        return jsonify({
+            "success": True,
+            "result": essentials_result.to_dict(),
+        }), 200
+
+    except CaptureError as e:
+        logger.warning(f"Error getting essentials (code={e.code})")
+        return jsonify({
+            "success": False,
+            "error": e.to_dict(),
+        }), 400
+
+    except Exception as e:
+        logger.error(f"Unexpected error getting essentials (error={str(e)})")
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": "ANALYSIS_FAILED",
+                "message": f"Erreur analyse: {str(e)}",
+                "details": {},
+            },
+        }), 500
