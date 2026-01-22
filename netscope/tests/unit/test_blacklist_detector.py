@@ -21,6 +21,7 @@ from app.core.detection.anomaly_store import (
     get_anomaly_store,
     reset_anomaly_store,
 )
+from app.core.analysis.scoring import reset_scoring_engine
 from app.models.capture import PacketInfo
 from app.models.anomaly import (
     Anomaly,
@@ -28,7 +29,7 @@ from app.models.anomaly import (
     BlacklistMatch,
     CriticalityLevel,
     MatchType,
-    SCORE_IP_BLACKLIST,
+    # SCORE_IP_BLACKLIST removed in Story 2.3 - scores now dynamic via ScoringEngine
 )
 
 
@@ -37,9 +38,11 @@ def reset_singletons():
     """Reset singletons before and after each test."""
     reset_blacklist_manager()
     reset_anomaly_store()
+    reset_scoring_engine()
     yield
     reset_blacklist_manager()
     reset_anomaly_store()
+    reset_scoring_engine()
 
 
 @pytest.fixture
@@ -157,7 +160,9 @@ class TestIPDetection:
         assert anomaly.match.match_type == MatchType.IP
         assert anomaly.match.matched_value == "45.33.32.156"
         assert anomaly.criticality_level == CriticalityLevel.CRITICAL
-        assert anomaly.score == SCORE_IP_BLACKLIST
+        # Story 2.3: Score is now dynamic (base + heuristics), should be >= 80 for CRITICAL
+        assert anomaly.score >= 80
+        assert anomaly.score_breakdown is not None
 
     def test_detect_blacklisted_ip_source(self, loaded_manager, sample_packets):
         """Test detection of blacklisted IP as source."""
@@ -371,7 +376,8 @@ class TestAnomalyModel:
         assert anomaly_dict["match_type"] == "ip"
         assert anomaly_dict["matched_value"] == "45.33.32.156"
         assert anomaly_dict["criticality"] == "critical"
-        assert anomaly_dict["score"] == SCORE_IP_BLACKLIST
+        # Story 2.3: Score is now dynamic (base + heuristics), should be >= 80 for CRITICAL
+        assert anomaly_dict["score"] >= 80
         assert "packet_info" in anomaly_dict
         assert anomaly_dict["capture_id"] == "test_cap"
 

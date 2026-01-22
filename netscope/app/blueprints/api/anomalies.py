@@ -23,6 +23,7 @@ def get_anomalies():
     Query Parameters:
         capture_id: str - Filter by capture ID (optional)
         latest: bool - Get only from latest capture (default: true)
+        include_breakdown: bool - Include score breakdown (default: false)
 
     Returns:
         JSON response with anomaly list
@@ -39,7 +40,14 @@ def get_anomalies():
                         "source_file": "blacklist",
                         "context": "IP 45.33.32.156:4444 (destination) - 192.168.1.10 -> 45.33.32.156 (TCP)",
                         "criticality": "critical",
-                        "score": 85,
+                        "score": 100,
+                        "score_breakdown": {  // Only if include_breakdown=true
+                            "blacklist_score": 85,
+                            "heuristic_score": 25,
+                            "total_score": 100,
+                            "factors": {...},
+                            "criticality": "critical"
+                        },
                         "packet_info": {...},
                         "capture_id": "cap_20260117_143000",
                         "created_at": "2026-01-17T14:30:05Z"
@@ -58,6 +66,7 @@ def get_anomalies():
 
     capture_id = request.args.get("capture_id")
     get_latest = request.args.get("latest", "true").lower() == "true"
+    include_breakdown = request.args.get("include_breakdown", "false").lower() == "true"
 
     try:
         store = get_anomaly_store()
@@ -80,7 +89,7 @@ def get_anomalies():
             return jsonify({
                 "success": True,
                 "result": {
-                    "anomalies": [a.to_dict() for a in all_anomalies],
+                    "anomalies": [a.to_dict(include_breakdown=include_breakdown) for a in all_anomalies],
                     "total": len(all_anomalies),
                     "by_criticality": by_criticality,
                 },
@@ -103,7 +112,7 @@ def get_anomalies():
 
         return jsonify({
             "success": True,
-            "result": collection.to_dict(),
+            "result": collection.to_dict(include_breakdown=include_breakdown),
         }), 200
 
     except Exception as e:
@@ -207,6 +216,135 @@ def get_anomalies_summary():
 
     except Exception as e:
         logger.error(f"Error getting anomalies summary (error={str(e)})")
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": "ANOMALY_ERROR",
+                "message": f"Erreur: {str(e)}",
+                "details": {},
+            },
+        }), 500
+
+
+@api_bp.route('/anomalies/score-stats', methods=['GET'])
+def get_anomalies_score_stats():
+    """Get scoring statistics for detected anomalies.
+
+    Returns detailed scoring statistics including score distribution,
+    heuristic factor frequencies, and average scores.
+
+    Returns:
+        JSON response with scoring statistics
+
+    Example Response:
+        {
+            "success": true,
+            "stats": {
+                "total_anomalies": 5,
+                "score_distribution": {
+                    "critical": {"count": 3, "avg_score": 92},
+                    "warning": {"count": 2, "avg_score": 65},
+                    "normal": {"count": 0, "avg_score": 0}
+                },
+                "heuristic_factors": {
+                    "external_ip": 4,
+                    "suspicious_port": 2,
+                    "high_volume": 1,
+                    "unknown_protocol": 0
+                },
+                "avg_score": 81.4,
+                "min_score": 55,
+                "max_score": 100
+            }
+        }
+    """
+    logger.debug("GET /api/anomalies/score-stats called")
+
+    try:
+        store = get_anomaly_store()
+        all_anomalies = store.get_all_anomalies()
+
+        if not all_anomalies:
+            return jsonify({
+                "success": True,
+                "stats": {
+                    "total_anomalies": 0,
+                    "score_distribution": {
+                        "critical": {"count": 0, "avg_score": 0},
+                        "warning": {"count": 0, "avg_score": 0},
+                        "normal": {"count": 0, "avg_score": 0},
+                    },
+                    "heuristic_factors": {
+                        "external_ip": 0,
+                        "suspicious_port": 0,
+                        "high_volume": 0,
+                        "unknown_protocol": 0,
+                    },
+                    "avg_score": 0,
+                    "min_score": 0,
+                    "max_score": 0,
+                },
+            }), 200
+
+        # Calculate statistics
+        scores = [a.score for a in all_anomalies]
+        total = len(all_anomalies)
+
+        # Score distribution by criticality
+        score_distribution = {
+            "critical": {"count": 0, "total_score": 0},
+            "warning": {"count": 0, "total_score": 0},
+            "normal": {"count": 0, "total_score": 0},
+        }
+
+        # Heuristic factor frequencies
+        heuristic_factors = {
+            "external_ip": 0,
+            "suspicious_port": 0,
+            "high_volume": 0,
+            "unknown_protocol": 0,
+        }
+
+        for anomaly in all_anomalies:
+            crit = anomaly.criticality_level.value
+            score_distribution[crit]["count"] += 1
+            score_distribution[crit]["total_score"] += anomaly.score
+
+            # Count heuristic factors if breakdown available
+            if anomaly.score_breakdown is not None:
+                factors = anomaly.score_breakdown.factors
+                if factors.is_external_ip:
+                    heuristic_factors["external_ip"] += 1
+                if factors.is_suspicious_port:
+                    heuristic_factors["suspicious_port"] += 1
+                if factors.is_high_volume:
+                    heuristic_factors["high_volume"] += 1
+                if factors.is_unknown_protocol:
+                    heuristic_factors["unknown_protocol"] += 1
+
+        # Calculate averages
+        for crit in score_distribution:
+            count = score_distribution[crit]["count"]
+            total_score = score_distribution[crit]["total_score"]
+            score_distribution[crit] = {
+                "count": count,
+                "avg_score": round(total_score / count, 1) if count > 0 else 0,
+            }
+
+        return jsonify({
+            "success": True,
+            "stats": {
+                "total_anomalies": total,
+                "score_distribution": score_distribution,
+                "heuristic_factors": heuristic_factors,
+                "avg_score": round(sum(scores) / total, 1),
+                "min_score": min(scores),
+                "max_score": max(scores),
+            },
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error getting anomalies score stats (error={str(e)})")
         return jsonify({
             "success": False,
             "error": {

@@ -1,12 +1,13 @@
 """Blacklist-based anomaly detector for NETSCOPE.
 
 Detects IPs, domains, and suspicious terms in captured network packets
-using the centralized BlacklistManager.
+using the centralized BlacklistManager and ScoringEngine.
 
-Lessons Learned Epic 1:
+Lessons Learned Epic 1/2:
 - Use Python 3.10+ type hints (X | None, not Optional[X])
 - Use module-level logger, NOT current_app.logger
 - Integrate immediately with capture flow
+- Use ScoringEngine for dynamic scoring (Story 2.3)
 """
 
 from __future__ import annotations
@@ -21,11 +22,9 @@ from app.models.anomaly import (
     BlacklistMatch,
     CriticalityLevel,
     MatchType,
-    SCORE_IP_BLACKLIST,
-    SCORE_DOMAIN_BLACKLIST,
-    SCORE_TERM_SUSPECT,
 )
 from app.core.detection.blacklist_manager import get_blacklist_manager
+from app.core.analysis.scoring import get_scoring_engine
 
 # CRITICAL: Logger module-level (Lesson Learned Epic 1 - A4)
 logger = logging.getLogger(__name__)
@@ -35,7 +34,8 @@ class BlacklistDetector:
     """Detector for blacklisted IPs, domains, and suspicious terms.
 
     Uses BlacklistManager singleton to perform lookups against loaded
-    blacklists. Produces Anomaly objects for each match found.
+    blacklists and ScoringEngine for dynamic score calculation.
+    Produces Anomaly objects for each match found.
 
     Usage:
         detector = BlacklistDetector()
@@ -43,9 +43,10 @@ class BlacklistDetector:
     """
 
     def __init__(self) -> None:
-        """Initialize the detector with BlacklistManager reference."""
+        """Initialize the detector with BlacklistManager and ScoringEngine."""
         self._manager = get_blacklist_manager()
-        logger.debug("BlacklistDetector initialized")
+        self._scoring = get_scoring_engine()
+        logger.debug("BlacklistDetector initialized (with ScoringEngine)")
 
     def detect_all(
         self,
@@ -99,6 +100,7 @@ class BlacklistDetector:
 
         Checks both source and destination IPs against the blacklist.
         Uses set to avoid checking the same IP multiple times.
+        Uses ScoringEngine for dynamic score calculation (Story 2.3).
 
         Args:
             packets: List of packets to analyze
@@ -118,7 +120,7 @@ class BlacklistDetector:
                 checked_ips.add(ip)
 
                 if self._manager.check_ip(ip):
-                    # Create match and anomaly
+                    # Create match
                     # NOTE: MVP limitation - source_file is generic because BlacklistManager
                     # doesn't track which file each IP came from. Full source tracking
                     # would require refactoring BlacklistManager (future enhancement).
@@ -131,17 +133,29 @@ class BlacklistDetector:
                         timestamp=packet.timestamp,
                     )
 
+                    # Use ScoringEngine for dynamic score calculation (Story 2.3)
+                    breakdown = self._scoring.calculate_score(
+                        match=match,
+                        packet_info=packet,
+                        context=None,  # Volume context not available at packet level
+                    )
+
                     anomaly = Anomaly(
                         id=Anomaly.generate_id(),
                         match=match,
-                        score=SCORE_IP_BLACKLIST,
+                        score=breakdown.total_score,
                         packet_info=packet.to_dict(),
-                        criticality_level=CriticalityLevel.CRITICAL,
+                        criticality_level=breakdown.criticality,
                         capture_id=capture_id,
+                        score_breakdown=breakdown,
                     )
 
                     anomalies.append(anomaly)
-                    logger.warning(f"Blacklisted IP detected (ip={ip})")
+                    logger.warning(
+                        f"Blacklisted IP detected (ip={ip}, "
+                        f"score={breakdown.total_score}, "
+                        f"criticality={breakdown.criticality.value})"
+                    )
 
         return anomalies
 
@@ -162,10 +176,14 @@ class BlacklistDetector:
 
         Returns:
             List of Anomaly objects for domain matches (empty for MVP)
+
+        IMPORTANT (Code Review M3): When implementing, use self._scoring.calculate_score()
+        with MatchType.DOMAIN to get dynamic scoring. See _detect_ips() for example.
         """
         # MVP: No deep packet inspection available
         # Domain detection requires DNS query parsing or HTTP header analysis
         # This will be implemented in Story 2.4 (4 analyses essentielles)
+        # TODO: Use self._scoring.calculate_score(match, packet_info) when implemented
         return []
 
     def _detect_terms(
@@ -185,10 +203,14 @@ class BlacklistDetector:
 
         Returns:
             List of Anomaly objects for term matches (empty for MVP)
+
+        IMPORTANT (Code Review M3): When implementing, use self._scoring.calculate_score()
+        with MatchType.TERM to get dynamic scoring. Term base score is 65 (AC1: 60-79 WARNING).
+        See _detect_ips() for example implementation pattern.
         """
         # MVP: Limited payload available (100 bytes headers-only)
         # Term detection in full payload requires Scapy inspection (Epic 4)
-        # Basic implementation placeholder for future enhancement
+        # TODO: Use self._scoring.calculate_score(match, packet_info) when implemented
         return []
 
     def _build_ip_context(self, ip: str, packet: PacketInfo) -> str:

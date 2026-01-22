@@ -1,5 +1,9 @@
 # Data models package
 
+from app.models.scoring import (
+    HeuristicFactors,
+    ScoreBreakdown,
+)
 from app.models.capture import (
     CaptureConfig,
     CaptureError,
@@ -23,6 +27,10 @@ from app.models.capture import (
 )
 
 __all__ = [
+    # Scoring models (Story 2.3)
+    "HeuristicFactors",
+    "ScoreBreakdown",
+    # Capture models
     "CaptureConfig",
     "CaptureError",
     "CaptureResult",
