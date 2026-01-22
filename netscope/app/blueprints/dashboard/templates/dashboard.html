@@ -134,45 +134,66 @@
         </div>
     </section>
 
-    {# Status Cards Row #}
+    {# Status Cards Row - Story 2.6: 4 Cartes Status avec indicateurs dynamiques #}
     <div class="status-cards">
-        <div class="status-card card">
+        <div class="status-card card" id="card-ips" data-card-type="ips">
             <div class="status-card-header">
-                <span class="status-indicator status-normal" id="indicator-ips"></span>
+                <span class="status-indicator status-inactive" id="indicator-ips"></span>
                 <span class="status-title">TOP IPs</span>
             </div>
             <div class="status-card-value" id="stat-top-ips">--</div>
-            <div class="status-card-details" id="stat-top-ips-list"></div>
+            <div class="status-card-details" id="stat-top-ips-list">
+                <span class="status-message">Lancez une capture pour voir les analyses</span>
+            </div>
             <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
-        <div class="status-card card">
+        <div class="status-card card" id="card-protocols" data-card-type="protocols">
             <div class="status-card-header">
-                <span class="status-indicator status-normal" id="indicator-protocols"></span>
+                <span class="status-indicator status-inactive" id="indicator-protocols"></span>
                 <span class="status-title">PROTOCOLES</span>
             </div>
             <div class="status-card-value" id="stat-protocols">--</div>
-            <div class="status-card-details" id="stat-protocols-list"></div>
+            <div class="status-card-details" id="stat-protocols-list">
+                <span class="status-message">Lancez une capture pour voir les analyses</span>
+            </div>
             <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
-        <div class="status-card card">
+        <div class="status-card card" id="card-ports" data-card-type="ports">
             <div class="status-card-header">
-                <span class="status-indicator status-normal" id="indicator-ports"></span>
+                <span class="status-indicator status-inactive" id="indicator-ports"></span>
                 <span class="status-title">PORTS</span>
             </div>
             <div class="status-card-value" id="stat-ports">--</div>
-            <div class="status-card-details" id="stat-top-ports-list"></div>
+            <div class="status-card-details" id="stat-top-ports-list">
+                <span class="status-message">Lancez une capture pour voir les analyses</span>
+            </div>
             <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
-        <div class="status-card card">
+        <div class="status-card card" id="card-volume" data-card-type="volume">
             <div class="status-card-header">
-                <span class="status-indicator status-normal" id="indicator-volume"></span>
+                <span class="status-indicator status-inactive" id="indicator-volume"></span>
                 <span class="status-title">VOLUME</span>
             </div>
-            <div class="status-card-value" id="stat-volume">-- pkts</div>
-            <div class="status-card-details" id="stat-volume-bytes"></div>
+            <div class="status-card-value" id="stat-volume">--</div>
+            <div class="status-card-details" id="stat-volume-bytes">
+                <span class="status-message">Lancez une capture pour voir les analyses</span>
+            </div>
+        </div>
+    </div>
+
+    {# Four Essentials Detail Modal - Story 2.6 #}
+    <div id="essentials-modal" class="essentials-modal" style="display: none;">
+        <div class="essentials-modal-content card">
+            <div class="essentials-modal-header">
+                <h3 id="essentials-modal-title">D&eacute;tails</h3>
+                <button id="btn-close-essentials-modal" class="btn btn-sm btn-danger">&times;</button>
+            </div>
+            <div id="essentials-modal-body" class="essentials-modal-body">
+                {# Content populated by JavaScript #}
+            </div>
         </div>
     </div>
 

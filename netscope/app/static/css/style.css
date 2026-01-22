@@ -2312,3 +2312,286 @@ select.form-control {
         order: 2;
     }
 }
+
+/* =============================================================================
+   Four Essentials Status Cards - Story 2.6
+   ============================================================================= */
+
+/* Status card state backgrounds */
+.status-card.card-critical {
+    border-left: 4px solid var(--danger-red);
+    background: linear-gradient(135deg, rgba(255, 51, 85, 0.08) 0%, var(--panel-bg) 100%);
+}
+
+.status-card.card-warning {
+    border-left: 4px solid var(--alert-amber);
+    background: linear-gradient(135deg, rgba(255, 170, 0, 0.08) 0%, var(--panel-bg) 100%);
+}
+
+.status-card.card-normal {
+    border-left: 4px solid var(--matrix-green);
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.08) 0%, var(--panel-bg) 100%);
+}
+
+.status-card.card-inactive {
+    border-left: 4px solid var(--text-muted);
+    background: var(--panel-bg);
+}
+
+/* Status indicator inactive state */
+.status-indicator.status-inactive {
+    background: var(--text-muted);
+    box-shadow: none;
+    color: var(--text-muted);
+}
+
+/* Status message in card details */
+.status-message {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: block;
+    line-height: 1.4;
+}
+
+/* Card updating animation */
+.status-card.card-updating {
+    animation: card-pulse 0.3s ease-out;
+}
+
+@keyframes card-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* Card hover for clickable cards */
+.status-card[data-card-type] {
+    cursor: pointer;
+}
+
+.status-card[data-card-type]:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 20px rgba(0, 245, 255, 0.1);
+}
+
+/* =============================================================================
+   Four Essentials Modal - Story 2.6
+   ============================================================================= */
+.essentials-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
+.essentials-modal-content {
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-accent);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 245, 255, 0.1);
+}
+
+.essentials-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.essentials-modal-header h3 {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    color: var(--text-highlight);
+    margin: 0;
+}
+
+.essentials-modal-body {
+    padding: var(--space-md) 0;
+}
+
+/* Essentials detail content */
+.essentials-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.essentials-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+    background: var(--void-black);
+}
+
+.essentials-status-critical {
+    border-left: 4px solid var(--danger-red);
+}
+
+.essentials-status-warning {
+    border-left: 4px solid var(--alert-amber);
+}
+
+.essentials-status-normal {
+    border-left: 4px solid var(--matrix-green);
+}
+
+.essentials-indicator {
+    font-size: 1.5rem;
+}
+
+.essentials-message {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--text-highlight);
+}
+
+/* Essentials table */
+.essentials-table {
+    width: 100%;
+    margin-top: var(--space-md);
+}
+
+.essentials-table tbody tr.status-critical {
+    background: rgba(255, 51, 85, 0.1);
+}
+
+.essentials-table tbody tr.status-warning {
+    background: rgba(255, 170, 0, 0.1);
+}
+
+.essentials-summary {
+    display: flex;
+    gap: var(--space-lg);
+    padding: var(--space-md);
+    background: var(--void-black);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: var(--space-md);
+}
+
+.essentials-summary .status-critical {
+    color: var(--danger-red);
+}
+
+/* Essentials protocols detail */
+.essentials-protocols {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.protocol-detail-item {
+    display: grid;
+    grid-template-columns: 60px 1fr 50px 80px;
+    gap: var(--space-md);
+    align-items: center;
+}
+
+/* Essentials warnings */
+.essentials-warnings {
+    background: rgba(255, 170, 0, 0.1);
+    border: 1px solid var(--alert-amber);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-top: var(--space-md);
+}
+
+.essentials-warnings h4 {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    color: var(--alert-amber);
+    margin-bottom: var(--space-sm);
+}
+
+.essentials-warnings ul {
+    list-style: none;
+    padding-left: var(--space-md);
+}
+
+.essentials-warnings li {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xs);
+}
+
+.essentials-warnings li::before {
+    content: '\2192';
+    margin-right: var(--space-sm);
+    color: var(--alert-amber);
+}
+
+/* Essentials volume detail */
+.essentials-volume {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+}
+
+.volume-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--void-black);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+
+.volume-stat .label {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.volume-stat .value {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--neon-cyan);
+    font-weight: 600;
+}
+
+/* =============================================================================
+   Responsive - Four Essentials Modal
+   ============================================================================= */
+@media (max-width: 768px) {
+    .essentials-modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+
+    .protocol-detail-item {
+        grid-template-columns: 50px 1fr 45px;
+    }
+
+    .protocol-detail-item .protocol-count {
+        display: none;
+    }
+
+    .essentials-volume {
+        grid-template-columns: 1fr;
+    }
+
+    .essentials-summary {
+        flex-direction: column;
+        gap: var(--space-sm);
+    }
+}

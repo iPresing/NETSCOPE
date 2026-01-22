@@ -1,4 +1,40 @@
 /**
+ * NETSCOPE Shared Utilities
+ *
+ * Common utility functions used across modules.
+ */
+(function() {
+    'use strict';
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    function escapeHtml(text) {
+        if (!text) return '';
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Format bytes to human-readable format (KB/MB/GB)
+     */
+    function formatBytes(bytes) {
+        if (bytes === 0 || bytes === null || bytes === undefined) return '0 B';
+        var k = 1024;
+        var sizes = ['B', 'KB', 'MB', 'GB'];
+        var i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    // Export to window for use by other modules
+    window.NetScopeUtils = {
+        escapeHtml: escapeHtml,
+        formatBytes: formatBytes
+    };
+})();
+
+/**
  * NETSCOPE Capture Control Module
  *
  * Handles network capture operations via the REST API.
@@ -176,22 +212,19 @@
                 if (window.loadAnomalies) {
                     window.loadAnomalies();
                 }
+
+                // Load four essentials after capture results (Story 2.6)
+                if (window.loadFourEssentials) {
+                    window.loadFourEssentials();
+                }
             }
         } catch (error) {
             console.error('Load result error:', error);
         }
     }
 
-    /**
-     * Format bytes to human-readable format (KB/MB/GB)
-     */
-    function formatBytes(bytes) {
-        if (bytes === 0 || bytes === null || bytes === undefined) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    }
+    // Use shared formatBytes from NetScopeUtils
+    var formatBytes = window.NetScopeUtils.formatBytes;
 
     /**
      * Format duration in seconds to human-readable format
@@ -767,15 +800,8 @@
         }
     }
 
-    /**
-     * Escape HTML to prevent XSS
-     */
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+    // Use shared escapeHtml from NetScopeUtils
+    var escapeHtml = window.NetScopeUtils.escapeHtml;
 
     // Expose loadAnomalies globally for use after capture completion
     window.loadAnomalies = loadAnomalies;
@@ -890,6 +916,417 @@
             }, 300);
         }, 3000);
     }
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+
+/**
+ * NETSCOPE Four Essentials Module (Story 2.6)
+ *
+ * Handles the 4 status cards with dynamic indicators from FourEssentialsAnalyzer.
+ */
+(function() {
+    'use strict';
+
+    // Store current four essentials data for modal details
+    var currentEssentialsData = null;
+
+    /**
+     * Load four essentials analysis from API
+     */
+    async function loadFourEssentials() {
+        try {
+            var response = await fetch('/api/analysis/four-essentials');
+            var data = await response.json();
+
+            if (data.success && data.result) {
+                currentEssentialsData = data.result;
+                updateStatusCard('ips', data.result.top_ips);
+                updateStatusCard('protocols', data.result.protocols);
+                updateStatusCard('ports', data.result.ports);
+                updateStatusCard('volume', data.result.volume);
+            } else {
+                currentEssentialsData = null;
+                resetStatusCards();
+            }
+        } catch (error) {
+            console.error('Load four essentials error:', error);
+            resetStatusCards();
+        }
+    }
+
+    /**
+     * Update a single status card with analysis data
+     */
+    function updateStatusCard(cardType, analysis) {
+        var indicatorEl = document.getElementById('indicator-' + cardType);
+        var cardEl = document.getElementById('card-' + cardType);
+        var valueEl = null;
+        var detailsEl = null;
+
+        // Map card type to element IDs
+        switch (cardType) {
+            case 'ips':
+                valueEl = document.getElementById('stat-top-ips');
+                detailsEl = document.getElementById('stat-top-ips-list');
+                break;
+            case 'protocols':
+                valueEl = document.getElementById('stat-protocols');
+                detailsEl = document.getElementById('stat-protocols-list');
+                break;
+            case 'ports':
+                valueEl = document.getElementById('stat-ports');
+                detailsEl = document.getElementById('stat-top-ports-list');
+                break;
+            case 'volume':
+                valueEl = document.getElementById('stat-volume');
+                detailsEl = document.getElementById('stat-volume-bytes');
+                break;
+        }
+
+        if (!indicatorEl || !cardEl) return;
+
+        // Add transition animation
+        cardEl.classList.add('card-updating');
+
+        // Update indicator class
+        indicatorEl.className = 'status-indicator status-' + analysis.status;
+
+        // Update card background class
+        cardEl.classList.remove('card-critical', 'card-warning', 'card-normal', 'card-inactive');
+        cardEl.classList.add('card-' + analysis.status);
+
+        // Update value based on card type
+        if (valueEl) {
+            switch (cardType) {
+                case 'ips':
+                    valueEl.textContent = analysis.data.total_unique || '--';
+                    break;
+                case 'protocols':
+                    var protoCount = Object.keys(analysis.data.distribution || {}).length;
+                    valueEl.textContent = protoCount || '--';
+                    break;
+                case 'ports':
+                    valueEl.textContent = analysis.data.total_unique || '--';
+                    break;
+                case 'volume':
+                    var pkts = analysis.data.total_packets || 0;
+                    valueEl.textContent = pkts > 1000 ? Math.round(pkts / 1000) + 'k pkts' : pkts + ' pkts';
+                    break;
+            }
+        }
+
+        // Update details/message
+        if (detailsEl) {
+            detailsEl.innerHTML = '<span class="status-message">' + escapeHtml(analysis.message) + '</span>';
+        }
+
+        // Remove animation class after transition
+        setTimeout(function() {
+            cardEl.classList.remove('card-updating');
+        }, 300);
+    }
+
+    /**
+     * Reset status cards to initial state
+     */
+    function resetStatusCards() {
+        var cardTypes = ['ips', 'protocols', 'ports', 'volume'];
+
+        cardTypes.forEach(function(cardType) {
+            var indicatorEl = document.getElementById('indicator-' + cardType);
+            var cardEl = document.getElementById('card-' + cardType);
+            var valueEl = null;
+            var detailsEl = null;
+
+            switch (cardType) {
+                case 'ips':
+                    valueEl = document.getElementById('stat-top-ips');
+                    detailsEl = document.getElementById('stat-top-ips-list');
+                    break;
+                case 'protocols':
+                    valueEl = document.getElementById('stat-protocols');
+                    detailsEl = document.getElementById('stat-protocols-list');
+                    break;
+                case 'ports':
+                    valueEl = document.getElementById('stat-ports');
+                    detailsEl = document.getElementById('stat-top-ports-list');
+                    break;
+                case 'volume':
+                    valueEl = document.getElementById('stat-volume');
+                    detailsEl = document.getElementById('stat-volume-bytes');
+                    break;
+            }
+
+            if (indicatorEl) {
+                indicatorEl.className = 'status-indicator status-inactive';
+            }
+            if (valueEl) {
+                valueEl.textContent = '--';
+            }
+            if (detailsEl) {
+                detailsEl.innerHTML = '<span class="status-message">Lancez une capture pour voir les analyses</span>';
+            }
+            if (cardEl) {
+                cardEl.classList.remove('card-critical', 'card-warning', 'card-normal');
+                cardEl.classList.add('card-inactive');
+            }
+        });
+    }
+
+    /**
+     * Show detail modal for a card
+     */
+    function showCardDetails(cardType) {
+        if (!currentEssentialsData) return;
+
+        var modal = document.getElementById('essentials-modal');
+        var titleEl = document.getElementById('essentials-modal-title');
+        var bodyEl = document.getElementById('essentials-modal-body');
+
+        if (!modal || !bodyEl) return;
+
+        var analysis = null;
+        switch (cardType) {
+            case 'ips':
+                analysis = currentEssentialsData.top_ips;
+                break;
+            case 'protocols':
+                analysis = currentEssentialsData.protocols;
+                break;
+            case 'ports':
+                analysis = currentEssentialsData.ports;
+                break;
+            case 'volume':
+                analysis = currentEssentialsData.volume;
+                break;
+        }
+
+        if (!analysis) return;
+
+        // Set title
+        if (titleEl) {
+            titleEl.textContent = analysis.title + ' - ' + analysis.indicator;
+        }
+
+        // Build modal content
+        var html = '<div class="essentials-detail">';
+        html += '<div class="essentials-status essentials-status-' + analysis.status + '">';
+        html += '<span class="essentials-indicator">' + analysis.indicator + '</span>';
+        html += '<span class="essentials-message">' + escapeHtml(analysis.message) + '</span>';
+        html += '</div>';
+
+        // Add specific details based on card type
+        switch (cardType) {
+            case 'ips':
+                html += buildIpsDetails(analysis);
+                break;
+            case 'protocols':
+                html += buildProtocolsDetails(analysis);
+                break;
+            case 'ports':
+                html += buildPortsDetails(analysis);
+                break;
+            case 'volume':
+                html += buildVolumeDetails(analysis);
+                break;
+        }
+
+        html += '</div>';
+        bodyEl.innerHTML = html;
+
+        // Show modal
+        modal.style.display = 'flex';
+    }
+
+    /**
+     * Build IPs detail content
+     */
+    function buildIpsDetails(analysis) {
+        var ips = analysis.data.ips || [];
+        if (ips.length === 0) return '<p class="text-muted">Aucune IP disponible</p>';
+
+        var html = '<table class="essentials-table data-table">';
+        html += '<thead><tr><th>IP</th><th>Paquets</th><th>Type</th><th>Status</th></tr></thead>';
+        html += '<tbody>';
+
+        ips.forEach(function(ip) {
+            var statusClass = ip.is_blacklisted ? 'status-critical' : (ip.is_external ? 'status-warning' : 'status-normal');
+            var statusText = ip.is_blacklisted ? '\u{1F534} Blacklistee' : (ip.is_external ? '\u{1F7E1} Externe' : '\u{1F7E2} Interne');
+
+            html += '<tr class="' + statusClass + '">';
+            html += '<td class="ip-cell">' + escapeHtml(ip.ip) + '</td>';
+            html += '<td class="count-cell">' + ip.count + '</td>';
+            html += '<td>' + escapeHtml(ip.type) + '</td>';
+            html += '<td>' + statusText + '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        html += '<div class="essentials-summary">';
+        html += '<span>Total IPs uniques: ' + (analysis.data.total_unique || 0) + '</span>';
+        if (analysis.data.blacklisted_count > 0) {
+            html += '<span class="status-critical"> | Blacklistees: ' + analysis.data.blacklisted_count + '</span>';
+        }
+        html += '</div>';
+
+        return html;
+    }
+
+    /**
+     * Build Protocols detail content
+     */
+    function buildProtocolsDetails(analysis) {
+        var distribution = analysis.data.distribution || {};
+        var protocols = Object.keys(distribution);
+        if (protocols.length === 0) return '<p class="text-muted">Aucun protocole disponible</p>';
+
+        var html = '<div class="essentials-protocols">';
+
+        protocols.forEach(function(proto) {
+            var data = distribution[proto];
+            html += '<div class="protocol-detail-item">';
+            html += '<span class="protocol-name">' + escapeHtml(proto) + '</span>';
+            html += '<div class="protocol-bar-container">';
+            html += '<div class="protocol-bar-fill" style="width: ' + data.percentage + '%;"></div>';
+            html += '</div>';
+            html += '<span class="protocol-percent">' + data.percentage + '%</span>';
+            html += '<span class="protocol-count">' + data.count + ' pkts</span>';
+            html += '</div>';
+        });
+
+        html += '</div>';
+        html += '<div class="essentials-summary">';
+        html += '<span>Total paquets: ' + (analysis.data.total_packets || 0) + '</span>';
+        html += '</div>';
+
+        return html;
+    }
+
+    /**
+     * Build Ports detail content
+     */
+    function buildPortsDetails(analysis) {
+        var ports = analysis.data.ports || [];
+        if (ports.length === 0) return '<p class="text-muted">Aucun port disponible</p>';
+
+        var html = '<table class="essentials-table data-table">';
+        html += '<thead><tr><th>Port</th><th>Paquets</th><th>Description</th><th>Status</th></tr></thead>';
+        html += '<tbody>';
+
+        ports.forEach(function(port) {
+            var statusClass = port.is_suspicious ? 'status-critical' : 'status-normal';
+            var statusText = port.is_suspicious ? '\u{1F534} Suspect' : '\u{1F7E2} Normal';
+
+            html += '<tr class="' + statusClass + '">';
+            html += '<td class="port-cell">' + port.port + '</td>';
+            html += '<td class="count-cell">' + port.count + '</td>';
+            html += '<td>' + escapeHtml(port.description) + '</td>';
+            html += '<td>' + statusText + '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+
+        // Show details if any
+        if (analysis.details && analysis.details.length > 0) {
+            html += '<div class="essentials-warnings">';
+            html += '<h4>\u26A0\uFE0F Alertes</h4>';
+            html += '<ul>';
+            analysis.details.forEach(function(detail) {
+                html += '<li>' + escapeHtml(detail) + '</li>';
+            });
+            html += '</ul></div>';
+        }
+
+        html += '<div class="essentials-summary">';
+        html += '<span>Ports uniques: ' + (analysis.data.total_unique || 0) + '</span>';
+        if (analysis.data.suspicious_count > 0) {
+            html += '<span class="status-critical"> | Suspects: ' + analysis.data.suspicious_count + '</span>';
+        }
+        html += '</div>';
+
+        return html;
+    }
+
+    /**
+     * Build Volume detail content
+     */
+    function buildVolumeDetails(analysis) {
+        var data = analysis.data;
+
+        var html = '<div class="essentials-volume">';
+        html += '<div class="volume-stat"><span class="label">Total paquets:</span><span class="value">' + (data.total_packets || 0).toLocaleString() + '</span></div>';
+        html += '<div class="volume-stat"><span class="label">Total octets:</span><span class="value">' + formatBytes(data.total_bytes || 0) + '</span></div>';
+        html += '<div class="volume-stat"><span class="label">Entrant:</span><span class="value">' + formatBytes(data.bytes_in || 0) + '</span></div>';
+        html += '<div class="volume-stat"><span class="label">Sortant:</span><span class="value">' + formatBytes(data.bytes_out || 0) + '</span></div>';
+        html += '<div class="volume-stat"><span class="label">Ratio out/in:</span><span class="value">' + (data.ratio || 'N/A') + '</span></div>';
+        html += '<div class="volume-stat"><span class="label">Paquets/sec:</span><span class="value">' + (data.packets_per_second || 0) + '</span></div>';
+        html += '<div class="volume-stat"><span class="label">Duree:</span><span class="value">' + (data.duration_seconds || 0) + 's</span></div>';
+        html += '</div>';
+
+        return html;
+    }
+
+    // Use shared utilities from NetScopeUtils
+    var formatBytes = window.NetScopeUtils.formatBytes;
+    var escapeHtml = window.NetScopeUtils.escapeHtml;
+
+    /**
+     * Hide detail modal
+     */
+    function hideCardDetails() {
+        var modal = document.getElementById('essentials-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    /**
+     * Initialize four essentials module
+     */
+    function init() {
+        // Add click listeners to status cards for showing details
+        var cardTypes = ['ips', 'protocols', 'ports', 'volume'];
+        cardTypes.forEach(function(cardType) {
+            var cardEl = document.getElementById('card-' + cardType);
+            if (cardEl) {
+                cardEl.addEventListener('click', function(e) {
+                    // Don't trigger if clicking on the "Voir" link
+                    if (e.target.classList.contains('status-card-link')) return;
+                    showCardDetails(cardType);
+                });
+                cardEl.style.cursor = 'pointer';
+            }
+        });
+
+        // Add close button listener for modal
+        var closeBtn = document.getElementById('btn-close-essentials-modal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', hideCardDetails);
+        }
+
+        // Close modal when clicking outside
+        var modal = document.getElementById('essentials-modal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    hideCardDetails();
+                }
+            });
+        }
+
+        // Load four essentials on page load if there might be existing data
+        loadFourEssentials();
+    }
+
+    // Expose loadFourEssentials globally for use after capture completion
+    window.loadFourEssentials = loadFourEssentials;
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
