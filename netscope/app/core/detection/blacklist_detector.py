@@ -8,12 +8,13 @@ Lessons Learned Epic 1/2:
 - Use module-level logger, NOT current_app.logger
 - Integrate immediately with capture flow
 - Use ScoringEngine for dynamic scoring (Story 2.3)
+
+Story 2.5: Added HumanContextProvider integration for accessible explanations (FR14, NFR27)
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from app.models.capture import PacketInfo
 from app.models.anomaly import (
@@ -25,6 +26,7 @@ from app.models.anomaly import (
 )
 from app.core.detection.blacklist_manager import get_blacklist_manager
 from app.core.analysis.scoring import get_scoring_engine
+from app.core.detection.human_context import get_human_context_provider
 
 # CRITICAL: Logger module-level (Lesson Learned Epic 1 - A4)
 logger = logging.getLogger(__name__)
@@ -43,10 +45,11 @@ class BlacklistDetector:
     """
 
     def __init__(self) -> None:
-        """Initialize the detector with BlacklistManager and ScoringEngine."""
+        """Initialize the detector with BlacklistManager, ScoringEngine, and HumanContextProvider."""
         self._manager = get_blacklist_manager()
         self._scoring = get_scoring_engine()
-        logger.debug("BlacklistDetector initialized (with ScoringEngine)")
+        self._human_context = get_human_context_provider()
+        logger.debug("BlacklistDetector initialized (with ScoringEngine and HumanContextProvider)")
 
     def detect_all(
         self,
@@ -140,6 +143,13 @@ class BlacklistDetector:
                         context=None,  # Volume context not available at packet level
                     )
 
+                    # Story 2.5: Generate human-readable context (AC2, FR14, NFR27)
+                    human_ctx = self._human_context.get_ip_context(
+                        ip=ip,
+                        source_file=match.source_file,
+                        category=None,  # Auto-infer from source_file
+                    )
+
                     anomaly = Anomaly(
                         id=Anomaly.generate_id(),
                         match=match,
@@ -148,6 +158,7 @@ class BlacklistDetector:
                         criticality_level=breakdown.criticality,
                         capture_id=capture_id,
                         score_breakdown=breakdown,
+                        human_context=human_ctx,
                     )
 
                     anomalies.append(anomaly)

@@ -21,6 +21,13 @@ from app.core.detection.anomaly_store import (
     get_anomaly_store,
     reset_anomaly_store,
 )
+from app.core.detection.human_context import (
+    HumanContext,
+    HumanContextProvider,
+    RiskLevel,
+    get_human_context_provider,
+    reset_human_context_provider,
+)
 
 __all__ = [
     "BlacklistManager",
@@ -35,4 +42,9 @@ __all__ = [
     "AnomalyStore",
     "get_anomaly_store",
     "reset_anomaly_store",
+    "HumanContext",
+    "HumanContextProvider",
+    "RiskLevel",
+    "get_human_context_provider",
+    "reset_human_context_provider",
 ]

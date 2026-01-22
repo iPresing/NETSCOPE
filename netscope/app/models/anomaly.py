@@ -7,6 +7,8 @@ Lessons Learned Epic 1/2:
 - Use Python 3.10+ type hints (X | None, not Optional[X])
 - Use module-level logger, NOT current_app.logger
 - Dataclasses with to_dict() for JSON serialization
+
+Story 2.5: Added human_context field for accessible explanations (FR14, NFR27)
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import uuid
 # TYPE_CHECKING used to avoid circular import (scoring.py imports CriticalityLevel)
 if TYPE_CHECKING:
     from app.models.scoring import ScoreBreakdown
+    from app.core.detection.human_context import HumanContext
 
 
 class CriticalityLevel(Enum):
@@ -89,6 +92,7 @@ class Anomaly:
         capture_id: ID of the capture session
         created_at: When the anomaly was created
         score_breakdown: Detailed score breakdown (optional)
+        human_context: Human-readable context for non-experts (Story 2.5)
     """
 
     id: str
@@ -99,6 +103,7 @@ class Anomaly:
     capture_id: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now())
     score_breakdown: ScoreBreakdown | None = None
+    human_context: HumanContext | None = None
 
     @staticmethod
     def generate_id() -> str:
@@ -129,6 +134,10 @@ class Anomaly:
 
         if include_breakdown and self.score_breakdown is not None:
             result["score_breakdown"] = self.score_breakdown.to_dict()
+
+        # Story 2.5: Include human_context in API response (AC7)
+        if self.human_context is not None:
+            result["human_context"] = self.human_context.to_dict()
 
         return result
 
