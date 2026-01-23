@@ -6,75 +6,63 @@
 <div class="anomalies-container">
     <section class="page-header">
         <h2>Liste des Anomalies</h2>
-        <p class="text-muted">Anomalies détectées lors des captures réseau</p>
+        <p class="text-muted">Anomalies detectees lors des captures reseau</p>
     </section>
 
     <section class="anomalies-filters card">
         <div class="filter-row">
             <div class="form-group">
-                <label for="severity-filter">Sévérité:</label>
+                <label for="severity-filter">Severite:</label>
                 <select id="severity-filter" class="form-control" disabled>
                     <option value="all">Toutes</option>
                     <option value="critical">Critique</option>
                     <option value="warning">Avertissement</option>
-                    <option value="info">Information</option>
+                    <option value="normal">Normal</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="type-filter">Type:</label>
                 <select id="type-filter" class="form-control" disabled>
                     <option value="all">Tous</option>
-                    <option value="blacklist">Blacklist</option>
-                    <option value="behavioral">Comportemental</option>
-                    <option value="protocol">Protocole</option>
+                    <option value="ip">IP blacklistee</option>
+                    <option value="domain">Domaine blackliste</option>
+                    <option value="term">Terme suspect</option>
                 </select>
             </div>
-            <button class="btn btn-primary" disabled>Filtrer</button>
+            <button class="btn btn-primary" disabled title="Epic 2.8 - DataTables">Filtrer</button>
         </div>
     </section>
 
-    <section class="anomalies-table card">
-        <div class="table-placeholder">
-            <table class="data-table" id="anomalies-table">
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Sévérité</th>
-                        <th>Type</th>
-                        <th>Source IP</th>
-                        <th>Destination</th>
-                        <th>Description</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr class="placeholder-row">
-                        <td colspan="7" class="text-center text-muted">
-                            <p>Aucune anomalie détectée</p>
-                            <p class="text-sm">Les anomalies apparaîtront après une capture</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+    <section class="anomalies-list-section card">
+        <div id="anomaly-list" class="anomaly-list">
+            <!-- Anomalies will be rendered here by anomalies.js -->
+            <div class="anomaly-empty-state" id="anomaly-empty-state">
+                <p class="text-muted text-center">Aucune anomalie detectee</p>
+                <p class="text-sm text-muted text-center">Lancez une capture pour analyser le trafic reseau</p>
+            </div>
         </div>
     </section>
 
     <section class="anomalies-summary card">
-        <h3>Résumé</h3>
+        <h3>Resume</h3>
         <div class="summary-stats">
             <div class="stat-item">
-                <span class="stat-value status-critical">0</span>
+                <span class="stat-value status-critical" id="summary-critical">0</span>
                 <span class="stat-label">Critiques</span>
             </div>
             <div class="stat-item">
-                <span class="stat-value status-warning">0</span>
+                <span class="stat-value status-warning" id="summary-warning">0</span>
                 <span class="stat-label">Avertissements</span>
             </div>
             <div class="stat-item">
-                <span class="stat-value status-info">0</span>
-                <span class="stat-label">Informations</span>
+                <span class="stat-value status-info" id="summary-normal">0</span>
+                <span class="stat-label">Normaux</span>
             </div>
         </div>
     </section>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/anomalies.js') }}"></script>
 {% endblock %}
