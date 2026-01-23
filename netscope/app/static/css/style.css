@@ -2853,3 +2853,133 @@ select.form-control {
         font-size: 0.95rem;
     }
 }
+
+/* =============================================================================
+   Story 2.8: DataTables Filtres & Tri
+   ============================================================================= */
+
+/* Search filter input group */
+.search-group {
+    flex: 2;
+}
+
+#search-filter {
+    width: 100%;
+}
+
+/* Filter count indicator */
+.filter-count {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    white-space: nowrap;
+    align-self: center;
+    margin-left: var(--space-md);
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--void-black);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+
+/* Anomaly list headers with sortable columns */
+.anomaly-list-headers {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-md);
+    background: var(--deep-space);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+
+/* Sortable headers */
+.sortable-header {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+}
+
+.sortable-header:hover {
+    color: var(--neon-cyan);
+    background: rgba(0, 245, 255, 0.1);
+}
+
+/* Sort indicator arrow */
+.sort-indicator {
+    font-size: 0.65rem;
+    opacity: 0.4;
+    transition: var(--transition-fast);
+}
+
+.sort-indicator.active {
+    opacity: 1;
+    color: var(--neon-cyan);
+}
+
+/* Filter active state - highlighted border */
+.filter-active,
+.form-control:not([value="all"]):focus {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 5px rgba(0, 245, 255, 0.3);
+}
+
+/* Reset filters button in empty state */
+#reset-filters-btn {
+    margin-top: var(--space-md);
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+}
+
+#reset-filters-btn:hover {
+    border-color: var(--neon-cyan);
+    color: var(--neon-cyan);
+    background: rgba(0, 245, 255, 0.1);
+}
+
+/* =============================================================================
+   Responsive - Story 2.8 Filters
+   ============================================================================= */
+@media (max-width: 768px) {
+    .anomalies-filters .filter-row {
+        flex-direction: column;
+        gap: var(--space-md);
+    }
+
+    .search-group {
+        flex: none;
+        width: 100%;
+    }
+
+    .anomalies-filters .form-group {
+        width: 100%;
+    }
+
+    .filter-count {
+        width: 100%;
+        text-align: center;
+        margin-left: 0;
+    }
+
+    .anomaly-list-headers {
+        flex-direction: column;
+        gap: var(--space-sm);
+        align-items: stretch;
+    }
+
+    .sortable-header {
+        justify-content: center;
+    }
+}

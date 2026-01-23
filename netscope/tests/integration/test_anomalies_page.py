@@ -1,15 +1,26 @@
 """Integration tests for anomalies page.
 
 Story 2.7: Tests for anomaly list rendering with progress bars.
+Story 2.8: Tests for filtering, searching, and sorting.
 
 Tests cover:
+Story 2.7:
 - AC1: Liste triée par score décroissant
 - AC2: Barres de progression visuelles
 - AC3: Informations complètes par anomalie
 - AC4: Intégration API existante
 - AC5: État initial sans anomalies
 
-Lessons Learned Epic 1 & Stories 2.1-2.6:
+Story 2.8:
+- AC1: Recherche texte dynamique
+- AC2: Filtrage par criticité
+- AC3: Filtrage par type match
+- AC4: Tri par score interactif
+- AC5: Tri par IP/Valeur
+- AC6: Combinaison filtres
+- AC7: Persistence état UI
+
+Lessons Learned Epic 1 & Stories 2.1-2.7:
 - Use Python 3.10+ type hints (X | None, not Optional[X])
 - Use module-level logger, NOT current_app.logger
 """
@@ -381,10 +392,10 @@ class TestAnomalyInformation:
 
 
 class TestFilterSection:
-    """Test filter section is present (prep for Story 2.8)."""
+    """Test filter section is present and enabled (Story 2.8)."""
 
     def test_filter_section_exists(self, client):
-        """Test filter section exists in page (disabled for now)."""
+        """Test filter section exists in page with enabled controls."""
         response = client.get('/anomalies')
         html = response.data.decode('utf-8')
 
@@ -394,10 +405,50 @@ class TestFilterSection:
         # Check type filter exists
         assert 'id="type-filter"' in html
 
-        # Both should be disabled (Story 2.8)
-        # Look for pattern: select ... disabled
-        assert re.search(r'id="severity-filter"[^>]*disabled', html)
-        assert re.search(r'id="type-filter"[^>]*disabled', html)
+        # Check search filter exists (Story 2.8)
+        assert 'id="search-filter"' in html
+
+        # Check filter count indicator exists (Story 2.8)
+        assert 'id="filter-count"' in html
+
+    def test_filters_are_enabled(self, client):
+        """Test filter controls are enabled (Story 2.8)."""
+        response = client.get('/anomalies')
+        html = response.data.decode('utf-8')
+
+        # Filters should NOT be disabled anymore
+        assert 'id="severity-filter" class="form-control" disabled' not in html
+        assert 'id="type-filter" class="form-control" disabled' not in html
+
+    def test_severity_filter_options(self, client):
+        """Test severity filter has correct options (Story 2.8 AC2)."""
+        response = client.get('/anomalies')
+        html = response.data.decode('utf-8')
+
+        # Check all severity options exist
+        assert 'value="all">Toutes' in html
+        assert 'value="critical">Critique' in html
+        assert 'value="warning">Avertissement' in html
+        assert 'value="normal">Normal' in html
+
+    def test_type_filter_options(self, client):
+        """Test type filter has correct options (Story 2.8 AC3)."""
+        response = client.get('/anomalies')
+        html = response.data.decode('utf-8')
+
+        # Check all type options exist
+        assert 'value="all">Tous' in html
+        assert 'value="ip">IP blacklistee' in html
+        assert 'value="domain">Domaine blackliste' in html
+        assert 'value="term">Terme suspect' in html
+
+    def test_search_filter_placeholder(self, client):
+        """Test search filter has informative placeholder (Story 2.8 AC1)."""
+        response = client.get('/anomalies')
+        html = response.data.decode('utf-8')
+
+        # Check search input has placeholder
+        assert 'placeholder="IP, port, description..."' in html
 
 
 class TestProgressBarCSS:
@@ -456,3 +507,179 @@ class TestProgressBarCSS:
         assert '.anomaly-item.anomaly-critical' in css_content
         assert '.anomaly-item.anomaly-warning' in css_content
         assert '.anomaly-item.anomaly-normal' in css_content
+
+
+class TestFilterSortCSS:
+    """Test filter and sort CSS classes exist in stylesheet (Story 2.8)."""
+
+    def test_css_contains_search_group_class(self, app):
+        """Test style.css contains search-group CSS class."""
+        import os
+        css_path = os.path.join(
+            app.static_folder, 'css', 'style.css'
+        )
+        with open(css_path, 'r', encoding='utf-8') as f:
+            css_content = f.read()
+
+        # Check search group class exists
+        assert '.search-group' in css_content
+
+    def test_css_contains_filter_count_class(self, app):
+        """Test style.css contains filter-count CSS class."""
+        import os
+        css_path = os.path.join(
+            app.static_folder, 'css', 'style.css'
+        )
+        with open(css_path, 'r', encoding='utf-8') as f:
+            css_content = f.read()
+
+        # Check filter count class exists
+        assert '.filter-count' in css_content
+
+    def test_css_contains_sortable_header_classes(self, app):
+        """Test style.css contains sortable header CSS classes."""
+        import os
+        css_path = os.path.join(
+            app.static_folder, 'css', 'style.css'
+        )
+        with open(css_path, 'r', encoding='utf-8') as f:
+            css_content = f.read()
+
+        # Check sortable header classes exist
+        assert '.sortable-header' in css_content
+        assert '.sort-indicator' in css_content
+        assert '.sort-indicator.active' in css_content
+
+    def test_css_contains_reset_filters_button(self, app):
+        """Test style.css contains reset filters button CSS."""
+        import os
+        css_path = os.path.join(
+            app.static_folder, 'css', 'style.css'
+        )
+        with open(css_path, 'r', encoding='utf-8') as f:
+            css_content = f.read()
+
+        # Check reset filters button exists
+        assert '#reset-filters-btn' in css_content
+
+    def test_css_contains_anomaly_list_headers(self, app):
+        """Test style.css contains anomaly list headers CSS."""
+        import os
+        css_path = os.path.join(
+            app.static_folder, 'css', 'style.css'
+        )
+        with open(css_path, 'r', encoding='utf-8') as f:
+            css_content = f.read()
+
+        # Check anomaly list headers class exists
+        assert '.anomaly-list-headers' in css_content
+
+
+class TestAnomaliesJavaScript:
+    """Test anomalies.js contains required functionality (Story 2.8)."""
+
+    def test_js_contains_filter_functions(self, app):
+        """Test anomalies.js contains filter functions."""
+        import os
+        js_path = os.path.join(
+            app.static_folder, 'js', 'anomalies.js'
+        )
+        with open(js_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+
+        # Check filter functions exist
+        assert 'function filterBySeverity' in js_content
+        assert 'function filterByType' in js_content
+        assert 'function filterBySearch' in js_content
+        assert 'function applyAllFilters' in js_content
+
+    def test_js_contains_sort_functions(self, app):
+        """Test anomalies.js contains sort functions."""
+        import os
+        js_path = os.path.join(
+            app.static_folder, 'js', 'anomalies.js'
+        )
+        with open(js_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+
+        # Check sort functions exist
+        assert 'function sortAnomalies' in js_content
+        assert 'function toggleSort' in js_content
+        assert 'function updateSortIndicators' in js_content
+
+    def test_js_contains_debounce_function(self, app):
+        """Test anomalies.js contains debounce utility for search."""
+        import os
+        js_path = os.path.join(
+            app.static_folder, 'js', 'anomalies.js'
+        )
+        with open(js_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+
+        # Check debounce function exists
+        assert 'function debounce' in js_content
+        # Check it's used with 100ms (AC1 spec: <100ms)
+        assert '100' in js_content
+
+    def test_js_contains_empty_state_handling(self, app):
+        """Test anomalies.js contains empty state handling for filters."""
+        import os
+        js_path = os.path.join(
+            app.static_folder, 'js', 'anomalies.js'
+        )
+        with open(js_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+
+        # Check filtered empty state function exists
+        assert 'function showFilteredEmptyState' in js_content
+        assert 'Aucune anomalie ne correspond aux filtres' in js_content
+
+    def test_js_contains_reset_filters_function(self, app):
+        """Test anomalies.js contains reset filters function."""
+        import os
+        js_path = os.path.join(
+            app.static_folder, 'js', 'anomalies.js'
+        )
+        with open(js_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+
+        # Check reset filters function exists
+        assert 'function resetFilters' in js_content
+
+    def test_js_contains_filter_count_update(self, app):
+        """Test anomalies.js contains filter count update function."""
+        import os
+        js_path = os.path.join(
+            app.static_folder, 'js', 'anomalies.js'
+        )
+        with open(js_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+
+        # Check filter count update function exists
+        assert 'function updateFilterCount' in js_content
+
+    def test_js_uses_iife_pattern(self, app):
+        """Test anomalies.js uses IIFE pattern as per project standards."""
+        import os
+        js_path = os.path.join(
+            app.static_folder, 'js', 'anomalies.js'
+        )
+        with open(js_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+
+        # Check IIFE pattern
+        assert "(function()" in js_content
+        assert "'use strict'" in js_content
+
+    def test_js_contains_sortable_headers_builder(self, app):
+        """Test anomalies.js contains sortable headers builder."""
+        import os
+        js_path = os.path.join(
+            app.static_folder, 'js', 'anomalies.js'
+        )
+        with open(js_path, 'r', encoding='utf-8') as f:
+            js_content = f.read()
+
+        # Check sortable headers builder exists
+        assert 'function buildSortableHeaders' in js_content
+        assert 'data-sort-field' in js_content

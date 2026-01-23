@@ -11,9 +11,14 @@
 
     <section class="anomalies-filters card">
         <div class="filter-row">
+            <div class="form-group search-group">
+                <label for="search-filter">Rechercher:</label>
+                <input type="text" id="search-filter" class="form-control"
+                       placeholder="IP, port, description...">
+            </div>
             <div class="form-group">
-                <label for="severity-filter">Severite:</label>
-                <select id="severity-filter" class="form-control" disabled>
+                <label for="severity-filter">Sévérité:</label>
+                <select id="severity-filter" class="form-control">
                     <option value="all">Toutes</option>
                     <option value="critical">Critique</option>
                     <option value="warning">Avertissement</option>
@@ -22,14 +27,14 @@
             </div>
             <div class="form-group">
                 <label for="type-filter">Type:</label>
-                <select id="type-filter" class="form-control" disabled>
+                <select id="type-filter" class="form-control">
                     <option value="all">Tous</option>
                     <option value="ip">IP blacklistee</option>
                     <option value="domain">Domaine blackliste</option>
                     <option value="term">Terme suspect</option>
                 </select>
             </div>
-            <button class="btn btn-primary" disabled title="Epic 2.8 - DataTables">Filtrer</button>
+            <span id="filter-count" class="filter-count">0 anomalies</span>
         </div>
     </section>
 
