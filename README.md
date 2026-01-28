@@ -29,6 +29,8 @@ Les administrateurs réseau débutants et PME font face à un problème : **Wire
 ✓ Installation plug & play en moins de 5 minutes
 ```
 
+*Il est toujours en phase de développement*
+
 ---
 
 ## ⚡ Fonctionnalités
