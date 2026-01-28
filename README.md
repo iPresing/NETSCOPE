@@ -80,7 +80,7 @@ Top talkers, distribution protocoles, ports inhabituels, connexions externes
 ### 1️⃣ Cloner le dépôt
 
 ```bash
-git clone [https://github.com/vhttps://github.com/iPresing/NETSCOPE.git)
+git clone https://github.com/iPresing/NETSCOPE.git
 cd netscope
 ```
 
