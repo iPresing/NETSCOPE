@@ -11,10 +11,14 @@
 
     /**
      * Toast configuration.
+     * Durations per AC2 (Story 2.9):
+     * - info/success: 3000ms (defaultDuration)
+     * - warning/error: 5000ms (set in respective functions)
      */
     var config = {
         position: 'top-right',
-        defaultDuration: 3000,
+        defaultDuration: 3000,  // 3s for info/success (AC2)
+        warningDuration: 5000,  // 5s for warning/error (AC2)
         maxToasts: 5
     };
 
@@ -107,27 +111,33 @@
     /**
      * Show warning toast.
      * @param {string} message - Message to display
-     * @param {number} duration - Display duration
+     * @param {number} duration - Display duration (default 5000ms per AC2)
      */
     function warning(message, duration) {
-        show(message, 'warning', duration);
+        show(message, 'warning', duration || config.warningDuration);
     }
 
     /**
      * Show error toast.
      * @param {string} message - Message to display
-     * @param {number} duration - Display duration
+     * @param {number} duration - Display duration (default 5000ms per AC2)
      */
     function error(message, duration) {
-        show(message, 'error', duration || 5000);
+        show(message, 'error', duration || config.warningDuration);
     }
 
     /**
      * Escape HTML to prevent XSS.
+     * Uses shared NetScopeUtils.escapeHtml if available, otherwise local fallback.
      * @param {string} text - Text to escape
      * @returns {string} Escaped text
      */
     function escapeHtml(text) {
+        // Use shared utility if available (loaded from capture.js)
+        if (window.NetScopeUtils && window.NetScopeUtils.escapeHtml) {
+            return window.NetScopeUtils.escapeHtml(text);
+        }
+        // Fallback for standalone usage
         var div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;

@@ -74,6 +74,11 @@
     let captureTimer = null;
     let elapsedSeconds = 0;
     let statusPollInterval = null;
+    let packetAnimationInterval = null;
+
+    // Packet animation frames
+    const PACKET_FRAMES = ['....>', '...>', '..>', '.>', '>'];
+    let packetFrameIndex = 0;
 
     /**
      * Initialize capture controls
@@ -111,7 +116,10 @@
         hideElement(errorDiv);
 
         try {
+            // Show loading state on button (AC5: immediate feedback)
             btnStart.disabled = true;
+            btnStart.classList.add('btn-loading');
+            btnStart.innerHTML = '<span class="btn-icon btn-spinner">&#8987;</span> Lancement...';
 
             const response = await fetch('/api/captures/start', {
                 method: 'POST',
@@ -129,12 +137,23 @@
                 startStatusPolling();
             } else {
                 showError(data.error.message || 'Erreur de capture');
-                btnStart.disabled = false;
+                resetStartButton();
             }
         } catch (error) {
             console.error('Capture start error:', error);
             showError('Erreur de connexion au serveur');
+            resetStartButton();
+        }
+    }
+
+    /**
+     * Reset start button to original state
+     */
+    function resetStartButton() {
+        if (btnStart) {
             btnStart.disabled = false;
+            btnStart.classList.remove('btn-loading');
+            btnStart.innerHTML = '<span class="btn-icon">&#128640;</span> Lancer Capture';
         }
     }
 
@@ -509,6 +528,7 @@
             elapsedSeconds++;
             updateTimerDisplay();
         }, 1000);
+        startPacketAnimation();
     }
 
     /**
@@ -520,6 +540,38 @@
             captureTimer = null;
         }
         elapsedSeconds = 0;
+        stopPacketAnimation();
+    }
+
+    /**
+     * Start packet stream animation
+     */
+    function startPacketAnimation() {
+        stopPacketAnimation(); // Clear any existing animation
+        var packetEl = document.querySelector('.packet-animation');
+        if (packetEl) {
+            packetEl.classList.add('animating');
+            packetFrameIndex = 0;
+            packetAnimationInterval = setInterval(function() {
+                packetFrameIndex = (packetFrameIndex + 1) % PACKET_FRAMES.length;
+                packetEl.textContent = PACKET_FRAMES[packetFrameIndex];
+            }, 150);
+        }
+    }
+
+    /**
+     * Stop packet stream animation
+     */
+    function stopPacketAnimation() {
+        if (packetAnimationInterval) {
+            clearInterval(packetAnimationInterval);
+            packetAnimationInterval = null;
+        }
+        var packetEl = document.querySelector('.packet-animation');
+        if (packetEl) {
+            packetEl.classList.remove('animating');
+            packetEl.textContent = '....>';
+        }
     }
 
     /**
@@ -860,13 +912,19 @@
             if (data.success) {
                 // Update stats display
                 updateBlacklistStats(data.result);
-                showToast('success', 'Blacklists recharg\u00e9es avec succ\u00e8s');
+                if (window.NetScope && window.NetScope.toast) {
+                    window.NetScope.toast.success('Blacklists rechargées avec succès');
+                }
             } else {
-                showToast('error', data.error.message || 'Erreur de rechargement');
+                if (window.NetScope && window.NetScope.toast) {
+                    window.NetScope.toast.error(data.error.message || 'Erreur de rechargement');
+                }
             }
         } catch (error) {
             console.error('Blacklist reload error:', error);
-            showToast('error', 'Erreur de connexion au serveur');
+            if (window.NetScope && window.NetScope.toast) {
+                window.NetScope.toast.error('Erreur de connexion au serveur');
+            }
         } finally {
             // Reset button state
             btnReload.classList.remove('loading');
@@ -883,38 +941,6 @@
         if (domainsCount) domainsCount.textContent = stats.domains_count || 0;
         if (termsCount) termsCount.textContent = stats.terms_count || 0;
         if (totalCount) totalCount.textContent = stats.total_entries || 0;
-    }
-
-    /**
-     * Show a toast notification
-     */
-    function showToast(type, message) {
-        // Check if toast container exists, create if not
-        let container = document.querySelector('.toast-container');
-        if (!container) {
-            container = document.createElement('div');
-            container.className = 'toast-container';
-            document.body.appendChild(container);
-        }
-
-        // Create toast element
-        const toast = document.createElement('div');
-        toast.className = 'toast toast-' + type;
-        toast.textContent = message;
-        container.appendChild(toast);
-
-        // Show toast
-        setTimeout(function() {
-            toast.classList.add('toast-visible');
-        }, 10);
-
-        // Hide and remove toast after 3 seconds
-        setTimeout(function() {
-            toast.classList.remove('toast-visible');
-            setTimeout(function() {
-                toast.remove();
-            }, 300);
-        }, 3000);
     }
 
     // Initialize when DOM is ready

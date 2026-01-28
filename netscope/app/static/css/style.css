@@ -549,15 +549,20 @@ main {
 .capture-status .packet-animation {
     font-family: var(--font-mono);
     color: var(--matrix-green);
-    animation: packet-stream 0.5s steps(4) infinite;
     letter-spacing: 2px;
+    min-width: 50px;
+    display: inline-block;
+    text-shadow: var(--glow-green);
 }
 
-@keyframes packet-stream {
-    0% { content: '....>'; opacity: 0.4; }
-    25% { content: '...>'; opacity: 0.6; }
-    50% { content: '..>'; opacity: 0.8; }
-    75% { content: '.>'; opacity: 1; }
+/* Packet animation keyframes for opacity pulsing */
+@keyframes packet-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+.capture-status .packet-animation.animating {
+    animation: packet-pulse 0.5s ease-in-out infinite;
 }
 
 .capture-status .capture-timer {
@@ -764,6 +769,21 @@ select.form-control {
     transform: none !important;
 }
 
+/* Button loading state */
+.btn-loading {
+    pointer-events: none;
+}
+
+.btn-spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 /* =============================================================================
    Score Health - Threat Assessment
    ============================================================================= */
@@ -880,6 +900,7 @@ select.form-control {
     border: 1px solid var(--border-subtle);
     position: relative;
     overflow: hidden;
+    transition: var(--transition-normal);
 }
 
 .status-card::before {
@@ -1466,6 +1487,7 @@ select.form-control {
     border-color: var(--neon-cyan);
 }
 .toast-info::before { background: var(--neon-cyan); }
+.toast-info.toast-visible { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), var(--glow-cyan); }
 
 .toast-success {
     background: var(--panel-bg);
@@ -1473,6 +1495,7 @@ select.form-control {
     border-color: var(--matrix-green);
 }
 .toast-success::before { background: var(--matrix-green); }
+.toast-success.toast-visible { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), var(--glow-green); }
 
 .toast-warning {
     background: var(--panel-bg);
@@ -1480,6 +1503,7 @@ select.form-control {
     border-color: var(--alert-amber);
 }
 .toast-warning::before { background: var(--alert-amber); }
+.toast-warning.toast-visible { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), var(--glow-amber); }
 
 .toast-error {
     background: var(--panel-bg);
@@ -1487,6 +1511,7 @@ select.form-control {
     border-color: var(--danger-red);
 }
 .toast-error::before { background: var(--danger-red); }
+.toast-error.toast-visible { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), var(--glow-red); }
 
 /* =============================================================================
    Capture Animation - Enhanced
