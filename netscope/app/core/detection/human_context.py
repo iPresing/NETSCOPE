@@ -527,6 +527,86 @@ class HumanContextProvider:
             },
         )
 
+    def get_domain_context(
+        self,
+        domain: str,
+        source_file: str,
+        category: str | None = None,
+    ) -> HumanContext:
+        """Genere le contexte humain pour un domaine blackliste.
+
+        Story 2.2 AC2: Domain blacklist detection with human context.
+
+        Args:
+            domain: Nom de domaine
+            source_file: Fichier source de la blacklist
+            category: Categorie optionnelle (phishing, malware, c2, etc.)
+
+        Returns:
+            HumanContext avec explication accessible
+        """
+        logger.debug(f"Domain context requested (domain={domain}, source_file={source_file})")
+
+        # Deduire categorie du nom de fichier si non fournie
+        if not category:
+            category = self._infer_category_from_source(source_file)
+
+        ctx = BLACKLIST_CATEGORY_CONTEXTS.get(
+            category,
+            BLACKLIST_CATEGORY_CONTEXTS["default"],
+        )
+
+        # Adapter le message pour les domaines
+        short_msg = ctx["short"].replace("Adresse IP", "Domaine").replace("IP", "Domaine")
+        explanation = ctx["explanation"].replace("adresse IP", "domaine").replace("IP", "domaine")
+
+        return HumanContext(
+            short_message=short_msg,
+            explanation=explanation,
+            risk_level=ctx["risk"],
+            indicator=RISK_INDICATOR_MAP[ctx["risk"]],
+            action_hint=ctx.get("action"),
+            technical_details={
+                "domain": domain,
+                "source_file": source_file,
+                "category": category,
+            },
+        )
+
+    def get_term_context(
+        self,
+        term: str,
+        context_snippet: str | None = None,
+    ) -> HumanContext:
+        """Genere le contexte humain pour un terme suspect detecte.
+
+        Story 2.2 AC3: Term detection with human context.
+
+        Args:
+            term: Terme suspect detecte
+            context_snippet: Extrait du payload contenant le terme
+
+        Returns:
+            HumanContext avec explication accessible
+        """
+        logger.debug(f"Term context requested (term={term})")
+
+        return HumanContext(
+            short_message="Terme suspect detecte",
+            explanation=(
+                f"Le terme '{term}' a ete detecte dans le trafic reseau. "
+                "Ce terme peut indiquer une activite suspecte comme un reverse shell, "
+                "une tentative d'intrusion, ou l'execution de commandes malveillantes."
+            ),
+            risk_level=RiskLevel.MEDIUM,
+            indicator=RISK_INDICATOR_MAP[RiskLevel.MEDIUM],
+            action_hint="Analysez le contexte complet du paquet pour determiner si l'activite est legitime.",
+            technical_details={
+                "term": term,
+                "context_snippet": context_snippet[:100] if context_snippet else None,
+            },
+        )
+
     def get_protocol_context(
         self,
         protocol: str,

