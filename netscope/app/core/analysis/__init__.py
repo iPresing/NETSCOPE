@@ -9,6 +9,13 @@ from app.core.analysis.scoring import (
 # Re-export models from their canonical location
 from app.models.scoring import ScoreBreakdown, HeuristicFactors
 
+# Health Score calculation (Story 3.1)
+from app.core.analysis.health_score import (
+    HealthScoreCalculator,
+    get_health_calculator,
+    reset_health_calculator,
+)
+
 # Four Essentials analysis (Story 2.4)
 from app.core.analysis.four_essentials import (
     FourEssentialsAnalyzer,
@@ -25,6 +32,10 @@ __all__ = [
     "HeuristicFactors",
     "get_scoring_engine",
     "reset_scoring_engine",
+    # Health Score (Story 3.1)
+    "HealthScoreCalculator",
+    "get_health_calculator",
+    "reset_health_calculator",
     # Four Essentials
     "FourEssentialsAnalyzer",
     "FourEssentialsResult",
