@@ -26,7 +26,7 @@ SCAPY_AVAILABLE = False
 DPKT_AVAILABLE = False
 
 try:
-    from scapy.all import rdpcap, IP, TCP, UDP, ICMP
+    from scapy.all import rdpcap, IP, TCP, UDP, ICMP, DNS, DNSQR, Raw
     SCAPY_AVAILABLE = True
     logger.debug("Scapy available for packet parsing")
 except ImportError:
@@ -117,6 +117,11 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
         port_dst = None
         protocol = "OTHER"
 
+        # Story 2.2: Extract DNS queries, HTTP host, and payload preview
+        dns_queries: list[str] = []
+        http_host: str | None = None
+        payload_preview: str | None = None
+
         if TCP in pkt:
             tcp_layer = pkt[TCP]
             port_src = tcp_layer.sport
@@ -124,6 +129,30 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
             protocol = "TCP"
             port_counter[port_src] += 1
             port_counter[port_dst] += 1
+
+            # Extract HTTP Host header (AC2) and payload preview (AC3)
+            if Raw in pkt:
+                try:
+                    raw_data = bytes(pkt[Raw].load)
+                    # Try to decode as text for inspection
+                    try:
+                        text_payload = raw_data.decode('utf-8', errors='ignore')
+                    except Exception:
+                        text_payload = raw_data.decode('latin-1', errors='ignore')
+
+                    # Extract HTTP Host header
+                    if text_payload.startswith(('GET ', 'POST ', 'PUT ', 'DELETE ', 'HEAD ', 'OPTIONS ', 'PATCH ')):
+                        for line in text_payload.split('\r\n'):
+                            if line.lower().startswith('host:'):
+                                http_host = line[5:].strip().split(':')[0]  # Remove port if present
+                                break
+
+                    # Store payload preview for term detection (first 200 chars)
+                    if text_payload:
+                        payload_preview = text_payload[:200]
+                except Exception:
+                    pass
+
         elif UDP in pkt:
             udp_layer = pkt[UDP]
             port_src = udp_layer.sport
@@ -131,6 +160,32 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
             protocol = "UDP"
             port_counter[port_src] += 1
             port_counter[port_dst] += 1
+
+            # Extract DNS queries (AC2) - port 53
+            if DNS in pkt and pkt[DNS].qr == 0:  # qr=0 means query
+                dns_layer = pkt[DNS]
+                if DNSQR in pkt:
+                    try:
+                        qname = pkt[DNSQR].qname
+                        if isinstance(qname, bytes):
+                            qname = qname.decode('utf-8', errors='ignore')
+                        # Remove trailing dot
+                        qname = qname.rstrip('.')
+                        if qname:
+                            dns_queries.append(qname)
+                    except Exception:
+                        pass
+
+            # Extract payload preview for UDP too (AC3)
+            if Raw in pkt:
+                try:
+                    raw_data = bytes(pkt[Raw].load)
+                    text_payload = raw_data.decode('utf-8', errors='ignore')
+                    if text_payload:
+                        payload_preview = text_payload[:200]
+                except Exception:
+                    pass
+
         elif ICMP in pkt:
             protocol = "ICMP"
 
@@ -148,6 +203,9 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
             port_dst=port_dst,
             protocol=protocol,
             length=pkt_len,
+            dns_queries=dns_queries,
+            http_host=http_host,
+            payload_preview=payload_preview,
         )
         packets.append(packet_info)
 

@@ -177,52 +177,253 @@ class BlacklistDetector:
     ) -> list[Anomaly]:
         """Detect blacklisted domains in packets.
 
-        Note: In MVP without deep packet inspection, domain detection
-        is limited. DNS queries or HTTP headers would need to be parsed
-        from packet payload. This will be enhanced in Story 2.4.
+        Checks DNS queries and HTTP Host headers against domain blacklist.
+        Story 2.2 AC2: Exact match detection for blacklisted domains.
 
         Args:
             packets: List of packets to analyze
             capture_id: Capture session ID
 
         Returns:
-            List of Anomaly objects for domain matches (empty for MVP)
-
-        IMPORTANT (Code Review M3): When implementing, use self._scoring.calculate_score()
-        with MatchType.DOMAIN to get dynamic scoring. See _detect_ips() for example.
+            List of Anomaly objects for domain matches
         """
-        # MVP: No deep packet inspection available
-        # Domain detection requires DNS query parsing or HTTP header analysis
-        # This will be implemented in Story 2.4 (4 analyses essentielles)
-        # TODO: Use self._scoring.calculate_score(match, packet_info) when implemented
-        return []
+        anomalies: list[Anomaly] = []
+        checked_domains: set[str] = set()
+
+        for packet in packets:
+            # Check DNS queries
+            for domain in packet.dns_queries:
+                domain_lower = domain.lower()
+                if domain_lower in checked_domains:
+                    continue
+                checked_domains.add(domain_lower)
+
+                if self._manager.check_domain(domain_lower):
+                    match = BlacklistMatch(
+                        match_type=MatchType.DOMAIN,
+                        matched_value=domain,
+                        source_file="domains_blacklist",
+                        context=self._build_domain_context(domain, packet, "DNS query"),
+                        criticality=CriticalityLevel.CRITICAL,
+                        timestamp=packet.timestamp,
+                    )
+
+                    breakdown = self._scoring.calculate_score(
+                        match=match,
+                        packet_info=packet,
+                        context=None,
+                    )
+
+                    human_ctx = self._human_context.get_domain_context(
+                        domain=domain,
+                        source_file=match.source_file,
+                        category=None,
+                    )
+
+                    anomaly = Anomaly(
+                        id=Anomaly.generate_id(),
+                        match=match,
+                        score=breakdown.total_score,
+                        packet_info=packet.to_dict(),
+                        criticality_level=breakdown.criticality,
+                        capture_id=capture_id,
+                        score_breakdown=breakdown,
+                        human_context=human_ctx,
+                    )
+
+                    anomalies.append(anomaly)
+                    logger.warning(
+                        f"Blacklisted domain detected (domain={domain}, "
+                        f"score={breakdown.total_score}, "
+                        f"criticality={breakdown.criticality.value})"
+                    )
+
+            # Check HTTP Host header
+            if packet.http_host:
+                host_lower = packet.http_host.lower()
+                if host_lower not in checked_domains:
+                    checked_domains.add(host_lower)
+
+                    if self._manager.check_domain(host_lower):
+                        match = BlacklistMatch(
+                            match_type=MatchType.DOMAIN,
+                            matched_value=packet.http_host,
+                            source_file="domains_blacklist",
+                            context=self._build_domain_context(packet.http_host, packet, "HTTP Host"),
+                            criticality=CriticalityLevel.CRITICAL,
+                            timestamp=packet.timestamp,
+                        )
+
+                        breakdown = self._scoring.calculate_score(
+                            match=match,
+                            packet_info=packet,
+                            context=None,
+                        )
+
+                        human_ctx = self._human_context.get_domain_context(
+                            domain=packet.http_host,
+                            source_file=match.source_file,
+                            category=None,
+                        )
+
+                        anomaly = Anomaly(
+                            id=Anomaly.generate_id(),
+                            match=match,
+                            score=breakdown.total_score,
+                            packet_info=packet.to_dict(),
+                            criticality_level=breakdown.criticality,
+                            capture_id=capture_id,
+                            score_breakdown=breakdown,
+                            human_context=human_ctx,
+                        )
+
+                        anomalies.append(anomaly)
+                        logger.warning(
+                            f"Blacklisted domain detected (domain={packet.http_host}, "
+                            f"score={breakdown.total_score}, via=HTTP Host)"
+                        )
+
+        return anomalies
+
+    def _build_domain_context(self, domain: str, packet: PacketInfo, source: str) -> str:
+        """Build human-readable context for a domain match.
+
+        Args:
+            domain: The matched domain
+            packet: The packet containing the match
+            source: How the domain was detected (DNS query, HTTP Host)
+
+        Returns:
+            Context string describing the match
+        """
+        return (
+            f"Domain {domain} ({source}) - "
+            f"{packet.ip_src} -> {packet.ip_dst} ({packet.protocol})"
+        )
 
     def _detect_terms(
         self,
         packets: list[PacketInfo],
         capture_id: str | None,
     ) -> list[Anomaly]:
-        """Detect suspicious terms in packets.
+        """Detect suspicious terms in packet payloads.
 
-        Note: In MVP with headers-only capture (100 bytes), payload
-        inspection is limited. Term detection in actual payload
-        will be enhanced in Story 2.4.
+        Story 2.2 AC3: Substring match detection for suspicious terms.
+        Terms are detected with WARNING criticality level.
 
         Args:
             packets: List of packets to analyze
             capture_id: Capture session ID
 
         Returns:
-            List of Anomaly objects for term matches (empty for MVP)
-
-        IMPORTANT (Code Review M3): When implementing, use self._scoring.calculate_score()
-        with MatchType.TERM to get dynamic scoring. Term base score is 65 (AC1: 60-79 WARNING).
-        See _detect_ips() for example implementation pattern.
+            List of Anomaly objects for term matches
         """
-        # MVP: Limited payload available (100 bytes headers-only)
-        # Term detection in full payload requires Scapy inspection (Epic 4)
-        # TODO: Use self._scoring.calculate_score(match, packet_info) when implemented
-        return []
+        anomalies: list[Anomaly] = []
+        # Track detected terms per packet to avoid duplicates
+        detected_terms: set[str] = set()
+
+        for packet in packets:
+            if not packet.payload_preview:
+                continue
+
+            # Check for suspicious terms in payload
+            found_terms = self._manager.check_term(packet.payload_preview)
+
+            for term in found_terms:
+                term_lower = term.lower()
+                if term_lower in detected_terms:
+                    continue
+                detected_terms.add(term_lower)
+
+                # Build context snippet around the term
+                context_snippet = self._build_term_context_snippet(
+                    term, packet.payload_preview
+                )
+
+                match = BlacklistMatch(
+                    match_type=MatchType.TERM,
+                    matched_value=term,
+                    source_file="terms_blacklist",
+                    context=self._build_term_context(term, packet, context_snippet),
+                    criticality=CriticalityLevel.WARNING,  # AC3: WARNING level
+                    timestamp=packet.timestamp,
+                )
+
+                breakdown = self._scoring.calculate_score(
+                    match=match,
+                    packet_info=packet,
+                    context=None,
+                )
+
+                human_ctx = self._human_context.get_term_context(
+                    term=term,
+                    context_snippet=context_snippet,
+                )
+
+                anomaly = Anomaly(
+                    id=Anomaly.generate_id(),
+                    match=match,
+                    score=breakdown.total_score,
+                    packet_info=packet.to_dict(),
+                    criticality_level=breakdown.criticality,
+                    capture_id=capture_id,
+                    score_breakdown=breakdown,
+                    human_context=human_ctx,
+                )
+
+                anomalies.append(anomaly)
+                logger.warning(
+                    f"Suspicious term detected (term={term}, "
+                    f"score={breakdown.total_score}, "
+                    f"criticality={breakdown.criticality.value})"
+                )
+
+        return anomalies
+
+    def _build_term_context_snippet(self, term: str, payload: str) -> str:
+        """Extract context snippet around a matched term.
+
+        Args:
+            term: The matched term
+            payload: Full payload string
+
+        Returns:
+            Snippet of ~50 chars around the term
+        """
+        try:
+            idx = payload.lower().find(term.lower())
+            if idx == -1:
+                return payload[:50]
+
+            start = max(0, idx - 20)
+            end = min(len(payload), idx + len(term) + 20)
+            snippet = payload[start:end]
+
+            if start > 0:
+                snippet = "..." + snippet
+            if end < len(payload):
+                snippet = snippet + "..."
+
+            return snippet
+        except Exception:
+            return payload[:50] if payload else ""
+
+    def _build_term_context(self, term: str, packet: PacketInfo, snippet: str) -> str:
+        """Build human-readable context for a term match.
+
+        Args:
+            term: The matched term
+            packet: The packet containing the match
+            snippet: Context snippet around the term
+
+        Returns:
+            Context string describing the match
+        """
+        return (
+            f"Term '{term}' in payload - "
+            f"{packet.ip_src} -> {packet.ip_dst} ({packet.protocol}) - "
+            f"Context: {snippet}"
+        )
 
     def _build_ip_context(self, ip: str, packet: PacketInfo) -> str:
         """Build human-readable context for an IP match.
