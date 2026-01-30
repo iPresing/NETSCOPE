@@ -4,6 +4,7 @@ from app.models.scoring import (
     HeuristicFactors,
     ScoreBreakdown,
 )
+from app.models.health_score import HealthScoreResult
 from app.models.capture import (
     CaptureConfig,
     CaptureError,
@@ -30,6 +31,8 @@ __all__ = [
     # Scoring models (Story 2.3)
     "HeuristicFactors",
     "ScoreBreakdown",
+    # Health Score (Story 3.1)
+    "HealthScoreResult",
     # Capture models
     "CaptureConfig",
     "CaptureError",
