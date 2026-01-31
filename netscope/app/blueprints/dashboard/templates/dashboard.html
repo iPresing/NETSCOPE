@@ -2,6 +2,10 @@
 
 {% block title %}Dashboard - NETSCOPE{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/health-score.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="dashboard-container">
     {# Configuration Capture Section #}
@@ -73,18 +77,10 @@
 
     {# Score and Jobs Row #}
     <div class="dashboard-row">
-        {# Score Sant&eacute; Section #}
+        {# Score Sant&eacute; Section - Story 3.2: Health Score Widget #}
         <section class="score-health card">
             <h2 class="card-title">Score Sant&eacute;</h2>
-            <div class="score-display">
-                <span class="score-value">--</span>
-                <span class="score-max">/100</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: 0%"></div>
-            </div>
-            <p class="score-percent">--%</p>
-            <a href="#" class="btn btn-sm">D&eacute;tails</a>
+            {% include 'components/_health_score.html' %}
         </section>
 
         {# Jobs Inspection Section #}
@@ -331,4 +327,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/capture.js') }}"></script>
+<script src="{{ url_for('static', filename='js/health-score.js') }}"></script>
 {% endblock %}

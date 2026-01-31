@@ -236,6 +236,11 @@
                 if (window.loadFourEssentials) {
                     window.loadFourEssentials();
                 }
+
+                // Load health score after capture results (Story 3.2)
+                if (window.loadHealthScore) {
+                    window.loadHealthScore();
+                }
             }
         } catch (error) {
             console.error('Load result error:', error);
