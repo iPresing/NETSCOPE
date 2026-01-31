@@ -1,7 +1,7 @@
 /**
- * NETSCOPE Health Score Widget Module (Story 3.2 - Compact Design)
+ * NETSCOPE Health Score Widget Module (Story 3.2 - Simple Style)
  *
- * Displays network health score with horizontal progress bar (compact design).
+ * Displays network health score with simple progress bar (Story 3.1 style).
  * Integrates with HealthScoreCalculator backend (Story 3.1).
  *
  * Lessons Learned Epic 1/2:
@@ -9,13 +9,6 @@
  * - Always check element existence before DOM manipulation
  * - Use NetScopeUtils.escapeHtml() for XSS prevention
  * - Validate HTTP responses with if (!response.ok)
- *
- * Code Review Fixes:
- * - Removed duplicate code (M2)
- * - Added data validation (M3)
- * - Implemented Details modal (M4)
- * - Added polling for auto-refresh (H2)
- * - Compact design refactor (visual fix)
  */
 (function() {
     'use strict';
@@ -26,11 +19,11 @@
         WARNING: 50
     };
     var STATUS_LABELS = {
-        normal: 'Sain',
+        normal: 'Réseau Sain',
         warning: 'Attention',
         critical: 'Critique'
     };
-    var POLLING_INTERVAL_MS = 5000; // 5 seconds polling interval
+    var POLLING_INTERVAL_MS = 5000;
 
     // Global state
     var globalWidgetInstance = null;
@@ -67,8 +60,7 @@
             scoreValue: null,
             scoreMax: null,
             statusLabel: null,
-            detailsBtn: null,
-            emptyMessage: null
+            detailsBtn: null
         };
 
         this.init();
@@ -78,8 +70,8 @@
      * Initialize the widget
      */
     HealthScoreWidget.prototype.init = function() {
-        // Check if widget HTML already exists (server-rendered) - compact design
-        var existingWidget = this.container.querySelector('.health-score-compact');
+        // Check if widget HTML already exists (server-rendered) - simple style
+        var existingWidget = this.container.querySelector('.score-display-widget');
         if (existingWidget) {
             this.cacheElements();
         } else {
@@ -89,37 +81,32 @@
     };
 
     /**
-     * Cache DOM element references from existing HTML (compact design)
+     * Cache DOM element references from existing HTML (simple style)
      */
     HealthScoreWidget.prototype.cacheElements = function() {
-        this.elements.widget = this.container.querySelector('.health-score-compact');
-        this.elements.barFill = this.container.querySelector('.health-score-compact__bar-fill');
-        this.elements.scoreValue = this.container.querySelector('.health-score-compact__value');
-        this.elements.scoreMax = this.container.querySelector('.health-score-compact__max');
-        this.elements.statusLabel = this.container.querySelector('.health-score-compact__status');
-        this.elements.detailsBtn = this.container.querySelector('.health-score-compact__details');
-        this.elements.emptyMessage = this.container.querySelector('.health-score-compact__empty-message');
+        this.elements.widget = this.container.querySelector('.score-display-widget');
+        this.elements.barFill = this.container.querySelector('.progress-fill');
+        this.elements.scoreValue = this.container.querySelector('.score-value');
+        this.elements.scoreMax = this.container.querySelector('.score-max');
+        this.elements.statusLabel = this.container.querySelector('.score-status');
+        this.elements.detailsBtn = this.container.querySelector('#btn-health-score-details');
     };
 
     /**
-     * Render the widget HTML structure (compact design)
+     * Render the widget HTML structure (simple style)
      */
     HealthScoreWidget.prototype.render = function() {
         var html = [
-            '<div class="health-score-compact health-score-compact--empty">',
-            '  <div class="health-score-compact__header">',
-            '    <span class="health-score-compact__value">--<span class="health-score-compact__max">/100</span></span>',
-            '    <span class="health-score-compact__status health-score-compact__status--normal">--</span>',
+            '<div class="score-display-widget score-display-widget--empty">',
+            '  <div class="score-display">',
+            '    <span class="score-value">--</span>',
+            '    <span class="score-max">/100</span>',
             '  </div>',
-            '  <div class="health-score-compact__bar-container">',
-            '    <div class="health-score-compact__bar-bg">',
-            '      <div class="health-score-compact__bar-fill health-score-compact__bar-fill--normal" style="width: 0%;"></div>',
-            '    </div>',
+            '  <div class="progress-bar">',
+            '    <div class="progress-fill progress-fill--normal" style="width: 0%;"></div>',
             '  </div>',
-            '  <div class="health-score-compact__footer">',
-            '    <span class="health-score-compact__empty-message">Lancez une capture</span>',
-            '    <button class="health-score-compact__details" style="display: none;">Details</button>',
-            '  </div>',
+            '  <p class="score-status">--%</p>',
+            '  <button class="btn btn-sm" id="btn-health-score-details" style="display: none;">Détails</button>',
             '</div>'
         ].join('\n');
 
@@ -174,15 +161,6 @@
         var score = Math.max(0, Math.min(100, scoreData.displayed_score));
         var statusColor = scoreData.status_color || this.getStatusFromScore(score);
 
-        // Trigger update animation
-        if (this.elements.widget) {
-            this.elements.widget.classList.add('health-score-compact--updating');
-            var widget = this.elements.widget;
-            setTimeout(function() {
-                widget.classList.remove('health-score-compact--updating');
-            }, 300);
-        }
-
         // Update state
         this.currentScore = score;
         this.currentStatus = statusColor;
@@ -197,12 +175,12 @@
         // Update status label
         this.updateStatusLabel(statusColor);
 
-        // Show details button, hide empty message
+        // Show details button
         this.setHasData(true);
     };
 
     /**
-     * Update the horizontal progress bar
+     * Update the progress bar
      */
     HealthScoreWidget.prototype.updateBar = function(score, status) {
         if (!this.elements.barFill) return;
@@ -212,24 +190,23 @@
     };
 
     /**
-     * Update the numeric score display (compact design)
+     * Update the numeric score display (simple style)
      */
     HealthScoreWidget.prototype.updateScoreDisplay = function(score, status) {
         if (!this.elements.scoreValue) return;
 
-        // Keep the /100 inside the span
-        this.elements.scoreValue.innerHTML = score + '<span class="health-score-compact__max">/100</span>';
-        this.elements.scoreValue.className = 'health-score-compact__value health-score-compact__value--' + status;
+        this.elements.scoreValue.textContent = score;
+        this.elements.scoreValue.className = 'score-value score-value--' + status;
     };
 
     /**
-     * Update the status label (compact design)
+     * Update the status label (simple style)
      */
     HealthScoreWidget.prototype.updateStatusLabel = function(status) {
         if (!this.elements.statusLabel) return;
 
-        this.elements.statusLabel.textContent = STATUS_LABELS[status] || '--';
-        this.elements.statusLabel.className = 'health-score-compact__status health-score-compact__status--' + status;
+        this.elements.statusLabel.textContent = STATUS_LABELS[status] || '--%';
+        this.elements.statusLabel.className = 'score-status score-status--' + status;
     };
 
     /**
@@ -239,11 +216,11 @@
         if (!this.elements.barFill) return;
 
         this.elements.barFill.classList.remove(
-            'health-score-compact__bar-fill--normal',
-            'health-score-compact__bar-fill--warning',
-            'health-score-compact__bar-fill--critical'
+            'progress-fill--normal',
+            'progress-fill--warning',
+            'progress-fill--critical'
         );
-        this.elements.barFill.classList.add('health-score-compact__bar-fill--' + status);
+        this.elements.barFill.classList.add('progress-fill--' + status);
     };
 
     /**
@@ -259,24 +236,18 @@
     };
 
     /**
-     * Toggle between empty state and data state (compact design)
+     * Toggle between empty state and data state (simple style)
      */
     HealthScoreWidget.prototype.setHasData = function(hasData) {
         if (!this.elements.widget) return;
 
         if (hasData) {
-            this.elements.widget.classList.remove('health-score-compact--empty');
-            if (this.elements.emptyMessage) {
-                this.elements.emptyMessage.style.display = 'none';
-            }
+            this.elements.widget.classList.remove('score-display-widget--empty');
             if (this.elements.detailsBtn) {
                 this.elements.detailsBtn.style.display = '';
             }
         } else {
-            this.elements.widget.classList.add('health-score-compact--empty');
-            if (this.elements.emptyMessage) {
-                this.elements.emptyMessage.style.display = '';
-            }
+            this.elements.widget.classList.add('score-display-widget--empty');
             if (this.elements.detailsBtn) {
                 this.elements.detailsBtn.style.display = 'none';
             }
@@ -288,18 +259,10 @@
      */
     HealthScoreWidget.prototype.setLoading = function(loading) {
         this.isLoading = loading;
-
-        if (!this.elements.widget) return;
-
-        if (loading) {
-            this.elements.widget.classList.add('health-score-compact--loading');
-        } else {
-            this.elements.widget.classList.remove('health-score-compact--loading');
-        }
     };
 
     /**
-     * Reset widget to empty state (compact design)
+     * Reset widget to empty state (simple style)
      */
     HealthScoreWidget.prototype.reset = function() {
         this.currentScore = null;
@@ -307,8 +270,8 @@
         this.scoreData = null;
 
         if (this.elements.scoreValue) {
-            this.elements.scoreValue.innerHTML = '--<span class="health-score-compact__max">/100</span>';
-            this.elements.scoreValue.className = 'health-score-compact__value';
+            this.elements.scoreValue.textContent = '--';
+            this.elements.scoreValue.className = 'score-value';
         }
 
         if (this.elements.barFill) {
@@ -316,8 +279,8 @@
         }
 
         if (this.elements.statusLabel) {
-            this.elements.statusLabel.textContent = '--';
-            this.elements.statusLabel.className = 'health-score-compact__status health-score-compact__status--normal';
+            this.elements.statusLabel.textContent = '--%';
+            this.elements.statusLabel.className = 'score-status';
         }
 
         this.setHasData(false);
@@ -513,10 +476,10 @@
      */
     function getWidgetInstance() {
         if (!globalWidgetInstance) {
-            // Look for container by ID or find compact widget directly
+            // Look for container by ID or find widget directly
             var container = document.getElementById('health-score-widget');
             if (!container) {
-                container = document.querySelector('.health-score-compact');
+                container = document.querySelector('.score-display-widget');
                 if (container) {
                     container = container.parentElement;
                 }
@@ -595,7 +558,7 @@
             new HealthScoreWidget(container);
         });
 
-        // Initialize global widget if exists (compact design uses health-score-widget ID on container)
+        // Initialize global widget if exists (simple style)
         var widgetContainer = document.getElementById('health-score-widget');
         if (widgetContainer) {
             globalWidgetInstance = new HealthScoreWidget(widgetContainer.parentElement || widgetContainer);
@@ -603,12 +566,11 @@
             // If widget has server-rendered data, read initial state
             var initialScore = widgetContainer.dataset.score;
             if (initialScore && initialScore !== '') {
-                // Widget already has data from server, no need to fetch
-                console.log('[HealthScore] Widget initialized with server data (compact)');
+                console.log('[HealthScore] Widget initialized with server data');
             }
         }
 
-        // Bind details button event (for server-rendered template - compact design)
+        // Bind details button event
         var detailsBtn = document.getElementById('btn-health-score-details');
         if (detailsBtn && globalWidgetInstance) {
             detailsBtn.addEventListener('click', function(e) {
@@ -616,7 +578,6 @@
                 if (globalWidgetInstance.scoreData) {
                     showHealthScoreModal(globalWidgetInstance.scoreData);
                 } else {
-                    // Fetch current data first
                     loadHealthScore().then(function(data) {
                         if (data) {
                             showHealthScoreModal(data);

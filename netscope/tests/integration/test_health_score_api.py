@@ -230,11 +230,11 @@ class TestDashboardHealthScoreIntegration:
             response = client.get('/')
 
             assert response.status_code == 200
-            # Health score widget should be populated (compact design)
+            # Health score widget should be populated (simple style)
             assert b'health-score-widget' in response.data
-            # Check score is rendered with compact bar (not '--')
+            # Check score is rendered with progress bar (not '--')
             html = response.data.decode('utf-8')
-            assert 'health-score-compact__bar-fill' in html
+            assert 'progress-fill' in html
 
     def test_dashboard_handles_calculation_error(self, client):
         """Dashboard renders even if health score calculation fails."""
@@ -243,6 +243,6 @@ class TestDashboardHealthScoreIntegration:
 
             response = client.get('/')
 
-            # Should still render, just without health score (compact design)
+            # Should still render, just without health score (simple style)
             assert response.status_code == 200
             assert b'health-score-widget' in response.data

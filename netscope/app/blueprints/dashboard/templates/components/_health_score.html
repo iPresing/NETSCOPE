@@ -1,57 +1,37 @@
-{# Health Score Widget Component - Story 3.2 (Compact Design)
-   Displays network health score with horizontal progress bar.
+{# Health Score Widget Component - Story 3.2
+   Simple score display with progress bar (Story 3.1 style).
 
    Parameters:
      health_score: dict - HealthScoreResult.to_dict() data (optional)
-       - displayed_score: int (0-100)
-       - real_score: int (0-100)
-       - status_color: str ('normal', 'warning', 'critical')
-       - critical_count: int
-       - warning_count: int
-       - whitelist_hits: int
-       - whitelist_impact: int
 #}
 
 {% set score = health_score.displayed_score if health_score else none %}
 {% set status = health_score.status_color if health_score else 'normal' %}
 {% set has_data = health_score is not none and score is not none %}
 
-<div class="health-score-compact {{ '' if has_data else 'health-score-compact--empty' }}"
+<div class="score-display-widget {{ '' if has_data else 'score-display-widget--empty' }}"
      id="health-score-widget"
      data-score="{{ score if score is not none else '' }}"
      data-status="{{ status }}">
 
-    {# Compact header with score and status #}
-    <div class="health-score-compact__header">
-        <span class="health-score-compact__value {{ 'health-score-compact__value--' + status if has_data else '' }}">
-            {{ score if has_data else '--' }}<span class="health-score-compact__max">/100</span>
-        </span>
-        <span class="health-score-compact__status health-score-compact__status--{{ status }}">
-            {% if has_data %}
-                {% if status == 'normal' %}Sain{% elif status == 'warning' %}Attention{% else %}Critique{% endif %}
-            {% else %}
-                --
-            {% endif %}
-        </span>
+    <div class="score-display">
+        <span class="score-value score-value--{{ status }}">{{ score if has_data else '--' }}</span>
+        <span class="score-max">/100</span>
     </div>
 
-    {# Horizontal progress bar #}
-    <div class="health-score-compact__bar-container">
-        <div class="health-score-compact__bar-bg">
-            <div class="health-score-compact__bar-fill health-score-compact__bar-fill--{{ status }}"
-                 style="width: {{ score if has_data else 0 }}%;"></div>
-        </div>
+    <div class="progress-bar">
+        <div class="progress-fill progress-fill--{{ status }}" style="width: {{ score if has_data else 0 }}%;"></div>
     </div>
 
-    {# Empty state / Details row #}
-    <div class="health-score-compact__footer">
-        <span class="health-score-compact__empty-message" {% if has_data %}style="display: none;"{% endif %}>
-            Lancez une capture
-        </span>
-        <button class="health-score-compact__details"
-                id="btn-health-score-details"
-                {% if not has_data %}style="display: none;"{% endif %}>
-            D&eacute;tails
-        </button>
-    </div>
+    <p class="score-status score-status--{{ status }}">
+        {% if has_data %}
+            {% if status == 'normal' %}R&eacute;seau Sain{% elif status == 'warning' %}Attention{% else %}Critique{% endif %}
+        {% else %}
+            --%
+        {% endif %}
+    </p>
+
+    <button class="btn btn-sm" id="btn-health-score-details" {% if not has_data %}style="display: none;"{% endif %}>
+        D&eacute;tails
+    </button>
 </div>
