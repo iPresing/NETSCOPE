@@ -1,148 +1,86 @@
 /* =============================================================================
-   Health Score Widget - Story 3.2
-   Affichage Score Sante sur Dashboard
+   Health Score Widget - Story 3.2 (Compact Design)
+   Affichage Score Sante sur Dashboard - Barre horizontale discrete
    ============================================================================= */
 
 /* =============================================================================
-   Health Score Container
+   Compact Health Score Container
    ============================================================================= */
-.health-score-widget {
+.health-score-compact {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: var(--space-lg);
-}
-
-.health-score-widget__gauge-container {
-    position: relative;
-    width: 180px;
-    height: 180px;
-    margin-bottom: var(--space-md);
+    gap: var(--space-sm);
+    padding: var(--space-md);
 }
 
 /* =============================================================================
-   SVG Circular Gauge
+   Compact Header (Score + Status inline)
    ============================================================================= */
-.health-gauge {
-    width: 100%;
-    height: 100%;
-    transform: rotate(-90deg);
-}
-
-.health-gauge__bg {
-    fill: none;
-    stroke: var(--panel-elevated);
-    stroke-width: 12;
-}
-
-.health-gauge__progress {
-    fill: none;
-    stroke: var(--matrix-green);
-    stroke-width: 12;
-    stroke-linecap: round;
-    stroke-dasharray: 283;
-    stroke-dashoffset: 283;
-    transition: stroke-dashoffset 0.8s ease-in-out, stroke 0.3s ease;
-}
-
-/* Progress colors by status */
-.health-gauge__progress--normal {
-    stroke: var(--matrix-green);
-    filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.5));
-}
-
-.health-gauge__progress--warning {
-    stroke: var(--alert-amber);
-    filter: drop-shadow(0 0 8px rgba(255, 170, 0, 0.5));
-}
-
-.health-gauge__progress--critical {
-    stroke: var(--danger-red);
-    filter: drop-shadow(0 0 8px rgba(255, 51, 85, 0.5));
-    animation: health-gauge-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes health-gauge-pulse {
-    0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 51, 85, 0.5)); }
-    50% { filter: drop-shadow(0 0 15px rgba(255, 51, 85, 0.8)); }
-}
-
-/* =============================================================================
-   Score Display (Centered in Gauge)
-   ============================================================================= */
-.health-score-widget__score {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
+.health-score-compact__header {
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-md);
 }
 
-.health-score-widget__value {
+.health-score-compact__value {
     font-family: var(--font-mono);
-    font-size: 3rem;
+    font-size: 1.5rem;
     font-weight: 700;
     line-height: 1;
     color: var(--text-highlight);
     transition: color 0.3s ease;
 }
 
-.health-score-widget__value--normal {
+.health-score-compact__value--normal {
     color: var(--matrix-green);
-    text-shadow: var(--glow-green);
+    text-shadow: 0 0 6px rgba(0, 255, 136, 0.4);
 }
 
-.health-score-widget__value--warning {
+.health-score-compact__value--warning {
     color: var(--alert-amber);
-    text-shadow: var(--glow-amber);
+    text-shadow: 0 0 6px rgba(255, 170, 0, 0.4);
 }
 
-.health-score-widget__value--critical {
+.health-score-compact__value--critical {
     color: var(--danger-red);
-    text-shadow: var(--glow-red);
+    text-shadow: 0 0 6px rgba(255, 51, 85, 0.4);
 }
 
-.health-score-widget__max {
-    font-family: var(--font-mono);
-    font-size: 1rem;
+.health-score-compact__max {
+    font-size: 0.75rem;
+    font-weight: 400;
     color: var(--text-muted);
-    margin-top: 2px;
+    margin-left: 2px;
 }
 
-/* =============================================================================
-   Status Label
-   ============================================================================= */
-.health-score-widget__status {
+.health-score-compact__status {
     font-family: var(--font-display);
-    font-size: 0.85rem;
+    font-size: 0.65rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
-    padding: var(--space-xs) var(--space-md);
+    letter-spacing: 0.1em;
+    padding: 2px 8px;
     border-radius: var(--radius-sm);
-    margin-bottom: var(--space-md);
     transition: all 0.3s ease;
 }
 
-.health-score-widget__status--normal {
+.health-score-compact__status--normal {
     color: var(--matrix-green);
     background: rgba(0, 255, 136, 0.1);
-    border: 1px solid var(--matrix-green);
+    border: 1px solid rgba(0, 255, 136, 0.3);
 }
 
-.health-score-widget__status--warning {
+.health-score-compact__status--warning {
     color: var(--alert-amber);
     background: rgba(255, 170, 0, 0.1);
-    border: 1px solid var(--alert-amber);
+    border: 1px solid rgba(255, 170, 0, 0.3);
 }
 
-.health-score-widget__status--critical {
+.health-score-compact__status--critical {
     color: var(--danger-red);
     background: rgba(255, 51, 85, 0.1);
-    border: 1px solid var(--danger-red);
+    border: 1px solid rgba(255, 51, 85, 0.3);
     animation: status-blink 1s ease-in-out infinite;
 }
 
@@ -152,16 +90,71 @@
 }
 
 /* =============================================================================
-   Details Link
+   Horizontal Progress Bar
    ============================================================================= */
-.health-score-widget__details {
+.health-score-compact__bar-container {
+    width: 100%;
+}
+
+.health-score-compact__bar-bg {
+    width: 100%;
+    height: 6px;
+    background: var(--panel-elevated);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.health-score-compact__bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease-in-out, background 0.3s ease;
+}
+
+.health-score-compact__bar-fill--normal {
+    background: linear-gradient(90deg, var(--matrix-green), rgba(0, 255, 136, 0.7));
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+}
+
+.health-score-compact__bar-fill--warning {
+    background: linear-gradient(90deg, var(--alert-amber), rgba(255, 170, 0, 0.7));
+    box-shadow: 0 0 8px rgba(255, 170, 0, 0.4);
+}
+
+.health-score-compact__bar-fill--critical {
+    background: linear-gradient(90deg, var(--danger-red), rgba(255, 51, 85, 0.7));
+    box-shadow: 0 0 8px rgba(255, 51, 85, 0.4);
+    animation: bar-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes bar-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(255, 51, 85, 0.4); }
+    50% { box-shadow: 0 0 12px rgba(255, 51, 85, 0.7); }
+}
+
+/* =============================================================================
+   Footer (Empty message / Details button)
+   ============================================================================= */
+.health-score-compact__footer {
+    display: flex;
+    justify-content: flex-end;
+    min-height: 20px;
+}
+
+.health-score-compact__empty-message {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-right: auto;
+}
+
+.health-score-compact__details {
     font-family: var(--font-display);
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.1em;
     color: var(--neon-cyan);
-    padding: var(--space-xs) var(--space-sm);
+    padding: 2px 8px;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     transition: var(--transition-normal);
@@ -169,86 +162,36 @@
     background: transparent;
 }
 
-.health-score-widget__details:hover {
+.health-score-compact__details:hover {
     border-color: var(--neon-cyan);
     background: rgba(0, 245, 255, 0.1);
-    text-decoration: none;
 }
 
 /* =============================================================================
-   Empty State (No Capture)
+   Empty State
    ============================================================================= */
-.health-score-widget--empty .health-score-widget__value {
+.health-score-compact--empty .health-score-compact__value {
     color: var(--text-muted);
     text-shadow: none;
 }
 
-.health-score-widget--empty .health-gauge__progress {
-    stroke: var(--text-muted);
-    opacity: 0.3;
-}
-
-.health-score-widget__empty-message {
-    font-family: var(--font-body);
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    text-align: center;
-    max-width: 150px;
-}
-
-/* =============================================================================
-   Loading State
-   ============================================================================= */
-.health-score-widget--loading .health-gauge__progress {
-    animation: loading-rotate 2s linear infinite;
-    stroke-dashoffset: 200;
-}
-
-@keyframes loading-rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.health-score-compact--empty .health-score-compact__bar-fill {
+    background: var(--text-muted);
+    opacity: 0.2;
+    box-shadow: none;
 }
 
 /* =============================================================================
    Update Animation
    ============================================================================= */
-.health-score-widget--updating {
-    animation: score-update 0.3s ease-out;
+.health-score-compact--updating .health-score-compact__bar-fill {
+    animation: bar-update 0.3s ease-out;
 }
 
-@keyframes score-update {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-    100% { transform: scale(1); }
-}
-
-/* =============================================================================
-   Responsive
-   ============================================================================= */
-@media (max-width: 768px) {
-    .health-score-widget__gauge-container {
-        width: 150px;
-        height: 150px;
-    }
-
-    .health-score-widget__value {
-        font-size: 2.5rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .health-score-widget__gauge-container {
-        width: 120px;
-        height: 120px;
-    }
-
-    .health-score-widget__value {
-        font-size: 2rem;
-    }
-
-    .health-score-widget__max {
-        font-size: 0.85rem;
-    }
+@keyframes bar-update {
+    0% { transform: scaleX(0.98); }
+    50% { transform: scaleX(1.02); }
+    100% { transform: scaleX(1); }
 }
 
 /* =============================================================================

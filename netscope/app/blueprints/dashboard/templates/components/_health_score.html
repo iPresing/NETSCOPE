@@ -1,5 +1,5 @@
-{# Health Score Widget Component - Story 3.2
-   Displays network health score with circular SVG gauge.
+{# Health Score Widget Component - Story 3.2 (Compact Design)
+   Displays network health score with horizontal progress bar.
 
    Parameters:
      health_score: dict - HealthScoreResult.to_dict() data (optional)
@@ -16,59 +16,42 @@
 {% set status = health_score.status_color if health_score else 'normal' %}
 {% set has_data = health_score is not none and score is not none %}
 
-{# Calculate gauge offset: 283 = full circumference, 0 = complete circle #}
-{% set gauge_offset = 283 - (283 * (score or 0) / 100) %}
-
-<div class="health-score-widget {{ '' if has_data else 'health-score-widget--empty' }}"
+<div class="health-score-compact {{ '' if has_data else 'health-score-compact--empty' }}"
      id="health-score-widget"
      data-score="{{ score if score is not none else '' }}"
      data-status="{{ status }}">
 
-    <div class="health-score-widget__gauge-container">
-        {# SVG Circular Gauge #}
-        <svg class="health-gauge" viewBox="0 0 100 100">
-            {# Background circle #}
-            <circle class="health-gauge__bg" cx="50" cy="50" r="45" />
-            {# Progress circle #}
-            <circle class="health-gauge__progress health-gauge__progress--{{ status }}"
-                    cx="50" cy="50" r="45"
-                    stroke-dasharray="283"
-                    stroke-dashoffset="{{ gauge_offset }}" />
-        </svg>
+    {# Compact header with score and status #}
+    <div class="health-score-compact__header">
+        <span class="health-score-compact__value {{ 'health-score-compact__value--' + status if has_data else '' }}">
+            {{ score if has_data else '--' }}<span class="health-score-compact__max">/100</span>
+        </span>
+        <span class="health-score-compact__status health-score-compact__status--{{ status }}">
+            {% if has_data %}
+                {% if status == 'normal' %}Sain{% elif status == 'warning' %}Attention{% else %}Critique{% endif %}
+            {% else %}
+                --
+            {% endif %}
+        </span>
+    </div>
 
-        {# Score display centered in gauge #}
-        <div class="health-score-widget__score">
-            <span class="health-score-widget__value {{ 'health-score-widget__value--' + status if has_data else '' }}">
-                {{ score if has_data else '--' }}
-            </span>
-            <span class="health-score-widget__max">/100</span>
+    {# Horizontal progress bar #}
+    <div class="health-score-compact__bar-container">
+        <div class="health-score-compact__bar-bg">
+            <div class="health-score-compact__bar-fill health-score-compact__bar-fill--{{ status }}"
+                 style="width: {{ score if has_data else 0 }}%;"></div>
         </div>
     </div>
 
-    {# Status label #}
-    <div class="health-score-widget__status health-score-widget__status--{{ status }}">
-        {% if has_data %}
-            {% if status == 'normal' %}
-                R&eacute;seau Sain
-            {% elif status == 'warning' %}
-                Attention
-            {% else %}
-                Critique
-            {% endif %}
-        {% else %}
-            Score Sant&eacute;
-        {% endif %}
+    {# Empty state / Details row #}
+    <div class="health-score-compact__footer">
+        <span class="health-score-compact__empty-message" {% if has_data %}style="display: none;"{% endif %}>
+            Lancez une capture
+        </span>
+        <button class="health-score-compact__details"
+                id="btn-health-score-details"
+                {% if not has_data %}style="display: none;"{% endif %}>
+            D&eacute;tails
+        </button>
     </div>
-
-    {# Empty state message #}
-    <span class="health-score-widget__empty-message" {% if has_data %}style="display: none;"{% endif %}>
-        Lancez une capture pour voir le score
-    </span>
-
-    {# Details button - hidden until data available #}
-    <button class="health-score-widget__details"
-            id="btn-health-score-details"
-            {% if not has_data %}style="display: none;"{% endif %}>
-        D&eacute;tails &rarr;
-    </button>
 </div>

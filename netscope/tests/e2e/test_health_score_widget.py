@@ -1,10 +1,12 @@
-"""E2E tests for Health Score Widget (Story 3.2 Task 8).
+"""E2E tests for Health Score Widget (Story 3.2 Task 8 - Compact Design).
 
 Tests the frontend widget rendering, color states, and interactions.
 These tests verify the HTML/CSS behavior via Flask test client.
 
+Note: Widget refactored from circular SVG gauge to horizontal progress bar.
+
 AC Coverage:
-- AC1: Score visible en position proéminente, jauge + numérique
+- AC1: Score visible en position proéminente, barre + numérique
 - AC2: Couleurs correspondent au niveau (vert/orange/rouge)
 - AC3: Score compréhensible sans formation
 - AC4: Intégration avec HealthScoreCalculator
@@ -19,7 +21,7 @@ class TestHealthScoreWidgetRendering:
     """Tests for health score widget HTML rendering (Task 8.1)."""
 
     def test_widget_renders_empty_state_no_capture(self, client):
-        """AC1: Widget renders correctly in empty state when no capture."""
+        """AC1: Widget renders correctly in empty state when no capture (compact design)."""
         with patch('app.blueprints.dashboard.routes.get_tcpdump_manager') as mock_manager:
             mock_manager.return_value.get_latest_result.return_value = None
 
@@ -32,21 +34,21 @@ class TestHealthScoreWidgetRendering:
             widget = soup.find(id='health-score-widget')
             assert widget is not None, "Widget container should exist"
 
-            # Widget has empty class
-            assert 'health-score-widget--empty' in widget.get('class', [])
+            # Widget has empty class (compact design)
+            assert 'health-score-compact--empty' in widget.get('class', [])
 
             # Score shows '--'
-            score_value = widget.find(class_='health-score-widget__value')
+            score_value = widget.find(class_='health-score-compact__value')
             assert score_value is not None
             assert '--' in score_value.get_text()
 
             # Empty message is visible
-            empty_msg = widget.find(class_='health-score-widget__empty-message')
+            empty_msg = widget.find(class_='health-score-compact__empty-message')
             assert empty_msg is not None
             assert 'display: none' not in str(empty_msg.get('style', ''))
 
     def test_widget_renders_with_score(self, client):
-        """AC1: Widget renders score numerically (XX/100) with gauge."""
+        """AC1: Widget renders score numerically (XX/100) with progress bar (compact design)."""
         from app.models.anomaly import AnomalyCollection
 
         mock_session = Mock()
@@ -75,27 +77,28 @@ class TestHealthScoreWidgetRendering:
             widget = soup.find(id='health-score-widget')
             assert widget is not None
 
-            # Should NOT have empty class
-            assert 'health-score-widget--empty' not in widget.get('class', [])
+            # Should NOT have empty class (compact design)
+            assert 'health-score-compact--empty' not in widget.get('class', [])
 
-            # Score value should be numeric
-            score_value = widget.find(class_='health-score-widget__value')
+            # Score value should contain numeric score
+            score_value = widget.find(class_='health-score-compact__value')
             assert score_value is not None
-            score_text = score_value.get_text().strip()
+            # Extract numeric part (format: "100/100")
+            score_text = score_value.get_text().strip().split('/')[0].strip()
             assert score_text.isdigit(), f"Score should be numeric, got: {score_text}"
 
             # /100 suffix exists
-            score_max = widget.find(class_='health-score-widget__max')
+            score_max = widget.find(class_='health-score-compact__max')
             assert score_max is not None
             assert '/100' in score_max.get_text()
 
-            # SVG gauge exists
-            gauge = widget.find('svg', class_='health-gauge')
-            assert gauge is not None
+            # Progress bar exists (compact design uses div instead of SVG)
+            bar_bg = widget.find(class_='health-score-compact__bar-bg')
+            assert bar_bg is not None
 
-            # Progress circle exists
-            progress = widget.find('circle', class_='health-gauge__progress')
-            assert progress is not None
+            # Progress fill exists
+            bar_fill = widget.find(class_='health-score-compact__bar-fill')
+            assert bar_fill is not None
 
 
 class TestHealthScoreWidgetColors:
@@ -127,7 +130,7 @@ class TestHealthScoreWidgetColors:
         return AnomalyCollection(capture_id='test_capture', anomalies=anomalies)
 
     def test_widget_shows_normal_green_for_high_score(self, client):
-        """AC2: Score 80-100 shows green (normal)."""
+        """AC2: Score 80-100 shows green (normal) - compact design."""
         from app.models.anomaly import AnomalyCollection
 
         mock_session = Mock()
@@ -152,19 +155,19 @@ class TestHealthScoreWidgetColors:
             soup = BeautifulSoup(response.data, 'html.parser')
             widget = soup.find(id='health-score-widget')
 
-            # Check status class
-            status = widget.find(class_='health-score-widget__status')
+            # Check status class (compact design)
+            status = widget.find(class_='health-score-compact__status')
             assert status is not None
             status_classes = status.get('class', [])
-            assert 'health-score-widget__status--normal' in status_classes
+            assert 'health-score-compact__status--normal' in status_classes
 
-            # Check progress circle has normal class
-            progress = widget.find('circle', class_='health-gauge__progress')
-            progress_classes = progress.get('class', [])
-            assert 'health-gauge__progress--normal' in progress_classes
+            # Check progress bar has normal class (compact design uses div)
+            bar_fill = widget.find(class_='health-score-compact__bar-fill')
+            bar_classes = bar_fill.get('class', [])
+            assert 'health-score-compact__bar-fill--normal' in bar_classes
 
     def test_widget_shows_warning_orange_for_medium_score(self, client):
-        """AC2: Score 50-79 shows orange (warning)."""
+        """AC2: Score 50-79 shows orange (warning) - compact design."""
         from app.models.anomaly import CriticalityLevel
 
         mock_session = Mock()
@@ -187,9 +190,10 @@ class TestHealthScoreWidgetColors:
             soup = BeautifulSoup(response.data, 'html.parser')
             widget = soup.find(id='health-score-widget')
 
-            # Get score to verify it's in warning range
-            score_value = widget.find(class_='health-score-widget__value')
-            score = int(score_value.get_text().strip())
+            # Get score to verify it's in warning range (compact design)
+            score_value = widget.find(class_='health-score-compact__value')
+            score_text = score_value.get_text().strip().split('/')[0].strip()
+            score = int(score_text)
 
             # Score should be in warning or lower range (with warnings, it might drop)
             # The exact score depends on the calculator logic
@@ -280,8 +284,10 @@ class TestHealthScoreWidgetScoreDisplay:
 
             soup = BeautifulSoup(response.data, 'html.parser')
             widget = soup.find(id='health-score-widget')
-            score_value = widget.find(class_='health-score-widget__value')
-            displayed_score = int(score_value.get_text().strip())
+            score_value = widget.find(class_='health-score-compact__value')
+            # Extract numeric part (format: "XX/100")
+            score_text = score_value.get_text().strip().split('/')[0].strip()
+            displayed_score = int(score_text)
 
             assert displayed_score == expected_score, \
                 f"Displayed score {displayed_score} != expected {expected_score}"
@@ -318,10 +324,10 @@ class TestHealthScoreWidgetScoreDisplay:
 
 
 class TestHealthScoreWidgetAnimation:
-    """Tests for widget animation support (Task 8.4)."""
+    """Tests for widget animation support (Task 8.4) - Compact Design."""
 
-    def test_widget_has_gauge_with_stroke_dashoffset(self, client):
-        """Gauge SVG uses stroke-dashoffset for animation."""
+    def test_widget_has_progress_bar_with_width(self, client):
+        """Progress bar uses width for animation (compact design)."""
         from app.models.anomaly import AnomalyCollection
 
         mock_session = Mock()
@@ -343,20 +349,17 @@ class TestHealthScoreWidgetAnimation:
             response = client.get('/')
 
             soup = BeautifulSoup(response.data, 'html.parser')
-            progress = soup.find('circle', class_='health-gauge__progress')
+            bar_fill = soup.find(class_='health-score-compact__bar-fill')
 
-            # stroke-dasharray should be set
-            assert progress.get('stroke-dasharray') == '283'
+            # Progress bar should have width style
+            style = bar_fill.get('style', '')
+            assert 'width:' in style
 
-            # stroke-dashoffset should be calculated
-            offset = progress.get('stroke-dashoffset')
-            assert offset is not None
-            # For score 100, offset should be 0 (full circle)
-            # Formula: 283 - (283 * score / 100)
-            assert float(offset) == 0.0, f"Offset should be 0 for score 100, got {offset}"
+            # For score 100, width should be 100%
+            assert '100%' in style, f"Width should be 100% for score 100, got: {style}"
 
     def test_css_transition_classes_exist(self, client):
-        """Widget CSS includes transition properties for smooth updates."""
+        """Widget CSS includes transition properties for smooth updates (compact design)."""
         response = client.get('/static/css/health-score.css')
 
         # CSS file should be accessible
@@ -364,13 +367,13 @@ class TestHealthScoreWidgetAnimation:
 
         css_content = response.data.decode('utf-8')
 
-        # Check for transition properties
+        # Check for transition properties (compact design uses width transition)
         assert 'transition:' in css_content or 'transition-' in css_content
-        assert 'stroke-dashoffset' in css_content
+        assert 'width' in css_content
         assert '@keyframes' in css_content  # Animation keyframes
 
     def test_details_button_exists_when_data_available(self, client):
-        """Details button is visible when score data is available."""
+        """Details button is visible when score data is available (compact design)."""
         from app.models.anomaly import AnomalyCollection
 
         mock_session = Mock()
@@ -394,8 +397,8 @@ class TestHealthScoreWidgetAnimation:
             soup = BeautifulSoup(response.data, 'html.parser')
             widget = soup.find(id='health-score-widget')
 
-            # Details button should exist
-            details_btn = widget.find(class_='health-score-widget__details')
+            # Details button should exist (compact design)
+            details_btn = widget.find(class_='health-score-compact__details')
             assert details_btn is not None
 
             # Should NOT be hidden (no display:none)
@@ -404,10 +407,10 @@ class TestHealthScoreWidgetAnimation:
 
 
 class TestHealthScoreWidgetComprehensibility:
-    """Tests for score comprehensibility (AC3 - NFR36)."""
+    """Tests for score comprehensibility (AC3 - NFR36) - Compact Design."""
 
     def test_widget_has_clear_labels(self, client):
-        """Widget has clear labels that indicate good/bad."""
+        """Widget has clear labels that indicate good/bad (compact design)."""
         from app.models.anomaly import AnomalyCollection
 
         mock_session = Mock()
@@ -428,13 +431,13 @@ class TestHealthScoreWidgetComprehensibility:
             soup = BeautifulSoup(response.data, 'html.parser')
             widget = soup.find(id='health-score-widget')
 
-            # Status label should exist with clear text
-            status = widget.find(class_='health-score-widget__status')
+            # Status label should exist with clear text (compact design)
+            status = widget.find(class_='health-score-compact__status')
             assert status is not None
             status_text = status.get_text().strip()
 
-            # Should have a clear status label (one of these)
-            valid_labels = ['Réseau Sain', 'Reseau Sain', 'Attention', 'Critique', 'Score Santé']
+            # Should have a clear status label (compact design uses shorter labels)
+            valid_labels = ['Sain', 'Attention', 'Critique', '--']
             assert any(label in status_text for label in valid_labels), \
                 f"Status should be clear, got: {status_text}"
 
