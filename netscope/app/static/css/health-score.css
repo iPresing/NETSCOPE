@@ -305,3 +305,39 @@
 .health-score-detail__row.warning .value {
     color: var(--alert-amber);
 }
+
+/* =============================================================================
+   Whitelist Indicator (Story 3.3)
+   Displays whitelist hits count below score status
+   ============================================================================= */
+.whitelist-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    margin-top: var(--space-xs);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    transition: opacity 0.3s ease;
+}
+
+.whitelist-indicator--hidden {
+    display: none;
+}
+
+.whitelist-indicator__icon {
+    font-size: 0.875rem;
+    opacity: 0.8;
+}
+
+.whitelist-indicator__text {
+    color: var(--info-color, #0ea5e9);
+    font-family: var(--font-mono);
+}
+
+.whitelist-indicator__impact {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+/* Removed hover effect - indicator is not interactive */

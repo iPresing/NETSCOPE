@@ -492,6 +492,7 @@
      * Show capture complete state
      */
     function showCaptureComplete() {
+        resetStartButton();
         showElement(btnStart);
         hideElement(btnStop);
         hideElement(statusDiv);
@@ -502,7 +503,6 @@
         captureInterface.disabled = false;
         captureDuration.disabled = false;
         captureFilter.disabled = false;
-        btnStart.disabled = false;
     }
 
     /**

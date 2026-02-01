@@ -1,6 +1,7 @@
-"""Integration tests for Health Score API (Story 3.2).
+"""Integration tests for Health Score API (Story 3.2, Story 3.3).
 
 Tests the /api/health/score endpoint and dashboard integration.
+Story 3.3: Added whitelist indicator tests.
 """
 
 import pytest
@@ -246,3 +247,193 @@ class TestDashboardHealthScoreIntegration:
             # Should still render, just without health score (simple style)
             assert response.status_code == 200
             assert b'health-score-widget' in response.data
+
+
+class TestWhitelistIndicatorIntegration:
+    """Tests for whitelist indicator (Story 3.3)."""
+
+    def test_whitelist_indicator_visible_when_hits_positive(self, client):
+        """AC1: Indicateur visible quand whitelist_hits > 0."""
+        from app.models.health_score import HealthScoreResult
+
+        with patch('app.blueprints.api.health.get_tcpdump_manager') as mock_manager, \
+             patch('app.blueprints.api.health.get_anomaly_store') as mock_store, \
+             patch('app.blueprints.api.health.get_health_calculator') as mock_calc:
+
+            mock_session = Mock()
+            mock_session.id = 'test_capture_wl_1'
+            mock_result = Mock()
+            mock_result.session = mock_session
+
+            mock_collection = Mock()
+            mock_collection.anomalies = [Mock()]
+
+            mock_manager.return_value.get_latest_result.return_value = mock_result
+            mock_store.return_value.get_by_capture.return_value = mock_collection
+
+            # Simulate whitelist hits
+            health_result = HealthScoreResult(
+                displayed_score=85,
+                real_score=65,
+                critical_count=0,
+                warning_count=1,
+                whitelist_hits=3,
+                whitelist_impact=-20,
+            )
+            mock_calc.return_value.calculate.return_value = health_result
+
+            response = client.get('/api/health/score')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert data['data']['whitelist_hits'] == 3
+            assert data['data']['whitelist_hits'] > 0
+
+    def test_whitelist_indicator_hidden_when_no_hits(self, client):
+        """AC3: Indicateur masque quand whitelist_hits == 0."""
+        from app.models.health_score import HealthScoreResult
+
+        with patch('app.blueprints.api.health.get_tcpdump_manager') as mock_manager, \
+             patch('app.blueprints.api.health.get_anomaly_store') as mock_store, \
+             patch('app.blueprints.api.health.get_health_calculator') as mock_calc:
+
+            mock_session = Mock()
+            mock_session.id = 'test_capture_wl_2'
+            mock_result = Mock()
+            mock_result.session = mock_session
+
+            mock_collection = Mock()
+            mock_collection.anomalies = [Mock()]
+
+            mock_manager.return_value.get_latest_result.return_value = mock_result
+            mock_store.return_value.get_by_capture.return_value = mock_collection
+
+            # Simulate no whitelist hits
+            health_result = HealthScoreResult(
+                displayed_score=70,
+                real_score=70,
+                critical_count=1,
+                warning_count=2,
+                whitelist_hits=0,
+                whitelist_impact=0,
+            )
+            mock_calc.return_value.calculate.return_value = health_result
+
+            response = client.get('/api/health/score')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert data['data']['whitelist_hits'] == 0
+
+    def test_whitelist_impact_present_in_api_response(self, client):
+        """AC4: API returns whitelist_impact for transparency."""
+        from app.models.health_score import HealthScoreResult
+
+        with patch('app.blueprints.api.health.get_tcpdump_manager') as mock_manager, \
+             patch('app.blueprints.api.health.get_anomaly_store') as mock_store, \
+             patch('app.blueprints.api.health.get_health_calculator') as mock_calc:
+
+            mock_session = Mock()
+            mock_session.id = 'test_capture_wl_3'
+            mock_result = Mock()
+            mock_result.session = mock_session
+
+            mock_collection = Mock()
+            mock_collection.anomalies = [Mock()]
+
+            mock_manager.return_value.get_latest_result.return_value = mock_result
+            mock_store.return_value.get_by_capture.return_value = mock_collection
+
+            # Simulate whitelist with impact
+            health_result = HealthScoreResult(
+                displayed_score=90,
+                real_score=55,
+                critical_count=0,
+                warning_count=0,
+                whitelist_hits=5,
+                whitelist_impact=-35,
+            )
+            mock_calc.return_value.calculate.return_value = health_result
+
+            response = client.get('/api/health/score')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert 'whitelist_impact' in data['data']
+            assert data['data']['whitelist_impact'] == -35
+
+    def test_dashboard_renders_whitelist_indicator(self, client):
+        """AC5: Dashboard integrates whitelist indicator with health score widget."""
+        from app.models.health_score import HealthScoreResult
+
+        with patch('app.blueprints.dashboard.routes.get_tcpdump_manager') as mock_manager, \
+             patch('app.blueprints.dashboard.routes.get_anomaly_store') as mock_store, \
+             patch('app.blueprints.dashboard.routes.get_health_calculator') as mock_calc:
+
+            mock_session = Mock()
+            mock_session.id = 'test_capture_wl_4'
+            mock_result = Mock()
+            mock_result.session = mock_session
+
+            mock_collection = Mock()
+            mock_collection.anomalies = [Mock()]
+
+            mock_manager.return_value.get_latest_result.return_value = mock_result
+            mock_store.return_value.get_by_capture.return_value = mock_collection
+
+            health_result = HealthScoreResult(
+                displayed_score=75,
+                real_score=60,
+                critical_count=1,
+                warning_count=2,
+                whitelist_hits=2,
+                whitelist_impact=-15,
+            )
+            mock_calc.return_value.calculate.return_value = health_result
+
+            response = client.get('/')
+
+            assert response.status_code == 200
+            html = response.data.decode('utf-8')
+            # Check whitelist indicator is present in HTML
+            assert 'whitelist-indicator' in html
+            assert '2 whitelist hit' in html
+
+    def test_dashboard_hides_indicator_when_no_whitelist_hits(self, client):
+        """AC3: Dashboard hides indicator when no whitelist hits."""
+        from app.models.health_score import HealthScoreResult
+
+        with patch('app.blueprints.dashboard.routes.get_tcpdump_manager') as mock_manager, \
+             patch('app.blueprints.dashboard.routes.get_anomaly_store') as mock_store, \
+             patch('app.blueprints.dashboard.routes.get_health_calculator') as mock_calc:
+
+            mock_session = Mock()
+            mock_session.id = 'test_capture_wl_5'
+            mock_result = Mock()
+            mock_result.session = mock_session
+
+            mock_collection = Mock()
+            mock_collection.anomalies = [Mock()]
+
+            mock_manager.return_value.get_latest_result.return_value = mock_result
+            mock_store.return_value.get_by_capture.return_value = mock_collection
+
+            health_result = HealthScoreResult(
+                displayed_score=80,
+                real_score=80,
+                critical_count=1,
+                warning_count=1,
+                whitelist_hits=0,
+                whitelist_impact=0,
+            )
+            mock_calc.return_value.calculate.return_value = health_result
+
+            response = client.get('/')
+
+            assert response.status_code == 200
+            html = response.data.decode('utf-8')
+            # Indicator should have hidden class
+            assert 'whitelist-indicator--hidden' in html

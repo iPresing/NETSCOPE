@@ -1,5 +1,6 @@
-{# Health Score Widget Component - Story 3.2
+{# Health Score Widget Component - Story 3.2, Story 3.3
    Simple score display with progress bar (Story 3.1 style).
+   Story 3.3: Added whitelist hits indicator.
 
    Parameters:
      health_score: dict - HealthScoreResult.to_dict() data (optional)
@@ -8,6 +9,8 @@
 {% set score = health_score.displayed_score if health_score else none %}
 {% set status = health_score.status_color if health_score else 'normal' %}
 {% set has_data = health_score is not none and score is not none %}
+{% set wl_hits = health_score.whitelist_hits if health_score else 0 %}
+{% set wl_impact = health_score.whitelist_impact if health_score else 0 %}
 
 <div class="score-display-widget {{ '' if has_data else 'score-display-widget--empty' }}"
      id="health-score-widget"
@@ -30,6 +33,20 @@
             --%
         {% endif %}
     </p>
+
+    {# Whitelist Indicator (Story 3.3) - AC1, AC3, AC5 #}
+    <div class="whitelist-indicator{% if wl_hits == 0 %} whitelist-indicator--hidden{% endif %}"
+         id="whitelist-indicator"
+         data-hits="{{ wl_hits }}"
+         data-impact="{{ wl_impact }}">
+        <span class="whitelist-indicator__icon">&#128737;</span>
+        <span class="whitelist-indicator__text" id="whitelist-text">
+            {{ wl_hits }} whitelist hit{% if wl_hits != 1 %}s{% endif %}
+        </span>
+        {% if wl_impact < 0 %}
+        <span class="whitelist-indicator__impact" id="whitelist-impact">({{ -wl_impact }} pts masqu&eacute;s)</span>
+        {% endif %}
+    </div>
 
     <button class="btn btn-sm" id="btn-health-score-details" {% if not has_data %}style="display: none;"{% endif %}>
         D&eacute;tails

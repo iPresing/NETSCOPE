@@ -1,7 +1,8 @@
 /**
- * NETSCOPE Health Score Widget Module (Story 3.2 - Simple Style)
+ * NETSCOPE Health Score Widget Module (Story 3.2, Story 3.3)
  *
  * Displays network health score with simple progress bar (Story 3.1 style).
+ * Story 3.3: Added whitelist hits indicator display.
  * Integrates with HealthScoreCalculator backend (Story 3.1).
  *
  * Lessons Learned Epic 1/2:
@@ -60,7 +61,11 @@
             scoreValue: null,
             scoreMax: null,
             statusLabel: null,
-            detailsBtn: null
+            detailsBtn: null,
+            // Story 3.3: Whitelist indicator elements
+            whitelistIndicator: null,
+            whitelistText: null,
+            whitelistImpact: null
         };
 
         this.init();
@@ -90,6 +95,10 @@
         this.elements.scoreMax = this.container.querySelector('.score-max');
         this.elements.statusLabel = this.container.querySelector('.score-status');
         this.elements.detailsBtn = this.container.querySelector('#btn-health-score-details');
+        // Story 3.3: Cache whitelist indicator elements
+        this.elements.whitelistIndicator = this.container.querySelector('.whitelist-indicator');
+        this.elements.whitelistText = this.container.querySelector('.whitelist-indicator__text');
+        this.elements.whitelistImpact = this.container.querySelector('.whitelist-indicator__impact');
     };
 
     /**
@@ -106,6 +115,11 @@
             '    <div class="progress-fill progress-fill--normal" style="width: 0%;"></div>',
             '  </div>',
             '  <p class="score-status">--%</p>',
+            '  <div class="whitelist-indicator whitelist-indicator--hidden" id="whitelist-indicator" data-hits="0" data-impact="0">',
+            '    <span class="whitelist-indicator__icon">&#128737;</span>',
+            '    <span class="whitelist-indicator__text" id="whitelist-text">0 whitelist hits</span>',
+            '    <span class="whitelist-indicator__impact" id="whitelist-impact" style="display: none;"></span>',
+            '  </div>',
             '  <button class="btn btn-sm" id="btn-health-score-details" style="display: none;">Détails</button>',
             '</div>'
         ].join('\n');
@@ -175,6 +189,12 @@
         // Update status label
         this.updateStatusLabel(statusColor);
 
+        // Story 3.3: Update whitelist indicator
+        this.updateWhitelistIndicator(
+            scoreData.whitelist_hits || 0,
+            scoreData.whitelist_impact || 0
+        );
+
         // Show details button
         this.setHasData(true);
     };
@@ -207,6 +227,33 @@
 
         this.elements.statusLabel.textContent = STATUS_LABELS[status] || '--%';
         this.elements.statusLabel.className = 'score-status score-status--' + status;
+    };
+
+    /**
+     * Update whitelist indicator (Story 3.3)
+     * @param {number} hits - Number of whitelist hits
+     * @param {number} impact - Points hidden by whitelist
+     */
+    HealthScoreWidget.prototype.updateWhitelistIndicator = function(hits, impact) {
+        if (!this.elements.whitelistIndicator) return;
+
+        if (hits > 0) {
+            this.elements.whitelistIndicator.classList.remove('whitelist-indicator--hidden');
+            if (this.elements.whitelistText) {
+                var text = hits + ' whitelist hit' + (hits !== 1 ? 's' : '');
+                this.elements.whitelistText.textContent = text;
+            }
+            if (this.elements.whitelistImpact) {
+                if (impact < 0) {
+                    this.elements.whitelistImpact.textContent = '(' + Math.abs(impact) + ' pts masqués)';
+                    this.elements.whitelistImpact.style.display = '';
+                } else {
+                    this.elements.whitelistImpact.style.display = 'none';
+                }
+            }
+        } else {
+            this.elements.whitelistIndicator.classList.add('whitelist-indicator--hidden');
+        }
     };
 
     /**
@@ -282,6 +329,9 @@
             this.elements.statusLabel.textContent = '--%';
             this.elements.statusLabel.className = 'score-status';
         }
+
+        // Story 3.3: Reset whitelist indicator
+        this.updateWhitelistIndicator(0, 0);
 
         this.setHasData(false);
         this.setColor('normal');
@@ -569,23 +619,7 @@
                 console.log('[HealthScore] Widget initialized with server data');
             }
         }
-
-        // Bind details button event
-        var detailsBtn = document.getElementById('btn-health-score-details');
-        if (detailsBtn && globalWidgetInstance) {
-            detailsBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                if (globalWidgetInstance.scoreData) {
-                    showHealthScoreModal(globalWidgetInstance.scoreData);
-                } else {
-                    loadHealthScore().then(function(data) {
-                        if (data) {
-                            showHealthScoreModal(data);
-                        }
-                    });
-                }
-            });
-        }
+        // Note: Details button binding is handled by widget.bindEvents()
     }
 
     // Export to global NetScope namespace
