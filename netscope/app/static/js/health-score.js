@@ -458,7 +458,7 @@
     }
 
     /**
-     * Populate modal with score data
+     * Populate modal with score data (Story 3.4: Added whitelist details and nudge)
      */
     function populateHealthScoreModal(modal, scoreData) {
         var body = modal.querySelector('#health-score-modal-body');
@@ -466,6 +466,12 @@
 
         var statusClass = 'status-' + (scoreData.status_color || 'normal');
         var statusLabel = STATUS_LABELS[scoreData.status_color] || 'Score';
+
+        // Build whitelist details section (Story 3.4)
+        var whitelistHtml = buildWhitelistDetailsHtml(scoreData);
+
+        // Build nudge if large gap (Story 3.4)
+        var nudgeHtml = buildNudgeHtml(scoreData);
 
         var html = [
             '<div class="health-score-detail">',
@@ -498,13 +504,121 @@
             '    </div>',
             '    <div class="health-score-detail__row">',
             '      <span class="label">Impact whitelist:</span>',
-            '      <span class="value">+' + (scoreData.whitelist_impact || 0) + ' pts</span>',
+            '      <span class="value">' + Math.abs(scoreData.whitelist_impact || 0) + ' pts masques</span>',
             '    </div>',
             '  </div>',
+            whitelistHtml,
+            nudgeHtml,
             '</div>'
         ].join('\n');
 
         body.innerHTML = html;
+    }
+
+    /**
+     * Echappe les caracteres HTML pour prevenir XSS
+     * Fallback si NetScopeUtils n'est pas disponible
+     * @param {string} str - Chaine a echapper
+     * @returns {string} Chaine echappee
+     */
+    function escapeHtmlFallback(str) {
+        if (!str) return '';
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    /**
+     * Echappe HTML en utilisant NetScopeUtils ou fallback securise
+     * @param {string} str - Chaine a echapper
+     * @returns {string} Chaine echappee
+     */
+    function safeEscapeHtml(str) {
+        if (window.NetScopeUtils && typeof NetScopeUtils.escapeHtml === 'function') {
+            return NetScopeUtils.escapeHtml(str);
+        }
+        return escapeHtmlFallback(str);
+    }
+
+    /**
+     * Construit la section HTML des details whitelist (Story 3.4)
+     * @param {Object} scoreData - Donnees HealthScoreResult
+     * @returns {string} Chaine HTML pour les details whitelist
+     */
+    function buildWhitelistDetailsHtml(scoreData) {
+        var details = scoreData.whitelist_details || [];
+
+        if (details.length === 0) {
+            return '<div class="whitelist-details-empty">Aucun element whiteliste</div>';
+        }
+
+        var items = details.map(function(hit) {
+            var target = hit.ip || (hit.port ? 'Port ' + hit.port : 'Element');
+            var critClass = hit.criticality === 'critical' ? 'critical' : 'warning';
+            var safeTarget = safeEscapeHtml(target);
+            var safeReason = safeEscapeHtml(hit.reason || '');
+            return [
+                '<div class="whitelist-details-item whitelist-details-item--' + critClass + '">',
+                '  <span class="whitelist-details-item__target">' + safeTarget + '</span>',
+                '  <span class="whitelist-details-item__impact">' + hit.impact + ' pts</span>',
+                '  <span class="whitelist-details-item__reason">' + safeReason + '</span>',
+                '</div>'
+            ].join('\n');
+        });
+
+        return [
+            '<div class="whitelist-details-section">',
+            '  <h4>Elements Whitelistes</h4>',
+            '  <div class="whitelist-details-list">',
+            items.join('\n'),
+            '  </div>',
+            '</div>'
+        ].join('\n');
+    }
+
+    /**
+     * Construit le HTML du nudge si ecart important entre scores (Story 3.4 AC4)
+     * @param {Object} scoreData - Donnees HealthScoreResult
+     * @returns {string} Chaine HTML pour le nudge ou chaine vide
+     */
+    function buildNudgeHtml(scoreData) {
+        var impact = scoreData.whitelist_impact || 0;
+        // Impact negatif = whitelist masque des points (score affiche > score reel)
+        // Nudge si ecart > 20 points
+        if (impact >= -20) {
+            return ''; // Pas de nudge si ecart <= 20
+        }
+
+        var details = scoreData.whitelist_details || [];
+        var totalHidden = details.length;
+        var criticalHidden = details.filter(function(h) {
+            return h.criticality === 'critical';
+        }).length;
+        var warningHidden = totalHidden - criticalHidden;
+
+        // Construire un message informatif avec le total et le detail
+        var message = 'Conseil: ' + totalHidden + ' anomalie' +
+            (totalHidden > 1 ? 's' : '') + ' masquee' +
+            (totalHidden > 1 ? 's' : '') + ' par la whitelist';
+
+        // Ajouter le detail si mix critique/warning
+        if (criticalHidden > 0 && warningHidden > 0) {
+            message += ' (' + criticalHidden + ' critique' +
+                (criticalHidden > 1 ? 's' : '') + ', ' +
+                warningHidden + ' warning' + (warningHidden > 1 ? 's' : '') + ')';
+        } else if (criticalHidden > 0) {
+            message += ' (' + criticalHidden + ' critique' +
+                (criticalHidden > 1 ? 's' : '') + ')';
+        }
+
+        message += '. Verifiez si legitimes.';
+
+        return [
+            '<div class="health-score-nudge">',
+            '  <span class="health-score-nudge__icon">&#9888;</span>',
+            '  <span class="health-score-nudge__text">' + message + '</span>',
+            '</div>'
+        ].join('\n');
     }
 
     /**

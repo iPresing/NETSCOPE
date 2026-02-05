@@ -7,6 +7,10 @@ Story 3.1: Calcul Score Santé Réseau (FR16, NFR11)
 - Gestion séparée score affiché vs score réel (whitelist)
 - Seuils couleur pour indicateur visuel
 
+Story 3.4: Details Score Reel vs Affiche (FR19, NFR37)
+- WhitelistHitDetail dataclass for individual hit information
+- whitelist_details list in HealthScoreResult
+
 Lessons Learned Epic 1/2:
 - Use Python 3.10+ type hints (X | None, not Optional[X])
 - Use module-level logger, NOT current_app.logger
@@ -17,6 +21,41 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+
+
+@dataclass
+class WhitelistHitDetail:
+    """Detail of a single whitelist hit (Story 3.4).
+
+    Attributes:
+        anomaly_id: Unique ID of the whitelisted anomaly
+        ip: IP address if available
+        port: Port number if available
+        anomaly_type: Type of anomaly (ip, domain, term, heuristic)
+        criticality: Criticality level (critical, warning)
+        impact: Points hidden by this hit (negative value)
+        reason: Original detection reason
+    """
+
+    anomaly_id: str
+    ip: str | None
+    port: int | None
+    anomaly_type: str
+    criticality: str
+    impact: int
+    reason: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary for JSON response."""
+        return {
+            "anomaly_id": self.anomaly_id,
+            "ip": self.ip,
+            "port": self.port,
+            "anomaly_type": self.anomaly_type,
+            "criticality": self.criticality,
+            "impact": self.impact,
+            "reason": self.reason,
+        }
 
 
 @dataclass
@@ -31,6 +70,7 @@ class HealthScoreResult:
         warning_count: Number of non-whitelisted warning anomalies
         whitelist_hits: Number of whitelisted items
         whitelist_impact: Points hidden by whitelist (real - displayed)
+        whitelist_details: List of detailed whitelist hit info (Story 3.4)
     """
 
     displayed_score: int
@@ -40,6 +80,7 @@ class HealthScoreResult:
     warning_count: int = 0
     whitelist_hits: int = 0
     whitelist_impact: int = 0
+    whitelist_details: list[WhitelistHitDetail] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Validate score values are within expected range."""
@@ -83,4 +124,5 @@ class HealthScoreResult:
             "whitelist_hits": self.whitelist_hits,
             "whitelist_impact": self.whitelist_impact,
             "status_color": self.get_status_color(),
+            "whitelist_details": [d.to_dict() for d in self.whitelist_details],
         }

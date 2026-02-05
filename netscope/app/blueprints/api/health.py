@@ -118,12 +118,12 @@ def get_health_score():
             }), 200
 
     except Exception as e:
-        logger.error(f"Error calculating health score (error={str(e)})")
+        logger.error(f"Error calculating health score (error={str(e)})", exc_info=True)
         return jsonify({
             "success": False,
             "error": {
                 "code": "HEALTH_SCORE_ERROR",
-                "message": f"Erreur: {str(e)}",
+                "message": "Erreur lors du calcul du score sante",
                 "details": {},
             },
         }), 500

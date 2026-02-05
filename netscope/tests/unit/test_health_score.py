@@ -452,6 +452,122 @@ class TestHealthScoreCalculatorEdgeCases:
         assert result.whitelist_impact == -35  # 65 - 100
 
 
+class TestHealthScoreWhitelistDetails:
+    """Tests for whitelist_details (Story 3.4).
+
+    AC2: Liste detaillee des whitelist hits
+    AC3: Comprehension transparente de la difference
+    """
+
+    def test_whitelist_details_contains_all_hits(self):
+        """AC2: whitelist_details contains all whitelisted anomalies."""
+        calculator = HealthScoreCalculator()
+        collection = AnomalyCollection(anomalies=[
+            _create_anomaly("c1", CriticalityLevel.CRITICAL),
+            _create_anomaly("c2", CriticalityLevel.CRITICAL),
+            _create_anomaly("w1", CriticalityLevel.WARNING),
+        ])
+
+        result = calculator.calculate(collection, whitelisted_ids={"c1", "w1"})
+
+        assert len(result.whitelist_details) == 2
+        ids = [d.anomaly_id for d in result.whitelist_details]
+        assert "c1" in ids
+        assert "w1" in ids
+
+    def test_whitelist_details_impact_correct_for_critical(self):
+        """AC2: impact = -15 for critical anomaly."""
+        calculator = HealthScoreCalculator()
+        collection = AnomalyCollection(anomalies=[
+            _create_anomaly("c1", CriticalityLevel.CRITICAL),
+        ])
+
+        result = calculator.calculate(collection, whitelisted_ids={"c1"})
+
+        assert len(result.whitelist_details) == 1
+        detail = result.whitelist_details[0]
+        assert detail.impact == -15
+        assert detail.criticality == "critical"
+
+    def test_whitelist_details_impact_correct_for_warning(self):
+        """AC2: impact = -5 for warning anomaly."""
+        calculator = HealthScoreCalculator()
+        collection = AnomalyCollection(anomalies=[
+            _create_anomaly("w1", CriticalityLevel.WARNING),
+        ])
+
+        result = calculator.calculate(collection, whitelisted_ids={"w1"})
+
+        assert len(result.whitelist_details) == 1
+        detail = result.whitelist_details[0]
+        assert detail.impact == -5
+        assert detail.criticality == "warning"
+
+    def test_whitelist_details_empty_when_no_hits(self):
+        """whitelist_details empty when no whitelist hits."""
+        calculator = HealthScoreCalculator()
+        collection = AnomalyCollection(anomalies=[
+            _create_anomaly("c1", CriticalityLevel.CRITICAL),
+        ])
+
+        result = calculator.calculate(collection, whitelisted_ids=set())
+
+        assert result.whitelist_details == []
+
+    def test_whitelist_details_has_correct_structure(self):
+        """AC2: whitelist_details has required fields (ip, port, type, impact, reason)."""
+        calculator = HealthScoreCalculator()
+        collection = AnomalyCollection(anomalies=[
+            _create_anomaly("c1", CriticalityLevel.CRITICAL),
+        ])
+
+        result = calculator.calculate(collection, whitelisted_ids={"c1"})
+
+        assert len(result.whitelist_details) == 1
+        detail = result.whitelist_details[0]
+        # Verify structure
+        assert hasattr(detail, "anomaly_id")
+        assert hasattr(detail, "ip")
+        assert hasattr(detail, "port")
+        assert hasattr(detail, "anomaly_type")
+        assert hasattr(detail, "criticality")
+        assert hasattr(detail, "impact")
+        assert hasattr(detail, "reason")
+
+    def test_whitelist_details_sum_equals_whitelist_impact(self):
+        """AC3: Sum of individual impacts equals total whitelist_impact."""
+        calculator = HealthScoreCalculator()
+        collection = AnomalyCollection(anomalies=[
+            _create_anomaly("c1", CriticalityLevel.CRITICAL),
+            _create_anomaly("c2", CriticalityLevel.CRITICAL),
+            _create_anomaly("w1", CriticalityLevel.WARNING),
+        ])
+
+        result = calculator.calculate(collection, whitelisted_ids={"c1", "c2", "w1"})
+
+        # Sum of individual impacts
+        total_impact = sum(d.impact for d in result.whitelist_details)
+        # Should equal whitelist_impact
+        assert total_impact == result.whitelist_impact
+
+    def test_whitelist_details_to_dict_serialization(self):
+        """whitelist_details included in to_dict() output."""
+        calculator = HealthScoreCalculator()
+        collection = AnomalyCollection(anomalies=[
+            _create_anomaly("c1", CriticalityLevel.CRITICAL),
+        ])
+
+        result = calculator.calculate(collection, whitelisted_ids={"c1"})
+        data = result.to_dict()
+
+        assert "whitelist_details" in data
+        assert len(data["whitelist_details"]) == 1
+        detail = data["whitelist_details"][0]
+        assert "anomaly_id" in detail
+        assert "impact" in detail
+        assert "criticality" in detail
+
+
 class TestHealthScoreSingleton:
     """Tests for singleton pattern."""
 

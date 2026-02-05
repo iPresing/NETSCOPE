@@ -1,7 +1,8 @@
-"""Integration tests for Health Score API (Story 3.2, Story 3.3).
+"""Integration tests for Health Score API (Story 3.2, Story 3.3, Story 3.4).
 
 Tests the /api/health/score endpoint and dashboard integration.
 Story 3.3: Added whitelist indicator tests.
+Story 3.4: Added whitelist_details tests.
 """
 
 import pytest
@@ -437,3 +438,166 @@ class TestWhitelistIndicatorIntegration:
             html = response.data.decode('utf-8')
             # Indicator should have hidden class
             assert 'whitelist-indicator--hidden' in html
+
+
+class TestWhitelistDetailsIntegration:
+    """Tests for whitelist_details in API (Story 3.4)."""
+
+    def test_api_returns_whitelist_details_in_response(self, client):
+        """AC2: API retourne whitelist_details dans response."""
+        from app.models.health_score import HealthScoreResult, WhitelistHitDetail
+
+        with patch('app.blueprints.api.health.get_tcpdump_manager') as mock_manager, \
+             patch('app.blueprints.api.health.get_anomaly_store') as mock_store, \
+             patch('app.blueprints.api.health.get_health_calculator') as mock_calc:
+
+            mock_session = Mock()
+            mock_session.id = 'test_capture_wd_1'
+            mock_result = Mock()
+            mock_result.session = mock_session
+
+            mock_collection = Mock()
+            mock_collection.anomalies = [Mock()]
+
+            mock_manager.return_value.get_latest_result.return_value = mock_result
+            mock_store.return_value.get_by_capture.return_value = mock_collection
+
+            # Simulate whitelist with details
+            whitelist_details = [
+                WhitelistHitDetail(
+                    anomaly_id='anomaly_001',
+                    ip='192.168.1.100',
+                    port=None,
+                    anomaly_type='ip',
+                    criticality='critical',
+                    impact=-15,
+                    reason='Blacklist match: ips_malware.txt',
+                ),
+                WhitelistHitDetail(
+                    anomaly_id='anomaly_002',
+                    ip=None,
+                    port=8080,
+                    anomaly_type='heuristic',
+                    criticality='warning',
+                    impact=-5,
+                    reason='Port suspect: proxy alternatif',
+                ),
+            ]
+            health_result = HealthScoreResult(
+                displayed_score=100,
+                real_score=80,
+                critical_count=0,
+                warning_count=0,
+                whitelist_hits=2,
+                whitelist_impact=-20,
+                whitelist_details=whitelist_details,
+            )
+            mock_calc.return_value.calculate.return_value = health_result
+
+            response = client.get('/api/health/score')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert 'whitelist_details' in data['data']
+            assert len(data['data']['whitelist_details']) == 2
+
+    def test_whitelist_details_structure_valid_for_frontend(self, client):
+        """AC2: structure whitelist_details valide pour frontend."""
+        from app.models.health_score import HealthScoreResult, WhitelistHitDetail
+
+        with patch('app.blueprints.api.health.get_tcpdump_manager') as mock_manager, \
+             patch('app.blueprints.api.health.get_anomaly_store') as mock_store, \
+             patch('app.blueprints.api.health.get_health_calculator') as mock_calc:
+
+            mock_session = Mock()
+            mock_session.id = 'test_capture_wd_2'
+            mock_result = Mock()
+            mock_result.session = mock_session
+
+            mock_collection = Mock()
+            mock_collection.anomalies = [Mock()]
+
+            mock_manager.return_value.get_latest_result.return_value = mock_result
+            mock_store.return_value.get_by_capture.return_value = mock_collection
+
+            whitelist_details = [
+                WhitelistHitDetail(
+                    anomaly_id='anomaly_003',
+                    ip='10.0.0.1',
+                    port=443,
+                    anomaly_type='domain',
+                    criticality='critical',
+                    impact=-15,
+                    reason='Domain match: malware.com',
+                ),
+            ]
+            health_result = HealthScoreResult(
+                displayed_score=100,
+                real_score=85,
+                critical_count=0,
+                warning_count=0,
+                whitelist_hits=1,
+                whitelist_impact=-15,
+                whitelist_details=whitelist_details,
+            )
+            mock_calc.return_value.calculate.return_value = health_result
+
+            response = client.get('/api/health/score')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            detail = data['data']['whitelist_details'][0]
+
+            # Verify structure has all required fields
+            assert 'anomaly_id' in detail
+            assert 'ip' in detail
+            assert 'port' in detail
+            assert 'anomaly_type' in detail
+            assert 'criticality' in detail
+            assert 'impact' in detail
+            assert 'reason' in detail
+
+            # Verify values
+            assert detail['anomaly_id'] == 'anomaly_003'
+            assert detail['ip'] == '10.0.0.1'
+            assert detail['port'] == 443
+            assert detail['criticality'] == 'critical'
+            assert detail['impact'] == -15
+
+    def test_whitelist_details_empty_when_no_hits(self, client):
+        """whitelist_details empty list when no whitelist hits."""
+        from app.models.health_score import HealthScoreResult
+
+        with patch('app.blueprints.api.health.get_tcpdump_manager') as mock_manager, \
+             patch('app.blueprints.api.health.get_anomaly_store') as mock_store, \
+             patch('app.blueprints.api.health.get_health_calculator') as mock_calc:
+
+            mock_session = Mock()
+            mock_session.id = 'test_capture_wd_3'
+            mock_result = Mock()
+            mock_result.session = mock_session
+
+            mock_collection = Mock()
+            mock_collection.anomalies = [Mock()]
+
+            mock_manager.return_value.get_latest_result.return_value = mock_result
+            mock_store.return_value.get_by_capture.return_value = mock_collection
+
+            # No whitelist hits
+            health_result = HealthScoreResult(
+                displayed_score=70,
+                real_score=70,
+                critical_count=2,
+                warning_count=1,
+                whitelist_hits=0,
+                whitelist_impact=0,
+                whitelist_details=[],
+            )
+            mock_calc.return_value.calculate.return_value = health_result
+
+            response = client.get('/api/health/score')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['data']['whitelist_details'] == []

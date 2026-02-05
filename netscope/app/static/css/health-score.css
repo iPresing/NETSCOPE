@@ -341,3 +341,104 @@
 }
 
 /* Removed hover effect - indicator is not interactive */
+
+/* =============================================================================
+   Whitelist Details Section (Story 3.4)
+   Displays detailed list of whitelisted elements in modal
+   ============================================================================= */
+.whitelist-details-section {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.whitelist-details-section h4 {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-highlight);
+    margin: 0 0 var(--space-sm) 0;
+}
+
+.whitelist-details-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.whitelist-details-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    margin-bottom: var(--space-xs);
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+}
+
+.whitelist-details-item--critical {
+    background-color: rgba(255, 51, 85, 0.1);
+    border-left: 3px solid var(--danger-red);
+}
+
+.whitelist-details-item--warning {
+    background-color: rgba(255, 170, 0, 0.1);
+    border-left: 3px solid var(--alert-amber);
+}
+
+.whitelist-details-item__target {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    min-width: 120px;
+    color: var(--text-highlight);
+}
+
+.whitelist-details-item__impact {
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.whitelist-details-item__reason {
+    flex: 1;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.whitelist-details-empty {
+    padding: var(--space-md);
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* =============================================================================
+   Health Score Nudge (Story 3.4 AC4)
+   Subtle advice when gap > 20 points
+   ============================================================================= */
+.health-score-nudge {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    background-color: rgba(255, 170, 0, 0.15);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--alert-amber);
+}
+
+.health-score-nudge__icon {
+    font-size: 1rem;
+    color: var(--alert-amber);
+    line-height: 1.4;
+}
+
+.health-score-nudge__text {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}

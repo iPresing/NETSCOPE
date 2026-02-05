@@ -20,7 +20,7 @@ import logging
 from typing import Any
 
 from app.models.anomaly import AnomalyCollection, CriticalityLevel
-from app.models.health_score import HealthScoreResult
+from app.models.health_score import HealthScoreResult, WhitelistHitDetail
 
 logger = logging.getLogger(__name__)
 
@@ -102,12 +102,39 @@ class HealthScoreCalculator:
         display_warning = 0
 
         whitelist_hits = 0
+        whitelist_details: list[WhitelistHitDetail] = []
 
         for anomaly in anomaly_collection.anomalies:
             is_whitelisted = anomaly.id in whitelisted_ids
 
             if is_whitelisted:
                 whitelist_hits += 1
+                # Story 3.4: Collect detail for this hit
+                impact = (
+                    -self._decay_critical
+                    if anomaly.criticality_level == CriticalityLevel.CRITICAL
+                    else -self._decay_warning
+                )
+                # Extract IP/port from packet_info if available
+                ip = None
+                port = None
+                if anomaly.packet_info:
+                    ip = anomaly.packet_info.get("src_ip") or anomaly.packet_info.get("dst_ip")
+                    port = anomaly.packet_info.get("dst_port") or anomaly.packet_info.get("src_port")
+                # Use matched_value as IP if match_type is IP
+                if ip is None and anomaly.match.match_type.value == "ip":
+                    ip = anomaly.match.matched_value
+
+                detail = WhitelistHitDetail(
+                    anomaly_id=anomaly.id,
+                    ip=ip,
+                    port=port,
+                    anomaly_type=anomaly.match.match_type.value,
+                    criticality=anomaly.criticality_level.value,
+                    impact=impact,
+                    reason=anomaly.match.context or anomaly.match.source_file or "",
+                )
+                whitelist_details.append(detail)
 
             if anomaly.criticality_level == CriticalityLevel.CRITICAL:
                 total_critical += 1
@@ -135,6 +162,7 @@ class HealthScoreCalculator:
             warning_count=display_warning,
             whitelist_hits=whitelist_hits,
             whitelist_impact=whitelist_impact,
+            whitelist_details=whitelist_details,
         )
 
         logger.debug(

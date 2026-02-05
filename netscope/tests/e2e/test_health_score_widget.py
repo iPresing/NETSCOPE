@@ -1,4 +1,4 @@
-"""E2E tests for Health Score Widget (Story 3.2, Story 3.3 - Simple Style).
+"""E2E tests for Health Score Widget (Story 3.2, Story 3.3, Story 3.4 - Simple Style).
 
 Tests the frontend widget rendering, color states, and interactions.
 These tests verify the HTML/CSS behavior via Flask test client.
@@ -15,6 +15,12 @@ AC Coverage Story 3.3:
 - AC3: Gestion zero whitelist hits
 - AC4: Transparence score affiché vs réel
 - AC5: Intégration avec widget health score existant
+
+AC Coverage Story 3.4:
+- AC1: Acces aux details en 1 clic
+- AC2: Liste detaillee des whitelist hits
+- AC4: Nudge subtil si ecart important
+- AC5: Integration avec modal existant
 """
 
 import pytest
@@ -760,3 +766,147 @@ class TestWhitelistIndicatorJavaScript:
         assert 'whitelistIndicator' in js_content
         assert 'whitelistText' in js_content
         assert 'whitelistImpact' in js_content
+
+
+class TestWhitelistDetailsModal:
+    """Tests for whitelist details in modal (Story 3.4)."""
+
+    def test_js_file_contains_whitelist_details_functions(self, client):
+        """AC2: JavaScript contains buildWhitelistDetailsHtml function."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Check whitelist details function exists
+        assert 'buildWhitelistDetailsHtml' in js_content
+        assert 'whitelist_details' in js_content
+        assert 'whitelist-details-list' in js_content
+        assert 'whitelist-details-item' in js_content
+
+    def test_js_file_contains_nudge_function(self, client):
+        """AC4: JavaScript contains buildNudgeHtml function."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Check nudge function exists
+        assert 'buildNudgeHtml' in js_content
+        assert 'health-score-nudge' in js_content
+
+    def test_css_contains_whitelist_details_styles(self, client):
+        """AC2: CSS contains whitelist details styles."""
+        response = client.get('/static/css/health-score.css')
+
+        assert response.status_code == 200
+        css_content = response.data.decode('utf-8')
+
+        # Check whitelist details CSS classes exist
+        assert '.whitelist-details-section' in css_content
+        assert '.whitelist-details-list' in css_content
+        assert '.whitelist-details-item' in css_content
+        assert '.whitelist-details-item--critical' in css_content
+        assert '.whitelist-details-item--warning' in css_content
+        assert '.whitelist-details-item__target' in css_content
+        assert '.whitelist-details-item__impact' in css_content
+        assert '.whitelist-details-item__reason' in css_content
+        assert '.whitelist-details-empty' in css_content
+
+    def test_css_contains_nudge_styles(self, client):
+        """AC4: CSS contains nudge styles."""
+        response = client.get('/static/css/health-score.css')
+
+        assert response.status_code == 200
+        css_content = response.data.decode('utf-8')
+
+        # Check nudge CSS classes exist
+        assert '.health-score-nudge' in css_content
+        assert '.health-score-nudge__icon' in css_content
+        assert '.health-score-nudge__text' in css_content
+
+    def test_api_response_includes_whitelist_details(self, client):
+        """AC2: API response includes whitelist_details field."""
+        from app.models.health_score import HealthScoreResult, WhitelistHitDetail
+
+        with patch('app.blueprints.api.health.get_tcpdump_manager') as mock_manager, \
+             patch('app.blueprints.api.health.get_anomaly_store') as mock_store, \
+             patch('app.blueprints.api.health.get_health_calculator') as mock_calc:
+
+            mock_session = Mock()
+            mock_session.id = 'test_e2e_details'
+            mock_result = Mock()
+            mock_result.session = mock_session
+
+            mock_collection = Mock()
+            mock_collection.anomalies = [Mock()]
+
+            mock_manager.return_value.get_latest_result.return_value = mock_result
+            mock_store.return_value.get_by_capture.return_value = mock_collection
+
+            # Simulate whitelist with details
+            whitelist_details = [
+                WhitelistHitDetail(
+                    anomaly_id='anom_001',
+                    ip='192.168.1.100',
+                    port=None,
+                    anomaly_type='ip',
+                    criticality='critical',
+                    impact=-15,
+                    reason='Blacklist match: ips_malware.txt',
+                ),
+            ]
+            health_result = HealthScoreResult(
+                displayed_score=100,
+                real_score=85,
+                critical_count=0,
+                warning_count=0,
+                whitelist_hits=1,
+                whitelist_impact=-15,
+                whitelist_details=whitelist_details,
+            )
+            mock_calc.return_value.calculate.return_value = health_result
+
+            response = client.get('/api/health/score')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert 'whitelist_details' in data['data']
+            assert len(data['data']['whitelist_details']) == 1
+            detail = data['data']['whitelist_details'][0]
+            assert detail['ip'] == '192.168.1.100'
+            assert detail['criticality'] == 'critical'
+            assert detail['impact'] == -15
+
+    def test_js_handles_empty_whitelist_details(self, client):
+        """AC2: JavaScript handles empty whitelist_details gracefully."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Should check for empty details and show empty message
+        assert "details.length === 0" in js_content or "details.length == 0" in js_content
+        assert "Aucun element whiteliste" in js_content
+
+    def test_js_nudge_threshold_at_20_points(self, client):
+        """AC4: Nudge appears when gap > 20 points."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Should check for threshold of -20 (gap > 20)
+        assert "-20" in js_content
+        assert "impact >= -20" in js_content or "impact > -20" in js_content
+
+    def test_js_escapes_html_in_details(self, client):
+        """AC2: JavaScript escapes HTML in whitelist details for XSS prevention."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Should use escapeHtml for XSS prevention
+        assert 'escapeHtml' in js_content
+        assert 'NetScopeUtils' in js_content
