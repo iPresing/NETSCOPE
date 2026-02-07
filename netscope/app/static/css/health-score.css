@@ -442,3 +442,61 @@
     color: var(--text-secondary);
     line-height: 1.4;
 }
+
+/* =============================================================================
+   Score Evolution Indicator (Story 3.5)
+   Displays score change between captures with directional arrow
+   ============================================================================= */
+.score-evolution {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    margin-top: var(--space-xs);
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: opacity 0.3s ease;
+}
+
+.score-evolution--hidden {
+    display: none;
+}
+
+.score-evolution--up {
+    color: var(--matrix-green, #22c55e);
+}
+
+.score-evolution--down {
+    color: var(--danger-red, #ef4444);
+}
+
+.score-evolution--stable {
+    color: var(--text-secondary, #888);
+}
+
+.score-evolution--first {
+    color: var(--text-muted, #666);
+}
+
+.score-evolution__arrow {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.score-evolution--up .score-evolution__arrow {
+    text-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.score-evolution--down .score-evolution__arrow {
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+.score-evolution__delta {
+    font-family: var(--font-mono, monospace);
+}
+
+.score-evolution__message {
+    font-style: italic;
+    font-weight: normal;
+    color: var(--text-muted, #666);
+}

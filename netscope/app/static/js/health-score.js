@@ -1,8 +1,9 @@
 /**
- * NETSCOPE Health Score Widget Module (Story 3.2, Story 3.3)
+ * NETSCOPE Health Score Widget Module (Story 3.2, Story 3.3, Story 3.5)
  *
  * Displays network health score with simple progress bar (Story 3.1 style).
  * Story 3.3: Added whitelist hits indicator display.
+ * Story 3.5: Added score evolution indicator (delta between captures).
  * Integrates with HealthScoreCalculator backend (Story 3.1).
  *
  * Lessons Learned Epic 1/2:
@@ -65,7 +66,12 @@
             // Story 3.3: Whitelist indicator elements
             whitelistIndicator: null,
             whitelistText: null,
-            whitelistImpact: null
+            whitelistImpact: null,
+            // Story 3.5: Evolution indicator elements
+            evolutionContainer: null,
+            evolutionArrow: null,
+            evolutionDelta: null,
+            evolutionMessage: null
         };
 
         this.init();
@@ -99,6 +105,11 @@
         this.elements.whitelistIndicator = this.container.querySelector('.whitelist-indicator');
         this.elements.whitelistText = this.container.querySelector('.whitelist-indicator__text');
         this.elements.whitelistImpact = this.container.querySelector('.whitelist-indicator__impact');
+        // Story 3.5: Cache evolution indicator elements
+        this.elements.evolutionContainer = this.container.querySelector('.score-evolution');
+        this.elements.evolutionArrow = this.container.querySelector('.score-evolution__arrow');
+        this.elements.evolutionDelta = this.container.querySelector('.score-evolution__delta');
+        this.elements.evolutionMessage = this.container.querySelector('.score-evolution__message');
     };
 
     /**
@@ -119,6 +130,11 @@
             '    <span class="whitelist-indicator__icon">&#128737;</span>',
             '    <span class="whitelist-indicator__text" id="whitelist-text">0 whitelist hits</span>',
             '    <span class="whitelist-indicator__impact" id="whitelist-impact" style="display: none;"></span>',
+            '  </div>',
+            '  <div class="score-evolution score-evolution--hidden" id="score-evolution">',
+            '    <span class="score-evolution__arrow" id="score-evolution-arrow"></span>',
+            '    <span class="score-evolution__delta" id="score-evolution-delta"></span>',
+            '    <span class="score-evolution__message" id="score-evolution-message"></span>',
             '  </div>',
             '  <button class="btn btn-sm" id="btn-health-score-details" style="display: none;">Détails</button>',
             '</div>'
@@ -257,6 +273,75 @@
     };
 
     /**
+     * Update score evolution indicator (Story 3.5)
+     * @param {Object|null} evolutionData - ScoreEvolution data from API
+     */
+    HealthScoreWidget.prototype.updateEvolution = function(evolutionData) {
+        if (!this.elements.evolutionContainer) return;
+
+        // Hide if no evolution data or first capture (no previous score)
+        if (!evolutionData || evolutionData.previous_score === null) {
+            this.elements.evolutionContainer.classList.add('score-evolution--hidden');
+            // Show "Premiere capture" message if it's first capture
+            if (evolutionData && evolutionData.previous_score === null && this.elements.evolutionMessage) {
+                this.elements.evolutionContainer.classList.remove('score-evolution--hidden');
+                this.elements.evolutionContainer.classList.remove('score-evolution--up', 'score-evolution--down', 'score-evolution--stable');
+                this.elements.evolutionContainer.classList.add('score-evolution--first');
+                if (this.elements.evolutionArrow) {
+                    this.elements.evolutionArrow.textContent = '';
+                }
+                if (this.elements.evolutionDelta) {
+                    this.elements.evolutionDelta.textContent = '';
+                }
+                this.elements.evolutionMessage.textContent = evolutionData.message || 'Premiere capture';
+            }
+            return;
+        }
+
+        var direction = evolutionData.direction;
+        var delta = evolutionData.delta;
+
+        // Show container
+        this.elements.evolutionContainer.classList.remove('score-evolution--hidden');
+
+        // Reset direction classes
+        this.elements.evolutionContainer.classList.remove(
+            'score-evolution--up',
+            'score-evolution--down',
+            'score-evolution--stable',
+            'score-evolution--first'
+        );
+        this.elements.evolutionContainer.classList.add('score-evolution--' + direction);
+
+        // Update arrow (textContent for XSS safety per Lessons Learned)
+        if (this.elements.evolutionArrow) {
+            if (direction === 'up') {
+                this.elements.evolutionArrow.textContent = '\u2191'; // ↑
+            } else if (direction === 'down') {
+                this.elements.evolutionArrow.textContent = '\u2193'; // ↓
+            } else {
+                this.elements.evolutionArrow.textContent = '\u2192'; // →
+            }
+        }
+
+        // Update delta text
+        if (this.elements.evolutionDelta) {
+            if (direction === 'up') {
+                this.elements.evolutionDelta.textContent = '+' + delta + ' pts';
+            } else if (direction === 'down') {
+                this.elements.evolutionDelta.textContent = delta + ' pts';
+            } else {
+                this.elements.evolutionDelta.textContent = 'Stable';
+            }
+        }
+
+        // Clear message for non-first captures
+        if (this.elements.evolutionMessage) {
+            this.elements.evolutionMessage.textContent = '';
+        }
+    };
+
+    /**
      * Set the color/status of the progress bar
      */
     HealthScoreWidget.prototype.setColor = function(status) {
@@ -333,6 +418,9 @@
         // Story 3.3: Reset whitelist indicator
         this.updateWhitelistIndicator(0, 0);
 
+        // Story 3.5: Reset evolution indicator
+        this.updateEvolution(null);
+
         this.setHasData(false);
         this.setColor('normal');
     };
@@ -358,26 +446,41 @@
 
         this.setLoading(true);
 
-        return fetch('/api/health/score')
-            .then(function(response) {
-                if (!response.ok) {
-                    throw new Error('HTTP error: ' + response.status);
-                }
-                return response.json();
+        // Story 3.5: Fetch both score and evolution in parallel
+        return Promise.all([
+            fetch('/api/health/score'),
+            fetch('/api/health/evolution')
+        ])
+            .then(function(responses) {
+                // Validate both responses
+                return Promise.all(responses.map(function(response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP error: ' + response.status);
+                    }
+                    return response.json();
+                }));
             })
-            .then(function(data) {
+            .then(function(results) {
                 self.setLoading(false);
 
-                if (data.success && data.data) {
-                    self.update(data.data);
-                    return data.data;
-                } else if (data.success && data.data === null) {
+                var scoreData = results[0];
+                var evolutionData = results[1];
+
+                if (scoreData.success && scoreData.data) {
+                    self.update(scoreData.data);
+                } else if (scoreData.success && scoreData.data === null) {
                     self.reset();
                     return null;
                 } else {
-                    console.warn('[HealthScoreWidget] API error:', data.error);
-                    return null;
+                    console.warn('[HealthScoreWidget] Score API error:', scoreData.error);
                 }
+
+                // Update evolution indicator (Story 3.5)
+                if (evolutionData.success) {
+                    self.updateEvolution(evolutionData.data);
+                }
+
+                return { score: scoreData.data, evolution: evolutionData.data };
             })
             .catch(function(error) {
                 self.setLoading(false);

@@ -1,4 +1,4 @@
-"""E2E tests for Health Score Widget (Story 3.2, Story 3.3, Story 3.4 - Simple Style).
+"""E2E tests for Health Score Widget (Story 3.2, Story 3.3, Story 3.4, Story 3.5 - Simple Style).
 
 Tests the frontend widget rendering, color states, and interactions.
 These tests verify the HTML/CSS behavior via Flask test client.
@@ -21,6 +21,12 @@ AC Coverage Story 3.4:
 - AC2: Liste detaillee des whitelist hits
 - AC4: Nudge subtil si ecart important
 - AC5: Integration avec modal existant
+
+AC Coverage Story 3.5:
+- AC1: Affichage evolution score (current, previous, delta)
+- AC2: Indicateur positif (fleche verte, amelioration)
+- AC3: Indicateur negatif (fleche rouge, degradation)
+- AC4: Premiere capture (indicateur masque/premiere capture)
 """
 
 import pytest
@@ -910,3 +916,314 @@ class TestWhitelistDetailsModal:
         # Should use escapeHtml for XSS prevention
         assert 'escapeHtml' in js_content
         assert 'NetScopeUtils' in js_content
+
+
+class TestScoreEvolutionIndicatorRendering:
+    """Tests for score evolution indicator HTML rendering (Story 3.5)."""
+
+    def test_evolution_indicator_element_exists_in_template(self, client):
+        """AC1: Evolution indicator element exists in dashboard HTML."""
+        with patch('app.blueprints.dashboard.routes.get_tcpdump_manager') as mock_manager:
+            mock_manager.return_value.get_latest_result.return_value = None
+
+            response = client.get('/')
+
+            assert response.status_code == 200
+            soup = BeautifulSoup(response.data, 'html.parser')
+
+            # Find score evolution container
+            evolution = soup.find(class_='score-evolution')
+            assert evolution is not None, "Evolution indicator container should exist"
+
+            # Should have arrow and delta elements
+            arrow = soup.find(class_='score-evolution__arrow')
+            assert arrow is not None, "Evolution arrow element should exist"
+
+            delta = soup.find(class_='score-evolution__delta')
+            assert delta is not None, "Evolution delta element should exist"
+
+    def test_evolution_indicator_hidden_by_default(self, client):
+        """AC4: Evolution indicator hidden when no history (first capture)."""
+        with patch('app.blueprints.dashboard.routes.get_tcpdump_manager') as mock_manager:
+            mock_manager.return_value.get_latest_result.return_value = None
+
+            response = client.get('/')
+
+            assert response.status_code == 200
+            soup = BeautifulSoup(response.data, 'html.parser')
+
+            evolution = soup.find(class_='score-evolution')
+            assert evolution is not None
+
+            # Should have hidden class by default
+            evolution_classes = evolution.get('class', [])
+            assert 'score-evolution--hidden' in evolution_classes
+
+
+class TestScoreEvolutionCSS:
+    """Tests for score evolution CSS styles (Story 3.5)."""
+
+    def test_evolution_css_classes_exist(self, client):
+        """CSS file contains evolution indicator styles."""
+        response = client.get('/static/css/health-score.css')
+
+        assert response.status_code == 200
+        css_content = response.data.decode('utf-8')
+
+        # Check evolution indicator classes exist
+        assert '.score-evolution' in css_content
+        assert '.score-evolution--hidden' in css_content
+        assert '.score-evolution--up' in css_content
+        assert '.score-evolution--down' in css_content
+        assert '.score-evolution--stable' in css_content
+        assert '.score-evolution__arrow' in css_content
+        assert '.score-evolution__delta' in css_content
+        assert '.score-evolution__message' in css_content
+
+    def test_evolution_up_uses_green_color(self, client):
+        """AC2: Evolution up indicator uses green color."""
+        response = client.get('/static/css/health-score.css')
+
+        assert response.status_code == 200
+        css_content = response.data.decode('utf-8')
+
+        # Check up class uses green (matrix-green or similar)
+        assert '.score-evolution--up' in css_content
+        # Should reference green color variable or hex
+        assert 'matrix-green' in css_content or '#22c55e' in css_content
+
+    def test_evolution_down_uses_red_color(self, client):
+        """AC3: Evolution down indicator uses red color."""
+        response = client.get('/static/css/health-score.css')
+
+        assert response.status_code == 200
+        css_content = response.data.decode('utf-8')
+
+        # Check down class uses red (danger-red or similar)
+        assert '.score-evolution--down' in css_content
+        # Should reference red color variable or hex
+        assert 'danger-red' in css_content or '#ef4444' in css_content
+
+
+class TestScoreEvolutionJavaScript:
+    """Tests for score evolution JavaScript (Story 3.5)."""
+
+    def test_js_file_contains_evolution_method(self, client):
+        """JavaScript contains updateEvolution method."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Check evolution method exists
+        assert 'updateEvolution' in js_content
+        assert 'evolutionContainer' in js_content
+        assert 'evolutionArrow' in js_content
+        assert 'evolutionDelta' in js_content
+
+    def test_js_caches_evolution_elements(self, client):
+        """JavaScript caches evolution DOM elements."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Check element caching in elements object
+        assert 'evolutionContainer' in js_content
+        assert 'evolutionArrow' in js_content
+        assert 'evolutionDelta' in js_content
+        assert 'evolutionMessage' in js_content
+
+    def test_js_fetches_evolution_api(self, client):
+        """JavaScript fetches from /api/health/evolution."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Check API endpoint is called
+        assert '/api/health/evolution' in js_content
+
+    def test_js_handles_direction_up(self, client):
+        """JavaScript handles direction 'up' correctly."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Should handle up direction
+        assert "direction === 'up'" in js_content or 'direction == "up"' in js_content
+
+    def test_js_handles_direction_down(self, client):
+        """JavaScript handles direction 'down' correctly."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Should handle down direction
+        assert "direction === 'down'" in js_content or 'direction == "down"' in js_content
+
+    def test_js_handles_null_previous_score(self, client):
+        """AC4: JavaScript handles first capture (previous_score = null)."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Should check for null previous_score
+        assert 'previous_score === null' in js_content or 'previous_score == null' in js_content
+
+    def test_js_shows_positive_delta_with_plus(self, client):
+        """AC2: Positive delta shown with + prefix."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Should add + prefix for positive delta
+        assert "'+'" in js_content or "'+ '" in js_content
+        assert 'pts' in js_content
+
+    def test_js_uses_parallel_fetch_for_score_and_evolution(self, client):
+        """JavaScript fetches score and evolution in parallel."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Should use Promise.all for parallel fetch
+        assert 'Promise.all' in js_content
+
+    def test_js_resets_evolution_on_widget_reset(self, client):
+        """JavaScript resets evolution indicator when widget is reset."""
+        response = client.get('/static/js/health-score.js')
+
+        assert response.status_code == 200
+        js_content = response.data.decode('utf-8')
+
+        # Reset method should call updateEvolution(null)
+        assert 'updateEvolution' in js_content
+        # Should be called in reset method (search for reset containing evolution)
+
+
+class TestScoreEvolutionAPI:
+    """E2E tests for /api/health/evolution endpoint (Story 3.5)."""
+
+    def test_evolution_api_endpoint_exists(self, client):
+        """API endpoint /api/health/evolution is accessible."""
+        response = client.get('/api/health/evolution')
+
+        # Should return success even with no history
+        assert response.status_code == 200
+        data = response.get_json()
+        assert 'success' in data
+
+    def test_evolution_api_returns_correct_structure(self, client):
+        """AC1: API returns correct JSON structure."""
+        from app.services.health_score_history import (
+            get_health_score_history,
+            reset_health_score_history,
+        )
+        from app.models.health_score import HealthScoreResult
+
+        # Reset and add test data
+        reset_health_score_history()
+        history = get_health_score_history()
+        history.record('cap_1', HealthScoreResult(displayed_score=70, real_score=70))
+        history.record('cap_2', HealthScoreResult(displayed_score=85, real_score=85))
+
+        response = client.get('/api/health/evolution')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['data'] is not None
+        assert 'current_score' in data['data']
+        assert 'previous_score' in data['data']
+        assert 'delta' in data['data']
+        assert 'direction' in data['data']
+        assert 'message' in data['data']
+
+        # Cleanup
+        reset_health_score_history()
+
+    def test_evolution_api_improvement_direction_up(self, client):
+        """AC2: API returns direction 'up' for improvement."""
+        from app.services.health_score_history import (
+            get_health_score_history,
+            reset_health_score_history,
+        )
+        from app.models.health_score import HealthScoreResult
+
+        reset_health_score_history()
+        history = get_health_score_history()
+        history.record('cap_1', HealthScoreResult(displayed_score=60, real_score=60))
+        history.record('cap_2', HealthScoreResult(displayed_score=85, real_score=85))
+
+        response = client.get('/api/health/evolution')
+
+        data = response.get_json()
+        assert data['data']['direction'] == 'up'
+        assert data['data']['delta'] == 25
+        assert 'Amelioration' in data['data']['message']
+
+        reset_health_score_history()
+
+    def test_evolution_api_degradation_direction_down(self, client):
+        """AC3: API returns direction 'down' for degradation."""
+        from app.services.health_score_history import (
+            get_health_score_history,
+            reset_health_score_history,
+        )
+        from app.models.health_score import HealthScoreResult
+
+        reset_health_score_history()
+        history = get_health_score_history()
+        history.record('cap_1', HealthScoreResult(displayed_score=90, real_score=90))
+        history.record('cap_2', HealthScoreResult(displayed_score=65, real_score=65))
+
+        response = client.get('/api/health/evolution')
+
+        data = response.get_json()
+        assert data['data']['direction'] == 'down'
+        assert data['data']['delta'] == -25
+        assert 'Degradation' in data['data']['message']
+
+        reset_health_score_history()
+
+    def test_evolution_api_first_capture_null_previous(self, client):
+        """AC4: API returns null previous_score for first capture."""
+        from app.services.health_score_history import (
+            get_health_score_history,
+            reset_health_score_history,
+        )
+        from app.models.health_score import HealthScoreResult
+
+        reset_health_score_history()
+        history = get_health_score_history()
+        history.record('cap_1', HealthScoreResult(displayed_score=85, real_score=85))
+
+        response = client.get('/api/health/evolution')
+
+        data = response.get_json()
+        assert data['data']['previous_score'] is None
+        assert data['data']['delta'] == 0
+        assert 'Premiere' in data['data']['message']
+
+        reset_health_score_history()
+
+    def test_evolution_api_no_history(self, client):
+        """AC4: API returns null data when no history exists."""
+        from app.services.health_score_history import reset_health_score_history
+
+        reset_health_score_history()
+
+        response = client.get('/api/health/evolution')
+
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['data'] is None
+        assert 'message' in data
+
+        reset_health_score_history()

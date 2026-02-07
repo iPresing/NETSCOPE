@@ -18,6 +18,11 @@ from .thread_manager import (
     get_thread_manager,
     reset_thread_manager,
 )
+from .health_score_history import (
+    HealthScoreHistoryStore,
+    get_health_score_history,
+    reset_health_score_history,
+)
 
 __all__ = [
     # Hardware detection
@@ -35,4 +40,8 @@ __all__ = [
     "ThreadManager",
     "get_thread_manager",
     "reset_thread_manager",
+    # Health score history (Story 3.5)
+    "HealthScoreHistoryStore",
+    "get_health_score_history",
+    "reset_health_score_history",
 ]

@@ -1,6 +1,8 @@
 """Health Score API endpoints for NETSCOPE.
 
-Provides REST API for network health score (Story 3.2).
+Provides REST API for network health score (Story 3.2, Story 3.5).
+
+Story 3.5: Added /api/health/evolution endpoint and history recording.
 
 Lessons Learned Epic 1/2:
 - Use Python 3.10+ type hints (X | None, not Optional[X])
@@ -15,6 +17,7 @@ from app.core.capture import get_tcpdump_manager
 from app.core.analysis.health_score import get_health_calculator
 from app.core.detection.anomaly_store import get_anomaly_store
 from app.models.health_score import HealthScoreResult
+from app.services.health_score_history import get_health_score_history
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +87,10 @@ def get_health_score():
             calculator = get_health_calculator()
             health_result = calculator.calculate(anomaly_collection)
 
+            # Story 3.5: Record in history
+            history = get_health_score_history()
+            history.record(latest_result.session.id, health_result)
+
             logger.debug(
                 f"Health score calculated (score={health_result.displayed_score}, "
                 f"status={health_result.get_status_color()}, "
@@ -107,6 +114,10 @@ def get_health_score():
                 real_score=100,
             )
 
+            # Story 3.5: Record in history
+            history = get_health_score_history()
+            history.record(latest_result.session.id, health_result)
+
             logger.debug("Health score: 100 (no anomalies detected)")
             logger.info(
                 f"Health score served (capture={latest_result.session.id}, score=100)"
@@ -124,6 +135,94 @@ def get_health_score():
             "error": {
                 "code": "HEALTH_SCORE_ERROR",
                 "message": "Erreur lors du calcul du score sante",
+                "details": {},
+            },
+        }), 500
+
+
+@api_bp.route('/health/evolution', methods=['GET'])
+def get_health_evolution():
+    """Get health score evolution between captures (Story 3.5).
+
+    Calculates the change in health score between the current and previous
+    captures to show improvement or degradation.
+
+    Returns:
+        JSON response with ScoreEvolution data
+
+    Example Success Response (with history):
+        {
+            "success": true,
+            "data": {
+                "current_score": 88,
+                "previous_score": 73,
+                "delta": 15,
+                "direction": "up",
+                "message": "Amelioration de 15 pts"
+            }
+        }
+
+    Example First Capture Response:
+        {
+            "success": true,
+            "data": {
+                "current_score": 85,
+                "previous_score": null,
+                "delta": 0,
+                "direction": "stable",
+                "message": "Premiere capture"
+            }
+        }
+
+    Example No Capture Response:
+        {
+            "success": true,
+            "data": null,
+            "message": "Aucune capture disponible"
+        }
+
+    Example Error Response (500):
+        {
+            "success": false,
+            "error": {
+                "code": "HEALTH_EVOLUTION_ERROR",
+                "message": "Erreur lors du calcul de l'evolution",
+                "details": {}
+            }
+        }
+    """
+    logger.debug("GET /api/health/evolution called")
+
+    try:
+        history = get_health_score_history()
+        evolution = history.get_evolution()
+
+        if evolution is None:
+            logger.debug("No capture history available for evolution")
+            return jsonify({
+                "success": True,
+                "data": None,
+                "message": "Aucune capture disponible",
+            }), 200
+
+        logger.debug(
+            f"Health evolution calculated (current={evolution.current_score}, "
+            f"previous={evolution.previous_score}, delta={evolution.delta}, "
+            f"direction={evolution.direction})"
+        )
+
+        return jsonify({
+            "success": True,
+            "data": evolution.to_dict(),
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error getting health evolution (error={str(e)})", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": "HEALTH_EVOLUTION_ERROR",
+                "message": "Erreur lors du calcul de l'evolution",
                 "details": {},
             },
         }), 500

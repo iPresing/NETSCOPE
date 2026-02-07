@@ -1,6 +1,7 @@
-{# Health Score Widget Component - Story 3.2, Story 3.3
+{# Health Score Widget Component - Story 3.2, Story 3.3, Story 3.5
    Simple score display with progress bar (Story 3.1 style).
    Story 3.3: Added whitelist hits indicator.
+   Story 3.5: Added score evolution indicator (delta between captures).
 
    Parameters:
      health_score: dict - HealthScoreResult.to_dict() data (optional)
@@ -46,6 +47,13 @@
         {% if wl_impact < 0 %}
         <span class="whitelist-indicator__impact" id="whitelist-impact">({{ -wl_impact }} pts masqu&eacute;s)</span>
         {% endif %}
+    </div>
+
+    {# Score Evolution Indicator (Story 3.5) - AC1, AC2, AC3, AC4 #}
+    <div class="score-evolution score-evolution--hidden" id="score-evolution">
+        <span class="score-evolution__arrow" id="score-evolution-arrow"></span>
+        <span class="score-evolution__delta" id="score-evolution-delta"></span>
+        <span class="score-evolution__message" id="score-evolution-message"></span>
     </div>
 
     <button class="btn btn-sm" id="btn-health-score-details" {% if not has_data %}style="display: none;"{% endif %}>
