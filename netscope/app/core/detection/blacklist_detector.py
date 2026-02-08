@@ -351,6 +351,20 @@ class BlacklistDetector:
                     dedup_key = (term_lower, text.lower())
                     if dedup_key in detected_term_sources:
                         continue
+
+                    # Domain blacklist (CRITICAL) has priority over term (WARNING):
+                    # if a matched domain appears in this text and the term is
+                    # a substring of that domain, skip the WARNING.
+                    if source_label == "payload" and matched_domains:
+                        text_lower = text.lower()
+                        skip = False
+                        for md in matched_domains:
+                            if term_lower in md and md in text_lower:
+                                skip = True
+                                break
+                        if skip:
+                            continue
+
                     detected_term_sources.add(dedup_key)
 
                     # Build context snippet around the term
