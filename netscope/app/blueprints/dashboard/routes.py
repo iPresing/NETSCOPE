@@ -70,6 +70,17 @@ def anomalies():
     return render_template('anomalies.html')
 
 
+@dashboard_bp.route('/whitelist')
+def whitelist():
+    """Whitelist management page (Story 3.6).
+
+    Returns:
+        Rendered whitelist template
+    """
+    logger.debug(f'Whitelist page rendered (ip={request.remote_addr})')
+    return render_template('whitelist.html')
+
+
 @dashboard_bp.route('/jobs')
 def jobs():
     """Jobs inspection page.

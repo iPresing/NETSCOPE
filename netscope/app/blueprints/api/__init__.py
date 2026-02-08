@@ -11,3 +11,4 @@ from app.blueprints.api import blacklists  # noqa: E402, F401
 from app.blueprints.api import anomalies  # noqa: E402, F401
 from app.blueprints.api import analysis  # noqa: E402, F401
 from app.blueprints.api import health  # noqa: E402, F401  # Story 3.2
+from app.blueprints.api import whitelist  # noqa: E402, F401  # Story 3.6

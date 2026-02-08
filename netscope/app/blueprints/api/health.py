@@ -18,6 +18,7 @@ from app.core.analysis.health_score import get_health_calculator
 from app.core.detection.anomaly_store import get_anomaly_store
 from app.models.health_score import HealthScoreResult
 from app.services.health_score_history import get_health_score_history
+from app.services.whitelist_manager import get_whitelist_manager
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +84,20 @@ def get_health_score():
         anomaly_collection = anomaly_store.get_by_capture(latest_result.session.id)
 
         if anomaly_collection and len(anomaly_collection.anomalies) > 0:
+            # Story 3.6: Load whitelisted anomaly IDs from WhitelistManager
+            try:
+                wl_manager = get_whitelist_manager()
+                whitelisted_ids = wl_manager.get_whitelisted_anomaly_ids(
+                    anomaly_collection.anomalies
+                )
+            except Exception:
+                whitelisted_ids = set()
+
             # Calculate health score from anomalies
             calculator = get_health_calculator()
-            health_result = calculator.calculate(anomaly_collection)
+            health_result = calculator.calculate(
+                anomaly_collection, whitelisted_ids=whitelisted_ids
+            )
 
             # Story 3.5: Record in history
             history = get_health_score_history()

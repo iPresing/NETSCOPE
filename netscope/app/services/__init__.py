@@ -23,6 +23,11 @@ from .health_score_history import (
     get_health_score_history,
     reset_health_score_history,
 )
+from .whitelist_manager import (
+    WhitelistManager,
+    get_whitelist_manager,
+    reset_whitelist_manager,
+)
 
 __all__ = [
     # Hardware detection
@@ -44,4 +49,8 @@ __all__ = [
     "HealthScoreHistoryStore",
     "get_health_score_history",
     "reset_health_score_history",
+    # Whitelist manager (Story 3.6)
+    "WhitelistManager",
+    "get_whitelist_manager",
+    "reset_whitelist_manager",
 ]

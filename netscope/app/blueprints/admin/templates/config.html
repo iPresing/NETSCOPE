@@ -76,11 +76,24 @@
     <section class="config-whitelist card">
         <h3>Gestion Whitelist</h3>
         <div class="whitelist-info">
-            <p class="text-muted">0 entrées dans la whitelist</p>
-            <button class="btn" disabled>Gérer la Whitelist</button>
+            <p class="text-muted"><span id="admin-wl-count">0</span> entrées dans la whitelist</p>
+            <a href="{{ url_for('dashboard.whitelist') }}" class="btn">Gérer la Whitelist</a>
         </div>
-        <p class="text-muted text-sm">Gestion whitelist disponible dans Epic 3</p>
     </section>
+    <script>
+        (function() {
+            'use strict';
+            fetch('/api/whitelist')
+                .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+                .then(function(d) {
+                    if (d.success) {
+                        var el = document.getElementById('admin-wl-count');
+                        if (el) el.textContent = d.result.count;
+                    }
+                })
+                .catch(function() {});
+        })();
+    </script>
 
     <section class="config-actions card">
         <h3>Actions</h3>

@@ -3,6 +3,7 @@
 import pytest
 
 from app import create_app
+from app.services.whitelist_manager import reset_whitelist_manager
 
 
 @pytest.fixture
@@ -12,8 +13,10 @@ def app():
     Returns:
         Flask: Application configured for testing
     """
+    reset_whitelist_manager()
     app = create_app('testing')
     yield app
+    reset_whitelist_manager()
 
 
 @pytest.fixture

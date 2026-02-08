@@ -100,3 +100,8 @@ config.local.yaml
 captures/
 data/exports/
 
+# -------------------------------------------
+# Runtime Data (user-generated, not in VCS)
+# -------------------------------------------
+data/whitelist/whitelist.json
+

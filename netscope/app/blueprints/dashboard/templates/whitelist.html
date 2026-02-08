@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestion Whitelist - NETSCOPE{% endblock %}
+
+{% block content %}
+<div class="whitelist-container">
+    <section class="page-header">
+        <h2>Gestion Whitelist</h2>
+        <p class="text-muted">Gérer les éléments exclus de la détection</p>
+    </section>
+
+    <section class="whitelist-add card">
+        <h3>Ajouter un élément</h3>
+        <form id="whitelist-add-form" class="config-form">
+            <div class="form-group">
+                <label for="wl-value">Valeur (IP, Port ou IP:Port):</label>
+                <input type="text" id="wl-value" class="form-control"
+                       placeholder="Ex: 192.168.1.100, 8080, 192.168.1.100:8080" required>
+            </div>
+            <div class="form-group">
+                <label for="wl-reason">Raison (optionnelle):</label>
+                <input type="text" id="wl-reason" class="form-control"
+                       placeholder="Ex: Serveur local connu">
+            </div>
+            <button type="submit" class="btn" id="wl-add-btn">Ajouter</button>
+        </form>
+    </section>
+
+    <section class="whitelist-list card">
+        <h3>Éléments whitelistés (<span id="wl-count">0</span>)</h3>
+        <div id="whitelist-table-container">
+            <table class="whitelist-table" id="whitelist-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Valeur</th>
+                        <th>Date d'ajout</th>
+                        <th>Raison</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="whitelist-tbody">
+                </tbody>
+            </table>
+            <p class="text-muted text-center" id="whitelist-empty" style="display: none;">
+                Aucun élément dans la whitelist
+            </p>
+        </div>
+    </section>
+
+    <div class="page-actions">
+        <a href="{{ url_for('dashboard.index') }}" class="btn">← Retour au dashboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/whitelist.js') }}" defer></script>
+{% endblock %}

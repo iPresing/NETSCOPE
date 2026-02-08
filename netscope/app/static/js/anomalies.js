@@ -447,7 +447,10 @@
                 '<button class="btn btn-sm btn-outline btn-inspect" disabled title="Epic 4 - Inspection Scapy">' +
                     '\u{1F52C} Inspecter' +
                 '</button>' +
-                '<button class="btn btn-sm btn-outline btn-whitelist" disabled title="Epic 3 - Whitelist">' +
+                '<button class="btn btn-sm btn-outline btn-whitelist"' +
+                    ' data-ip="' + escapeHtml(anomaly.matched_value || '') + '"' +
+                    ' data-port="' + (packetInfo.port_dst || packetInfo.port_src || '') + '"' +
+                    ' title="Ajouter a la whitelist">' +
                     '\u2705 Whitelist' +
                 '</button>' +
             '</div>' +
@@ -531,13 +534,54 @@
             });
         });
 
-        // Whitelist buttons - Epic 3
+        // Whitelist buttons - Story 3.6
         var whitelistBtns = document.querySelectorAll('.btn-whitelist');
         whitelistBtns.forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
-                // Disabled - will be implemented in Epic 3
-                console.debug('[anomalies] Whitelist button clicked (Epic 3)');
+                var ip = this.getAttribute('data-ip') || '';
+                var port = this.getAttribute('data-port') || '';
+                var value = port ? ip + ':' + port : ip;
+
+                if (!value) {
+                    console.debug('[anomalies] No IP/Port data for whitelist action');
+                    return;
+                }
+
+                var button = this;
+                var originalText = button.textContent;
+                button.disabled = true;
+                button.textContent = '⏳ Ajout...';
+
+                fetch('/api/whitelist', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({value: value, reason: 'Quick-whitelist depuis anomalie'})
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        return response.json().then(function(err) { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        var showToast = window.NetScopeUtils ? window.NetScopeUtils.showToast : function() {};
+                        showToast('Element ajoute a la whitelist', 'success');
+                        button.textContent = '✅ Whitelisté';
+                        // Refresh health score widget
+                        if (window.healthScoreWidget && window.healthScoreWidget.fetchScoreAndEvolution) {
+                            window.healthScoreWidget.fetchScoreAndEvolution();
+                        }
+                    }
+                })
+                .catch(function(error) {
+                    var showToast = window.NetScopeUtils ? window.NetScopeUtils.showToast : function() {};
+                    var msg = error.error ? error.error.message : 'Erreur lors de l\'ajout';
+                    showToast(msg, 'error');
+                    button.textContent = originalText;
+                    button.disabled = false;
+                });
             });
         });
     }
