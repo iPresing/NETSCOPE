@@ -115,15 +115,21 @@ class HealthScoreCalculator:
                     if anomaly.criticality_level == CriticalityLevel.CRITICAL
                     else -self._decay_warning
                 )
-                # Extract IP/port from packet_info if available
+                # Extract IP/port: priorite a matched_value pour les IP
                 ip = None
                 port = None
-                if anomaly.packet_info:
-                    ip = anomaly.packet_info.get("ip_src") or anomaly.packet_info.get("ip_dst")
-                    port = anomaly.packet_info.get("port_dst") or anomaly.packet_info.get("port_src")
-                # Use matched_value as IP if match_type is IP
-                if ip is None and anomaly.match.match_type.value == "ip":
+                if anomaly.match.match_type.value == "ip":
                     ip = anomaly.match.matched_value
+                if anomaly.packet_info:
+                    if ip is None:
+                        ip = anomaly.packet_info.get("ip_src") or anomaly.packet_info.get("ip_dst")
+                    # Port du cote de l'IP matchee
+                    if ip and ip == anomaly.packet_info.get("ip_dst"):
+                        port = anomaly.packet_info.get("port_dst")
+                    elif ip and ip == anomaly.packet_info.get("ip_src"):
+                        port = anomaly.packet_info.get("port_src")
+                    else:
+                        port = anomaly.packet_info.get("port_dst") or anomaly.packet_info.get("port_src")
 
                 detail = WhitelistHitDetail(
                     anomaly_id=anomaly.id,

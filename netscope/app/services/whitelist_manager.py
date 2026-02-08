@@ -131,24 +131,33 @@ class WhitelistManager:
             return anomaly.get("ip"), anomaly.get("port"), anomaly.get("id")
 
         aid = getattr(anomaly, "id", None)
-
-        # Try packet_info dict (Anomaly dataclass from app.models.anomaly)
-        packet_info = getattr(anomaly, "packet_info", None)
         ip = None
         port = None
+
+        # Priorite 1: utiliser matched_value pour les anomalies IP
+        # C'est l'IP blacklistee, pas forcement ip_src du paquet
+        match = getattr(anomaly, "match", None)
+        if match:
+            match_type = getattr(match, "match_type", None)
+            if match_type and getattr(match_type, "value", None) == "ip":
+                ip = getattr(match, "matched_value", None)
+
+        # Extraire le port associe a l'IP matchee depuis packet_info
+        packet_info = getattr(anomaly, "packet_info", None)
         if isinstance(packet_info, dict):
-            ip = packet_info.get("ip_src") or packet_info.get("ip_dst")
-            raw_port = packet_info.get("port_dst") or packet_info.get("port_src")
+            if ip is None:
+                ip = packet_info.get("ip_src") or packet_info.get("ip_dst")
+
+            # Trouver le port du cote de l'IP matchee
+            if ip and ip == packet_info.get("ip_dst"):
+                raw_port = packet_info.get("port_dst")
+            elif ip and ip == packet_info.get("ip_src"):
+                raw_port = packet_info.get("port_src")
+            else:
+                raw_port = packet_info.get("port_dst") or packet_info.get("port_src")
+
             if raw_port is not None:
                 port = int(raw_port) if not isinstance(raw_port, int) else raw_port
-
-        # Fallback: use matched_value as IP if match_type is 'ip'
-        if ip is None:
-            match = getattr(anomaly, "match", None)
-            if match:
-                match_type = getattr(match, "match_type", None)
-                if match_type and getattr(match_type, "value", None) == "ip":
-                    ip = getattr(match, "matched_value", None)
 
         return ip, port, aid
 

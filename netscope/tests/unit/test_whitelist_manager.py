@@ -289,3 +289,26 @@ class TestWhitelistManagerGetWhitelistedAnomalyIds:
         ]
         result = manager.get_whitelisted_anomaly_ids(anomalies)
         assert result == {"a1"}
+
+    def test_matches_blacklisted_dst_ip_with_port(self, manager):
+        """get_whitelisted_anomaly_ids() matches when blacklisted IP is destination (ip_port entry)."""
+        manager.add("8.8.8.8:4444")
+
+        class MockMatch:
+            def __init__(self, match_type_value, matched_value):
+                self.match_type = type('MT', (), {'value': match_type_value})()
+                self.matched_value = matched_value
+
+        class MockAnomaly:
+            def __init__(self, id, packet_info, match):
+                self.id = id
+                self.packet_info = packet_info
+                self.match = match
+
+        # IP blacklistee en destination, IP locale en source
+        anomalies = [
+            MockAnomaly("a1", {"ip_src": "192.168.1.10", "ip_dst": "8.8.8.8", "port_src": 54321, "port_dst": 4444}, MockMatch("ip", "8.8.8.8")),
+            MockAnomaly("a2", {"ip_src": "192.168.1.10", "ip_dst": "1.1.1.1", "port_src": 54322, "port_dst": 53}, MockMatch("ip", "1.1.1.1")),
+        ]
+        result = manager.get_whitelisted_anomaly_ids(anomalies)
+        assert result == {"a1"}
