@@ -83,11 +83,13 @@ class BlacklistDetector:
 
         # Detect Domains (exact match lowercase) - AC2
         domain_anomalies = self._detect_domains(packets, capture_id)
+        matched_domains: set[str] = set()
         for anomaly in domain_anomalies:
             collection.add(anomaly)
+            matched_domains.add(anomaly.match.matched_value.lower())
 
-        # Detect Terms (substring match) - AC3
-        term_anomalies = self._detect_terms(packets, capture_id)
+        # Detect Terms (substring match in payload + DNS/HTTP) - AC3
+        term_anomalies = self._detect_terms(packets, capture_id, matched_domains)
         for anomaly in term_anomalies:
             collection.add(anomaly)
 
@@ -305,78 +307,95 @@ class BlacklistDetector:
         self,
         packets: list[PacketInfo],
         capture_id: str | None,
+        matched_domains: set[str] | None = None,
     ) -> list[Anomaly]:
-        """Detect suspicious terms in packet payloads.
+        """Detect suspicious terms in packet payloads, DNS queries and HTTP Host.
 
         Story 2.2 AC3: Substring match detection for suspicious terms.
         Terms are detected with WARNING criticality level.
+        Skips domains already matched by _detect_domains (higher criticality).
 
         Args:
             packets: List of packets to analyze
             capture_id: Capture session ID
+            matched_domains: Domains already detected (to avoid duplicates)
 
         Returns:
             List of Anomaly objects for term matches
         """
         anomalies: list[Anomaly] = []
-        # Track detected terms per packet to avoid duplicates
-        detected_terms: set[str] = set()
+        matched_domains = matched_domains or set()
+        # Track (term, source_text) to avoid duplicates
+        detected_term_sources: set[tuple[str, str]] = set()
 
         for packet in packets:
-            if not packet.payload_preview:
-                continue
+            # Build list of (text_to_check, source_label) pairs
+            texts_to_check: list[tuple[str, str]] = []
 
-            # Check for suspicious terms in payload
-            found_terms = self._manager.check_term(packet.payload_preview)
+            if packet.payload_preview:
+                texts_to_check.append((packet.payload_preview, "payload"))
 
-            for term in found_terms:
-                term_lower = term.lower()
-                if term_lower in detected_terms:
-                    continue
-                detected_terms.add(term_lower)
+            for domain in packet.dns_queries:
+                if domain.lower() not in matched_domains:
+                    texts_to_check.append((domain, "DNS query"))
 
-                # Build context snippet around the term
-                context_snippet = self._build_term_context_snippet(
-                    term, packet.payload_preview
-                )
+            if packet.http_host:
+                if packet.http_host.lower() not in matched_domains:
+                    texts_to_check.append((packet.http_host, "HTTP Host"))
 
-                match = BlacklistMatch(
-                    match_type=MatchType.TERM,
-                    matched_value=term,
-                    source_file="terms_blacklist",
-                    context=self._build_term_context(term, packet, context_snippet),
-                    criticality=CriticalityLevel.WARNING,  # AC3: WARNING level
-                    timestamp=packet.timestamp,
-                )
+            for text, source_label in texts_to_check:
+                found_terms = self._manager.check_term(text)
 
-                breakdown = self._scoring.calculate_score(
-                    match=match,
-                    packet_info=packet,
-                    context=None,
-                )
+                for term in found_terms:
+                    term_lower = term.lower()
+                    dedup_key = (term_lower, text.lower())
+                    if dedup_key in detected_term_sources:
+                        continue
+                    detected_term_sources.add(dedup_key)
 
-                human_ctx = self._human_context.get_term_context(
-                    term=term,
-                    context_snippet=context_snippet,
-                )
+                    # Build context snippet around the term
+                    context_snippet = self._build_term_context_snippet(term, text)
 
-                anomaly = Anomaly(
-                    id=Anomaly.generate_id(),
-                    match=match,
-                    score=breakdown.total_score,
-                    packet_info=packet.to_dict(),
-                    criticality_level=breakdown.criticality,
-                    capture_id=capture_id,
-                    score_breakdown=breakdown,
-                    human_context=human_ctx,
-                )
+                    match = BlacklistMatch(
+                        match_type=MatchType.TERM,
+                        matched_value=term,
+                        source_file="terms_blacklist",
+                        context=self._build_term_context_with_source(
+                            term, packet, context_snippet, source_label
+                        ),
+                        criticality=CriticalityLevel.WARNING,
+                        timestamp=packet.timestamp,
+                    )
 
-                anomalies.append(anomaly)
-                logger.warning(
-                    f"Suspicious term detected (term={term}, "
-                    f"score={breakdown.total_score}, "
-                    f"criticality={breakdown.criticality.value})"
-                )
+                    breakdown = self._scoring.calculate_score(
+                        match=match,
+                        packet_info=packet,
+                        context=None,
+                    )
+
+                    human_ctx = self._human_context.get_term_context(
+                        term=term,
+                        context_snippet=context_snippet,
+                    )
+
+                    anomaly = Anomaly(
+                        id=Anomaly.generate_id(),
+                        match=match,
+                        score=breakdown.total_score,
+                        packet_info=packet.to_dict(),
+                        criticality_level=breakdown.criticality,
+                        capture_id=capture_id,
+                        score_breakdown=breakdown,
+                        human_context=human_ctx,
+                    )
+
+                    anomalies.append(anomaly)
+                    logger.warning(
+                        f"Suspicious term detected (term={term}, "
+                        f"source={source_label}, "
+                        f"score={breakdown.total_score}, "
+                        f"criticality={breakdown.criticality.value})"
+                    )
 
         return anomalies
 
@@ -421,6 +440,26 @@ class BlacklistDetector:
         """
         return (
             f"Term '{term}' in payload - "
+            f"{packet.ip_src} -> {packet.ip_dst} ({packet.protocol}) - "
+            f"Context: {snippet}"
+        )
+
+    def _build_term_context_with_source(
+        self, term: str, packet: PacketInfo, snippet: str, source: str
+    ) -> str:
+        """Build human-readable context for a term match with source info.
+
+        Args:
+            term: The matched term
+            packet: The packet containing the match
+            snippet: Context snippet around the term
+            source: Where the term was found (payload, DNS query, HTTP Host)
+
+        Returns:
+            Context string describing the match
+        """
+        return (
+            f"Term '{term}' in {source} - "
             f"{packet.ip_src} -> {packet.ip_dst} ({packet.protocol}) - "
             f"Context: {snippet}"
         )

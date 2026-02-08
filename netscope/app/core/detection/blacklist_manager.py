@@ -270,7 +270,7 @@ class BlacklistManager:
         return domain.lower() in self._domains
 
     def check_term(self, text: str) -> list[str]:
-        """Vérifie si un texte contient des termes suspects.
+        """Vérifie si un texte contient des termes suspects (case-insensitive).
 
         Args:
             text: Texte à analyser
@@ -279,8 +279,9 @@ class BlacklistManager:
             Liste des termes suspects trouvés
         """
         found = []
+        text_lower = text.lower()
         for term in self._terms:
-            if term in text:
+            if term.lower() in text_lower:
                 found.append(term)
         return found
 
