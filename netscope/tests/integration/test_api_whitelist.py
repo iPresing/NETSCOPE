@@ -209,7 +209,7 @@ class TestWhitelistHealthScoreIntegration:
                 score=90,
                 criticality_level=CriticalityLevel.CRITICAL,
                 capture_id='test_capture_wl',
-                packet_info={'src_ip': '10.0.0.99', 'dst_port': 80},
+                packet_info={'ip_src': '10.0.0.99', 'port_dst': 80},
             ),
         ]
         anomaly_collection = AnomalyCollection(

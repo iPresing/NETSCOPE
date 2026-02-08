@@ -8,6 +8,7 @@ from app.core.capture import get_tcpdump_manager
 from app.core.analysis.health_score import get_health_calculator
 from app.core.detection.anomaly_store import get_anomaly_store
 from app.models.health_score import HealthScoreResult
+from app.services.whitelist_manager import get_whitelist_manager
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +37,20 @@ def index():
             anomaly_collection = anomaly_store.get_by_capture(latest_result.session.id)
 
             if anomaly_collection:
-                # Calculate health score
+                # Load whitelisted anomaly IDs
+                try:
+                    wl_manager = get_whitelist_manager()
+                    whitelisted_ids = wl_manager.get_whitelisted_anomaly_ids(
+                        anomaly_collection.anomalies
+                    )
+                except Exception:
+                    whitelisted_ids = set()
+
+                # Calculate health score with whitelist
                 calculator = get_health_calculator()
-                health_result = calculator.calculate(anomaly_collection)
+                health_result = calculator.calculate(
+                    anomaly_collection, whitelisted_ids=whitelisted_ids
+                )
                 health_score = health_result.to_dict()
                 logger.debug(
                     f'Health score calculated (score={health_result.displayed_score}, '

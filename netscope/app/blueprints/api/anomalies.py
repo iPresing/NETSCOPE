@@ -12,6 +12,7 @@ from flask import jsonify, request
 
 from . import api_bp
 from app.core.detection.anomaly_store import get_anomaly_store
+from app.services.whitelist_manager import get_whitelist_manager
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,13 @@ def get_anomalies():
     try:
         store = get_anomaly_store()
 
+        # Load whitelisted anomaly IDs
+        whitelisted_ids = set()
+        try:
+            wl_manager = get_whitelist_manager()
+        except Exception:
+            wl_manager = None
+
         if capture_id:
             # Get anomalies for specific capture
             collection = store.get_by_capture(capture_id)
@@ -80,16 +88,22 @@ def get_anomalies():
         else:
             # Get all anomalies (build a combined response)
             all_anomalies = store.get_all_anomalies()
-            from app.models.anomaly import CriticalityLevel
+            if wl_manager and all_anomalies:
+                whitelisted_ids = wl_manager.get_whitelisted_anomaly_ids(all_anomalies)
 
+            anomaly_dicts = []
             by_criticality = {"critical": 0, "warning": 0, "normal": 0}
             for a in all_anomalies:
-                by_criticality[a.criticality_level.value] += 1
+                d = a.to_dict(include_breakdown=include_breakdown)
+                d["is_whitelisted"] = a.id in whitelisted_ids
+                anomaly_dicts.append(d)
+                if a.id not in whitelisted_ids:
+                    by_criticality[a.criticality_level.value] += 1
 
             return jsonify({
                 "success": True,
                 "result": {
-                    "anomalies": [a.to_dict(include_breakdown=include_breakdown) for a in all_anomalies],
+                    "anomalies": anomaly_dicts,
                     "total": len(all_anomalies),
                     "by_criticality": by_criticality,
                 },
@@ -110,9 +124,24 @@ def get_anomalies():
                 "message": "Aucune anomalie détectée",
             }), 200
 
+        # Annotate anomalies with whitelist status
+        if wl_manager and collection.anomalies:
+            whitelisted_ids = wl_manager.get_whitelisted_anomaly_ids(
+                collection.anomalies
+            )
+
+        result = collection.to_dict(include_breakdown=include_breakdown)
+        # Add is_whitelisted flag to each anomaly and recount
+        by_criticality = {"critical": 0, "warning": 0, "normal": 0}
+        for anomaly_dict in result["anomalies"]:
+            anomaly_dict["is_whitelisted"] = anomaly_dict["id"] in whitelisted_ids
+            if anomaly_dict["id"] not in whitelisted_ids:
+                by_criticality[anomaly_dict["criticality"]] += 1
+        result["by_criticality"] = by_criticality
+
         return jsonify({
             "success": True,
-            "result": collection.to_dict(include_breakdown=include_breakdown),
+            "result": result,
         }), 200
 
     except Exception as e:

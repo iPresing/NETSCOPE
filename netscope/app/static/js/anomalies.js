@@ -289,9 +289,10 @@
             })
             .then(function(data) {
                 if (data.success && data.result) {
-                    // Store all anomalies for filtering (Story 2.8)
-                    allAnomalies = data.result.anomalies || [];
-                    console.debug('[anomalies] Loaded ' + allAnomalies.length + ' anomalies into memory');
+                    // Store non-whitelisted anomalies for filtering (Story 2.8)
+                    var rawAnomalies = data.result.anomalies || [];
+                    allAnomalies = rawAnomalies.filter(function(a) { return !a.is_whitelisted; });
+                    console.debug('[anomalies] Loaded ' + allAnomalies.length + ' anomalies into memory (' + (rawAnomalies.length - allAnomalies.length) + ' whitelisted)');
 
                     // Apply initial sort and render
                     applyAllFilters();
@@ -568,11 +569,9 @@
                     if (data.success) {
                         var showToast = window.NetScopeUtils ? window.NetScopeUtils.showToast : function() {};
                         showToast('Element ajoute a la whitelist', 'success');
-                        button.textContent = '✅ Whitelisté';
-                        // Refresh health score widget
-                        if (window.healthScoreWidget && window.healthScoreWidget.fetchScoreAndEvolution) {
-                            window.healthScoreWidget.fetchScoreAndEvolution();
-                        }
+                        button.textContent = '\u2705 Whiteliste';
+                        // Reload anomalies to hide whitelisted item
+                        loadAnomalies();
                     }
                 })
                 .catch(function(error) {

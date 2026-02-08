@@ -137,8 +137,8 @@ class WhitelistManager:
         ip = None
         port = None
         if isinstance(packet_info, dict):
-            ip = packet_info.get("src_ip") or packet_info.get("dst_ip")
-            raw_port = packet_info.get("dst_port") or packet_info.get("src_port")
+            ip = packet_info.get("ip_src") or packet_info.get("ip_dst")
+            raw_port = packet_info.get("port_dst") or packet_info.get("port_src")
             if raw_port is not None:
                 port = int(raw_port) if not isinstance(raw_port, int) else raw_port
 

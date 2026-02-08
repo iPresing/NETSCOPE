@@ -284,8 +284,8 @@ class TestWhitelistManagerGetWhitelistedAnomalyIds:
                 self.match = match
 
         anomalies = [
-            MockAnomaly("a1", {"src_ip": "192.168.1.100", "dst_port": 80}, MockMatch("ip", "192.168.1.100")),
-            MockAnomaly("a2", {"src_ip": "10.0.0.1", "dst_port": 80}, MockMatch("ip", "10.0.0.1")),
+            MockAnomaly("a1", {"ip_src": "192.168.1.100", "port_dst": 80}, MockMatch("ip", "192.168.1.100")),
+            MockAnomaly("a2", {"ip_src": "10.0.0.1", "port_dst": 80}, MockMatch("ip", "10.0.0.1")),
         ]
         result = manager.get_whitelisted_anomaly_ids(anomalies)
         assert result == {"a1"}

@@ -119,8 +119,8 @@ class HealthScoreCalculator:
                 ip = None
                 port = None
                 if anomaly.packet_info:
-                    ip = anomaly.packet_info.get("src_ip") or anomaly.packet_info.get("dst_ip")
-                    port = anomaly.packet_info.get("dst_port") or anomaly.packet_info.get("src_port")
+                    ip = anomaly.packet_info.get("ip_src") or anomaly.packet_info.get("ip_dst")
+                    port = anomaly.packet_info.get("port_dst") or anomaly.packet_info.get("port_src")
                 # Use matched_value as IP if match_type is IP
                 if ip is None and anomaly.match.match_type.value == "ip":
                     ip = anomaly.match.matched_value

@@ -779,9 +779,13 @@
         const anomalies = result.anomalies || [];
         const byCriticality = result.by_criticality || {};
 
-        // Update counts
+        // Filter out whitelisted anomalies for display
+        const activeAnomalies = anomalies.filter(function(a) { return !a.is_whitelisted; });
+        const activeTotal = activeAnomalies.length;
+
+        // Update counts (non-whitelisted only)
         if (anomaliesCount) {
-            anomaliesCount.textContent = result.total || 0;
+            anomaliesCount.textContent = activeTotal;
         }
         if (anomaliesCritical) {
             anomaliesCritical.textContent = byCriticality.critical || 0;
@@ -790,24 +794,24 @@
             anomaliesWarning.textContent = byCriticality.warning || 0;
         }
 
-        // Show/hide section based on anomalies
+        // Show/hide section based on active anomalies
         if (anomaliesSection) {
-            if (result.total > 0) {
+            if (activeTotal > 0) {
                 anomaliesSection.style.display = '';
             } else {
                 anomaliesSection.style.display = 'none';
             }
         }
 
-        // Update list
+        // Update list (non-whitelisted only)
         if (anomaliesList) {
-            if (anomalies.length === 0) {
+            if (activeAnomalies.length === 0) {
                 anomaliesList.innerHTML = '<p class="text-muted text-center">Aucune anomalie d\u00e9tect\u00e9e</p>';
                 return;
             }
 
             let html = '';
-            anomalies.forEach(function(anomaly) {
+            activeAnomalies.forEach(function(anomaly) {
                 html += createAnomalyCard(anomaly);
             });
             anomaliesList.innerHTML = html;
