@@ -3,6 +3,7 @@
 import pytest
 
 from app import create_app
+from app.core.inspection.job_queue import reset_job_queue
 from app.services.whitelist_manager import reset_whitelist_manager
 
 
@@ -14,9 +15,11 @@ def app():
         Flask: Application configured for testing
     """
     reset_whitelist_manager()
+    reset_job_queue()
     app = create_app('testing')
     yield app
     reset_whitelist_manager()
+    reset_job_queue()
 
 
 @pytest.fixture

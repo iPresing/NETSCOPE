@@ -445,7 +445,10 @@
             '</div>' +
             contextHtml +
             '<div class="anomaly-actions">' +
-                '<button class="btn btn-sm btn-outline btn-inspect" disabled title="Epic 4 - Inspection Scapy">' +
+                '<button class="btn btn-sm btn-outline btn-inspect"' +
+                    ' data-ip="' + escapeHtml(packetInfo.ip_dst || anomaly.matched_value || '') + '"' +
+                    ' data-port="' + (packetInfo.port_dst || '') + '"' +
+                    ' title="Lancer une inspection Scapy">' +
                     '\u{1F52C} Inspecter' +
                 '</button>' +
                 '<button class="btn btn-sm btn-outline btn-whitelist"' +
@@ -525,13 +528,67 @@
      * Add event listeners for action buttons (disabled for now, prep for Epic 3 & 4)
      */
     function addActionListeners() {
-        // Inspect buttons - Epic 4
+        // Inspect buttons - Story 4.1
         var inspectBtns = document.querySelectorAll('.btn-inspect');
         inspectBtns.forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
-                // Disabled - will be implemented in Epic 4
-                console.debug('[anomalies] Inspect button clicked (Epic 4)');
+                var ip = this.getAttribute('data-ip') || '';
+                var port = this.getAttribute('data-port') || '';
+
+                if (!ip) {
+                    console.debug('[anomalies] No IP data for inspect action');
+                    return;
+                }
+
+                // Validation IP cote client (regle #13)
+                var ipPattern = /^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
+                if (!ipPattern.test(ip)) {
+                    var showToast = window.NetScopeUtils ? window.NetScopeUtils.showToast : function() {};
+                    showToast('Adresse IP invalide: ' + ip, 'error');
+                    return;
+                }
+
+                var button = this;
+                var originalText = button.textContent;
+                button.disabled = true;
+                button.textContent = '\u23F3 Lancement...';
+
+                var body = { target_ip: ip };
+                if (port) {
+                    body.target_port = parseInt(port, 10);
+                }
+
+                fetch('/api/jobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        return response.json().then(function(err) { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        var showToast = window.NetScopeUtils ? window.NetScopeUtils.showToast : function() {};
+                        showToast('Job cree - inspection en cours', 'success');
+                        button.textContent = '\u2705 Lance';
+                        console.info('[anomalies] Job created (job_id=' + data.result.id + ')');
+                        setTimeout(function() {
+                            button.textContent = originalText;
+                            button.disabled = false;
+                        }, 3000);
+                    }
+                })
+                .catch(function(error) {
+                    var showToast = window.NetScopeUtils ? window.NetScopeUtils.showToast : function() {};
+                    var msg = error.error ? error.error.message : 'Erreur lors du lancement';
+                    showToast(msg, 'error');
+                    button.textContent = originalText;
+                    button.disabled = false;
+                });
             });
         });
 

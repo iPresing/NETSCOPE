@@ -13,62 +13,56 @@
         <h3>Nouvelle Inspection</h3>
         <div class="form-row">
             <div class="form-group">
-                <label for="job-target">Cible IP:</label>
-                <input type="text" id="job-target" class="form-control" placeholder="192.168.1.x" disabled>
+                <label for="job-target-ip">Cible IP:</label>
+                <input type="text" id="job-target-ip" class="form-control" placeholder="192.168.1.x">
             </div>
             <div class="form-group">
-                <label for="job-type">Type:</label>
-                <select id="job-type" class="form-control" disabled>
-                    <option value="port-scan">Scan de ports</option>
-                    <option value="deep-packet">Deep Packet</option>
-                    <option value="protocol-analysis">Analyse protocole</option>
+                <label for="job-target-port">Port (optionnel):</label>
+                <input type="number" id="job-target-port" class="form-control" placeholder="443" min="1" max="65535">
+            </div>
+            <div class="form-group">
+                <label for="job-protocol">Protocole:</label>
+                <select id="job-protocol" class="form-control">
+                    <option value="">Tous</option>
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                    <option value="ICMP">ICMP</option>
                 </select>
             </div>
-            <button class="btn btn-primary" disabled>
+            <div class="form-group">
+                <label for="job-duration">Duree (s):</label>
+                <input type="number" id="job-duration" class="form-control" value="30" min="5" max="120">
+            </div>
+            <button class="btn btn-primary" id="btn-create-job">
                 <span class="btn-icon">🔬</span>
                 Lancer Inspection
             </button>
-        </div>
-        <p class="text-muted text-sm">Module inspection disponible dans Epic 4</p>
-    </section>
-
-    <section class="jobs-queue card">
-        <h3>File d'Attente</h3>
-        <div class="queue-list">
-            <p class="text-muted text-center">Aucun job en attente</p>
         </div>
     </section>
 
     <section class="jobs-active card">
         <h3>Jobs en Cours</h3>
-        <div class="active-list">
-            <p class="text-muted text-center">Aucun job en cours d'exécution</p>
+        <div class="active-list" id="jobs-active-list">
+            <p class="text-muted text-center">Aucun job en cours d'execution</p>
+        </div>
+    </section>
+
+    <section class="jobs-queue card">
+        <h3>File d'Attente</h3>
+        <div class="queue-list" id="jobs-queue-list">
+            <p class="text-muted text-center">Aucun job en attente</p>
         </div>
     </section>
 
     <section class="jobs-history card">
         <h3>Historique des Jobs</h3>
-        <table class="data-table" id="jobs-history-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Démarré</th>
-                    <th>Cible</th>
-                    <th>Type</th>
-                    <th>Statut</th>
-                    <th>Durée</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr class="placeholder-row">
-                    <td colspan="7" class="text-center text-muted">
-                        <p>Aucun job exécuté</p>
-                        <p class="text-sm">L'historique des inspections apparaîtra ici</p>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <div id="jobs-history-list">
+            <p class="text-muted text-center">Aucun job execute</p>
+        </div>
     </section>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/jobs.js') }}"></script>
 {% endblock %}
