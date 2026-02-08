@@ -39,7 +39,8 @@
     var TYPE_LABELS = {
         'ip': 'IP',
         'port': 'Port',
-        'ip_port': 'IP:Port'
+        'ip_port': 'IP:Port',
+        'domain': 'Domaine'
     };
 
     /**
@@ -48,6 +49,7 @@
     var IP_PATTERN = /^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
     var PORT_PATTERN = /^\d+$/;
     var IP_PORT_PATTERN = /^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?):\d+$/;
+    var DOMAIN_PATTERN = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?$/;
 
     /**
      * Validate whitelist value format
@@ -75,6 +77,19 @@
 
         // Check IP format
         if (IP_PATTERN.test(value)) {
+            return true;
+        }
+
+        // Check domain format (with optional :port suffix)
+        var domainValue = value;
+        if (value.indexOf(':') !== -1) {
+            var parts = value.split(':');
+            var portPart = parseInt(parts[parts.length - 1], 10);
+            if (portPart >= 1 && portPart <= 65535) {
+                domainValue = parts.slice(0, -1).join(':');
+            }
+        }
+        if (domainValue.indexOf('.') !== -1 && DOMAIN_PATTERN.test(domainValue) && /[a-zA-Z]/.test(domainValue)) {
             return true;
         }
 
@@ -244,7 +259,7 @@
                 }
 
                 if (!isValidValue(value)) {
-                    showToast('Format invalide. Attendu: IP (192.168.1.1), Port (8080) ou IP:Port (192.168.1.1:8080)', 'error');
+                    showToast('Format invalide. Attendu: IP, Port, IP:Port ou Domaine (ex: malware.com)', 'error');
                     return;
                 }
 

@@ -14,11 +14,16 @@ Lessons Learned Epic 1/2/3:
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
+
+_IP_RE = re.compile(
+    r"^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$"
+)
 
 
 class WhitelistEntryType(Enum):
@@ -27,6 +32,7 @@ class WhitelistEntryType(Enum):
     IP = "ip"
     PORT = "port"
     IP_PORT = "ip_port"
+    DOMAIN = "domain"
 
 
 @dataclass
@@ -81,12 +87,16 @@ def infer_entry_type(value: str) -> WhitelistEntryType:
     if ":" in value:
         parts = value.rsplit(":", 1)
         if parts[1].isdigit():
-            return WhitelistEntryType.IP_PORT
+            if _IP_RE.match(parts[0]):
+                return WhitelistEntryType.IP_PORT
+            return WhitelistEntryType.DOMAIN
     if value.isdigit():
         port = int(value)
         if 1 <= port <= 65535:
             return WhitelistEntryType.PORT
-    return WhitelistEntryType.IP
+    if _IP_RE.match(value):
+        return WhitelistEntryType.IP
+    return WhitelistEntryType.DOMAIN
 
 
 def create_entry(value: str, reason: str = "") -> WhitelistEntry:

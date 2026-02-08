@@ -58,10 +58,28 @@ class TestWhitelistManagerAdd:
         assert entry.value == "192.168.1.100:8080"
         assert entry.entry_type == WhitelistEntryType.IP_PORT
 
+    def test_add_domain(self, manager):
+        """add() creates entry with DOMAIN type."""
+        entry = manager.add("malware-site.local")
+        assert entry.value == "malware-site.local"
+        assert entry.entry_type == WhitelistEntryType.DOMAIN
+
+    def test_add_domain_with_port_normalizes(self, manager):
+        """add() strips port from domain:port and stores domain only."""
+        entry = manager.add("malware-site.local:53")
+        assert entry.value == "malware-site.local"
+        assert entry.entry_type == WhitelistEntryType.DOMAIN
+
+    def test_add_domain_lowercased(self, manager):
+        """add() lowercases domain values."""
+        entry = manager.add("MalWare.COM")
+        assert entry.value == "malware.com"
+        assert entry.entry_type == WhitelistEntryType.DOMAIN
+
     def test_add_rejects_invalid_format(self, manager):
         """add() rejects invalid format."""
         with pytest.raises(ValueError, match="Format invalide"):
-            manager.add("not-a-valid-value")
+            manager.add("!!!invalid!!!")
 
     def test_add_rejects_duplicate(self, manager):
         """add() rejects duplicate value."""
@@ -71,7 +89,7 @@ class TestWhitelistManagerAdd:
 
     def test_add_rejects_invalid_ip_in_ip_port(self, manager):
         """add() rejects invalid IP in IP:Port."""
-        with pytest.raises(ValueError, match="IP invalide"):
+        with pytest.raises(ValueError, match="Format invalide"):
             manager.add("999.999.999.999:80")
 
     def test_add_rejects_invalid_port_in_ip_port(self, manager):
@@ -178,6 +196,16 @@ class TestWhitelistManagerIsWhitelisted:
         """IP:Port entry does not match IP alone."""
         manager.add("192.168.1.100:8080")
         assert manager.is_whitelisted(ip="192.168.1.100") is False
+
+    def test_is_whitelisted_domain_match(self, manager):
+        """is_whitelisted() matches domain (case-insensitive)."""
+        manager.add("malware.com")
+        assert manager.is_whitelisted(domain="malware.com") is True
+        assert manager.is_whitelisted(domain="MalWare.COM") is True
+
+    def test_is_whitelisted_domain_no_match(self, manager):
+        manager.add("malware.com")
+        assert manager.is_whitelisted(domain="safe.com") is False
 
     def test_is_whitelisted_empty(self, manager):
         """Empty whitelist matches nothing."""
@@ -286,6 +314,38 @@ class TestWhitelistManagerGetWhitelistedAnomalyIds:
         anomalies = [
             MockAnomaly("a1", {"ip_src": "192.168.1.100", "port_dst": 80}, MockMatch("ip", "192.168.1.100")),
             MockAnomaly("a2", {"ip_src": "10.0.0.1", "port_dst": 80}, MockMatch("ip", "10.0.0.1")),
+        ]
+        result = manager.get_whitelisted_anomaly_ids(anomalies)
+        assert result == {"a1"}
+
+    def test_matches_domain_anomalies(self, manager):
+        """get_whitelisted_anomaly_ids() matches domain anomalies."""
+        manager.add("malware-site.local")
+
+        class MockMatch:
+            def __init__(self, match_type_value, matched_value):
+                self.match_type = type('MT', (), {'value': match_type_value})()
+                self.matched_value = matched_value
+
+        class MockAnomaly:
+            def __init__(self, id, packet_info, match):
+                self.id = id
+                self.packet_info = packet_info
+                self.match = match
+
+        anomalies = [
+            MockAnomaly("a1", {"ip_src": "192.168.1.10", "ip_dst": "10.0.0.1", "port_dst": 53}, MockMatch("domain", "malware-site.local")),
+            MockAnomaly("a2", {"ip_src": "192.168.1.10", "ip_dst": "10.0.0.2", "port_dst": 53}, MockMatch("domain", "safe-site.com")),
+        ]
+        result = manager.get_whitelisted_anomaly_ids(anomalies)
+        assert result == {"a1"}
+
+    def test_matches_domain_dict_anomalies(self, manager):
+        """get_whitelisted_anomaly_ids() matches domain in dict anomalies."""
+        manager.add("evil.example.com")
+        anomalies = [
+            {"id": "a1", "domain": "evil.example.com", "ip": None, "port": None},
+            {"id": "a2", "domain": "good.example.com", "ip": None, "port": None},
         ]
         result = manager.get_whitelisted_anomaly_ids(anomalies)
         assert result == {"a1"}

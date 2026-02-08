@@ -108,6 +108,29 @@ class TestWhitelistAPIPost:
         assert data['success'] is True
         assert data['result']['entry_type'] == "ip_port"
 
+    def test_add_valid_domain(self, wl_client):
+        """AC1: Adds valid domain."""
+        response = wl_client.post(
+            '/api/whitelist',
+            json={"value": "malware-site.local", "reason": "Faux positif"},
+        )
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['result']['entry_type'] == "domain"
+        assert data['result']['value'] == "malware-site.local"
+
+    def test_add_domain_with_port_strips_port(self, wl_client):
+        """Domain:port is normalized to domain only."""
+        response = wl_client.post(
+            '/api/whitelist',
+            json={"value": "malware-site.local:53"},
+        )
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['result']['entry_type'] == "domain"
+        assert data['result']['value'] == "malware-site.local"
+
     def test_add_invalid_value_returns_400(self, wl_client):
         """Rejects invalid value with 400."""
         response = wl_client.post(

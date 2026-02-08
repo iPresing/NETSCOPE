@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 _IP_PATTERN = re.compile(
     r"^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$"
 )
+_DOMAIN_PATTERN = re.compile(
+    r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)*"
+    r"[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?$"
+)
 MAX_WHITELIST_ENTRIES = 1000
 
 
@@ -69,6 +73,7 @@ class WhitelistManager:
     def add(self, value: str, reason: str = "") -> WhitelistEntry:
         """Ajoute une entree. Leve ValueError si doublon ou format invalide."""
         value = value.strip()
+        value = self._normalize(value)
         self._validate(value)
 
         with self._lock:
@@ -103,8 +108,14 @@ class WhitelistManager:
         """Retourne une entree par ID ou None."""
         return next((e for e in self._entries if e.id == entry_id), None)
 
-    def is_whitelisted(self, ip: str | None = None, port: int | None = None) -> bool:
-        """Verifie si IP et/ou port sont whitelistes."""
+    def is_whitelisted(
+        self,
+        ip: str | None = None,
+        port: int | None = None,
+        domain: str | None = None,
+    ) -> bool:
+        """Verifie si IP, port et/ou domaine sont whitelistes."""
+        domain_lower = domain.lower() if domain else None
         for e in self._entries:
             if e.entry_type.value == "ip" and ip and e.value == ip:
                 return True
@@ -113,34 +124,47 @@ class WhitelistManager:
             if e.entry_type.value == "ip_port" and ip and port:
                 if e.value == f"{ip}:{port}":
                     return True
+            if e.entry_type.value == "domain" and domain_lower:
+                if e.value == domain_lower:
+                    return True
         return False
 
     def get_whitelisted_anomaly_ids(self, anomalies) -> set[str]:
         """Retourne les IDs des anomalies matchees par la whitelist."""
         ids: set[str] = set()
         for anomaly in anomalies:
-            ip, port, aid = self._extract_anomaly_info(anomaly)
-            if aid and self.is_whitelisted(ip, port):
+            ip, port, domain, aid = self._extract_anomaly_info(anomaly)
+            if aid and self.is_whitelisted(ip, port, domain):
                 ids.add(aid)
         return ids
 
     @staticmethod
-    def _extract_anomaly_info(anomaly) -> tuple[str | None, int | None, str | None]:
-        """Extrait IP, port et ID depuis un objet anomaly (dict ou dataclass)."""
+    def _extract_anomaly_info(
+        anomaly,
+    ) -> tuple[str | None, int | None, str | None, str | None]:
+        """Extrait IP, port, domaine et ID depuis un objet anomaly (dict ou dataclass)."""
         if isinstance(anomaly, dict):
-            return anomaly.get("ip"), anomaly.get("port"), anomaly.get("id")
+            return (
+                anomaly.get("ip"),
+                anomaly.get("port"),
+                anomaly.get("domain"),
+                anomaly.get("id"),
+            )
 
         aid = getattr(anomaly, "id", None)
         ip = None
         port = None
+        domain = None
 
-        # Priorite 1: utiliser matched_value pour les anomalies IP
-        # C'est l'IP blacklistee, pas forcement ip_src du paquet
+        # Extraire matched_value selon le match_type
         match = getattr(anomaly, "match", None)
         if match:
             match_type = getattr(match, "match_type", None)
-            if match_type and getattr(match_type, "value", None) == "ip":
+            mt_value = getattr(match_type, "value", None) if match_type else None
+            if mt_value == "ip":
                 ip = getattr(match, "matched_value", None)
+            elif mt_value == "domain":
+                domain = getattr(match, "matched_value", None)
 
         # Extraire le port associe a l'IP matchee depuis packet_info
         packet_info = getattr(anomaly, "packet_info", None)
@@ -159,7 +183,20 @@ class WhitelistManager:
             if raw_port is not None:
                 port = int(raw_port) if not isinstance(raw_port, int) else raw_port
 
-        return ip, port, aid
+        return ip, port, domain, aid
+
+    @staticmethod
+    def _normalize(value: str) -> str:
+        """Normalise la valeur: domaine:port -> domaine, lowercase domaines."""
+        if ":" in value:
+            parts = value.rsplit(":", 1)
+            if parts[1].isdigit() and not _IP_PATTERN.match(parts[0]):
+                # domaine:port → garder juste le domaine
+                value = parts[0]
+        # Lowercase pour les domaines (pas IP, pas port)
+        if not value.isdigit() and not _IP_PATTERN.match(value):
+            value = value.lower()
+        return value
 
     def _validate(self, value: str) -> None:
         """Valide le format de la valeur."""
@@ -175,11 +212,18 @@ class WhitelistManager:
             port = int(value)
             if not (1 <= port <= 65535):
                 raise ValueError(f"Port hors limites: {port}")
+        elif _IP_PATTERN.match(value):
+            pass  # IP valide
+        elif (
+            "." in value
+            and _DOMAIN_PATTERN.match(value)
+            and any(c.isalpha() for c in value)
+        ):
+            pass  # Domaine valide (au moins un point requis)
         else:
-            if not _IP_PATTERN.match(value):
-                raise ValueError(
-                    f"Format invalide: '{value}' (attendu: IP, Port ou IP:Port)"
-                )
+            raise ValueError(
+                f"Format invalide: '{value}' (attendu: IP, Port, IP:Port ou Domaine)"
+            )
 
 
 # Singleton

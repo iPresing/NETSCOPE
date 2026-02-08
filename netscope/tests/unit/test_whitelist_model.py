@@ -32,6 +32,9 @@ class TestWhitelistEntryType:
     def test_ip_port_value(self):
         assert WhitelistEntryType.IP_PORT.value == "ip_port"
 
+    def test_domain_value(self):
+        assert WhitelistEntryType.DOMAIN.value == "domain"
+
 
 class TestWhitelistEntry:
     """Tests for WhitelistEntry dataclass."""
@@ -130,8 +133,17 @@ class TestInferEntryType:
     def test_ip_port_with_standard_port(self):
         assert infer_entry_type("10.0.0.1:443") == WhitelistEntryType.IP_PORT
 
-    def test_non_numeric_treated_as_ip(self):
+    def test_ip_address_inferred(self):
         assert infer_entry_type("10.0.0.1") == WhitelistEntryType.IP
+
+    def test_domain_simple(self):
+        assert infer_entry_type("malware.com") == WhitelistEntryType.DOMAIN
+
+    def test_domain_subdomain(self):
+        assert infer_entry_type("evil.malware-site.local") == WhitelistEntryType.DOMAIN
+
+    def test_domain_with_port_inferred_as_domain(self):
+        assert infer_entry_type("malware.com:53") == WhitelistEntryType.DOMAIN
 
 
 class TestCreateEntry:
@@ -155,6 +167,11 @@ class TestCreateEntry:
         entry = create_entry("192.168.1.100:8080")
         assert entry.value == "192.168.1.100:8080"
         assert entry.entry_type == WhitelistEntryType.IP_PORT
+
+    def test_creates_domain_entry(self):
+        entry = create_entry("malware-site.local")
+        assert entry.value == "malware-site.local"
+        assert entry.entry_type == WhitelistEntryType.DOMAIN
 
     def test_strips_whitespace(self):
         entry = create_entry("  192.168.1.100  ", "  Raison  ")
