@@ -74,3 +74,50 @@ class TestJobsPage:
         })
 
         assert response.status_code == 400
+
+
+class TestJobsPageDirection:
+    """Tests E2E pour la direction du port (Story 4.2 - Task 9.1)."""
+
+    def test_jobs_page_has_direction_field(self, client):
+        """page /jobs affiche le champ direction du port."""
+        response = client.get('/jobs')
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        assert 'job-port-direction' in html
+        assert 'Direction du port' in html
+
+    def test_create_job_full_params_with_direction(self, client):
+        """creation job avec parametres complets (IP + port + direction + protocole + duree) via API."""
+        response = client.post('/api/jobs', json={
+            "target_ip": "10.0.0.1",
+            "target_port": 4444,
+            "target_port_direction": "dst",
+            "protocol": "TCP",
+            "duration": 60,
+        })
+
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data["success"] is True
+        spec = data["result"]["spec"]
+        assert spec["target_ip"] == "10.0.0.1"
+        assert spec["target_port"] == 4444
+        assert spec["target_port_direction"] == "dst"
+        assert spec["protocol"] == "TCP"
+        assert spec["duration"] == 60
+
+    def test_create_job_with_direction_both_explicit(self, client):
+        """creation job avec direction 'both' explicite (vs None implicite)."""
+        response = client.post('/api/jobs', json={
+            "target_ip": "10.0.0.2",
+            "target_port": 8080,
+            "target_port_direction": "both",
+        })
+
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data["success"] is True
+        spec = data["result"]["spec"]
+        assert spec["target_port_direction"] == "both"

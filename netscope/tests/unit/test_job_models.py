@@ -17,6 +17,7 @@ from app.core.inspection.job_models import (
     PORT_MAX,
     PORT_MIN,
     VALID_PROTOCOLS,
+    VALID_PORT_DIRECTIONS,
 )
 
 
@@ -193,6 +194,90 @@ class TestJobStatusEnum:
         assert JobStatus.COMPLETED.value == "completed"
         assert JobStatus.FAILED.value == "failed"
         assert JobStatus.CANCELLED.value == "cancelled"
+
+
+class TestPortDirection:
+    """Tests pour la direction du port (Story 4.2 - Task 7.1)."""
+
+    def test_create_job_direction_dst(self):
+        """create_job() avec direction 'dst' cree JobSpec correcte."""
+        job = create_job(
+            target_ip="192.168.1.1",
+            target_port=4444,
+            target_port_direction="dst",
+        )
+        assert job.spec.target_port_direction == "dst"
+
+    def test_create_job_direction_src(self):
+        """create_job() avec direction 'src' cree JobSpec correcte."""
+        job = create_job(
+            target_ip="192.168.1.1",
+            target_port=4444,
+            target_port_direction="src",
+        )
+        assert job.spec.target_port_direction == "src"
+
+    def test_create_job_direction_both(self):
+        """create_job() avec direction 'both' cree JobSpec correcte."""
+        job = create_job(
+            target_ip="192.168.1.1",
+            target_port=4444,
+            target_port_direction="both",
+        )
+        assert job.spec.target_port_direction == "both"
+
+    def test_create_job_direction_invalid(self):
+        """create_job() avec direction invalide leve ValueError."""
+        with pytest.raises(ValueError, match="Direction de port invalide"):
+            create_job(
+                target_ip="192.168.1.1",
+                target_port=4444,
+                target_port_direction="invalid",
+            )
+
+    def test_create_job_direction_without_port(self):
+        """create_job() avec direction sans port leve ValueError."""
+        with pytest.raises(ValueError, match="Direction de port specifiee sans port"):
+            create_job(
+                target_ip="192.168.1.1",
+                target_port_direction="dst",
+            )
+
+    def test_create_job_port_without_direction(self):
+        """create_job() sans direction mais avec port → direction None (both implicite)."""
+        job = create_job(
+            target_ip="192.168.1.1",
+            target_port=443,
+        )
+        assert job.spec.target_port_direction is None
+
+    def test_jobspec_roundtrip_with_direction(self):
+        """to_dict()/from_dict() roundtrip avec direction."""
+        job = create_job(
+            target_ip="10.0.0.1",
+            target_port=8080,
+            target_port_direction="dst",
+            protocol="TCP",
+        )
+        spec_dict = job.spec.to_dict()
+        restored = JobSpec.from_dict(spec_dict)
+
+        assert restored.target_port_direction == "dst"
+        assert restored.target_port == 8080
+        assert restored.protocol == "TCP"
+
+    def test_jobspec_from_dict_without_direction(self):
+        """from_dict() sans target_port_direction retourne None (backward compat)."""
+        data = {
+            "id": "job_test1234",
+            "target_ip": "192.168.1.1",
+            "target_port": 443,
+            "protocol": "TCP",
+            "duration": 30,
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+        spec = JobSpec.from_dict(data)
+        assert spec.target_port_direction is None
 
 
 class TestValidProtocols:

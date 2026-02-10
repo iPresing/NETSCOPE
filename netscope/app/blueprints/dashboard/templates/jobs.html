@@ -21,6 +21,14 @@
                 <input type="number" id="job-target-port" class="form-control" placeholder="443" min="1" max="65535">
             </div>
             <div class="form-group">
+                <label for="job-port-direction">Direction du port:</label>
+                <select id="job-port-direction" class="form-control" disabled>
+                    <option value="both">Source & Destination (both)</option>
+                    <option value="dst">Destination uniquement (dst)</option>
+                    <option value="src">Source uniquement (src)</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="job-protocol">Protocole:</label>
                 <select id="job-protocol" class="form-control">
                     <option value="">Tous</option>

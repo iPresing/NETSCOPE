@@ -431,6 +431,10 @@
                 '</div>';
         }
 
+        // Security note: data-* attributes expose anomaly metadata in DOM.
+        // Consider storing in JS object and retrieving by anomaly ID for enhanced security.
+        var portDirection = packetInfo.port_dst ? 'dst' : (packetInfo.port_src ? 'src' : 'both');
+
         return '<div class="anomaly-item anomaly-' + config.class + '" data-anomaly-id="' + escapeHtml(anomaly.id) + '">' +
             '<div class="anomaly-header">' +
                 '<span class="anomaly-indicator">' + config.indicator + '</span>' +
@@ -447,13 +451,14 @@
             '<div class="anomaly-actions">' +
                 '<button class="btn btn-sm btn-outline btn-inspect"' +
                     ' data-ip="' + escapeHtml(packetInfo.ip_dst || anomaly.matched_value || '') + '"' +
-                    ' data-port="' + (packetInfo.port_dst || '') + '"' +
+                    ' data-port="' + escapeHtml(String(packetInfo.port_dst || '')) + '"' +
+                    ' data-port-direction="' + escapeHtml(portDirection) + '"' +
                     ' title="Lancer une inspection Scapy">' +
                     '\u{1F52C} Inspecter' +
                 '</button>' +
                 '<button class="btn btn-sm btn-outline btn-whitelist"' +
                     ' data-ip="' + escapeHtml(anomaly.matched_value || '') + '"' +
-                    ' data-port="' + (packetInfo.port_dst || packetInfo.port_src || '') + '"' +
+                    ' data-port="' + escapeHtml(String(packetInfo.port_dst || packetInfo.port_src || '')) + '"' +
                     ' title="Ajouter a la whitelist">' +
                     '\u2705 Whitelist' +
                 '</button>' +
@@ -549,6 +554,14 @@
                     return;
                 }
 
+                // Validation direction cote client (regle #13)
+                var portDirection = this.getAttribute('data-port-direction') || 'both';
+                var validDirections = ['src', 'dst', 'both'];
+                if (validDirections.indexOf(portDirection) === -1) {
+                    console.warn('[anomalies] Invalid port direction: ' + portDirection + ', fallback to "both"');
+                    portDirection = 'both';
+                }
+
                 var button = this;
                 var originalText = button.textContent;
                 button.disabled = true;
@@ -557,6 +570,7 @@
                 var body = { target_ip: ip };
                 if (port) {
                     body.target_port = parseInt(port, 10);
+                    body.target_port_direction = portDirection;
                 }
 
                 fetch('/api/jobs', {

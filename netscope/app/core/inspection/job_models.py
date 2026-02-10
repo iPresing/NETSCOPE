@@ -31,6 +31,7 @@ DURATION_DEFAULT = 30
 PORT_MIN = 1
 PORT_MAX = 65535
 VALID_PROTOCOLS = ("TCP", "UDP", "ICMP")
+VALID_PORT_DIRECTIONS = ("src", "dst", "both")
 
 
 class JobStatus(Enum):
@@ -51,6 +52,7 @@ class JobSpec:
         id: Identifiant unique du job
         target_ip: IP cible (obligatoire, format IPv4)
         target_port: Port cible (optionnel, 1-65535)
+        target_port_direction: Direction du port (optionnel, src/dst/both)
         protocol: Protocole (optionnel, TCP/UDP/ICMP)
         duration: Duree en secondes (5-120, defaut 30)
         created_at: Date de creation
@@ -59,6 +61,7 @@ class JobSpec:
     id: str
     target_ip: str
     target_port: int | None = None
+    target_port_direction: str | None = None
     protocol: str | None = None
     duration: int = DURATION_DEFAULT
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -69,6 +72,7 @@ class JobSpec:
             "id": self.id,
             "target_ip": self.target_ip,
             "target_port": self.target_port,
+            "target_port_direction": self.target_port_direction,
             "protocol": self.protocol,
             "duration": self.duration,
             "created_at": self.created_at.isoformat(),
@@ -81,6 +85,7 @@ class JobSpec:
             id=data["id"],
             target_ip=data["target_ip"],
             target_port=data.get("target_port"),
+            target_port_direction=data.get("target_port_direction"),
             protocol=data.get("protocol"),
             duration=data.get("duration", DURATION_DEFAULT),
             created_at=datetime.fromisoformat(data["created_at"])
@@ -209,11 +214,34 @@ def _validate_protocol(protocol: str | None) -> None:
             )
 
 
+def _validate_port_direction(direction: str | None, port: int | None) -> None:
+    """Valide la direction du port.
+
+    Args:
+        direction: Direction (src/dst/both) ou None
+        port: Port cible associe
+
+    Raises:
+        ValueError: Si direction invalide ou direction sans port
+    """
+    if direction is not None:
+        if not isinstance(direction, str) or direction not in VALID_PORT_DIRECTIONS:
+            raise ValueError(
+                f"Direction de port invalide: '{direction}' "
+                f"(valides: {', '.join(VALID_PORT_DIRECTIONS)})"
+            )
+        if port is None:
+            raise ValueError(
+                "Direction de port specifiee sans port cible"
+            )
+
+
 def create_job(
     target_ip: str,
     target_port: int | None = None,
     protocol: str | None = None,
     duration: int = DURATION_DEFAULT,
+    target_port_direction: str | None = None,
 ) -> Job:
     """Factory pour creer un job d'inspection valide.
 
@@ -222,6 +250,7 @@ def create_job(
         target_port: Port cible (optionnel, 1-65535)
         protocol: Protocole (optionnel, TCP/UDP/ICMP)
         duration: Duree en secondes (5-120, defaut 30)
+        target_port_direction: Direction du port (optionnel, src/dst/both)
 
     Returns:
         Job avec status PENDING
@@ -233,6 +262,7 @@ def create_job(
     _validate_port(target_port)
     _validate_duration(duration)
     _validate_protocol(protocol)
+    _validate_port_direction(target_port_direction, target_port)
 
     normalized_protocol = protocol.upper() if protocol else None
 
@@ -240,6 +270,7 @@ def create_job(
         id=f"job_{uuid.uuid4().hex[:8]}",
         target_ip=target_ip,
         target_port=target_port,
+        target_port_direction=target_port_direction,
         protocol=normalized_protocol,
         duration=duration,
     )

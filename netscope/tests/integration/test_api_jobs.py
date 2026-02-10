@@ -113,6 +113,88 @@ class TestPostApiJobs:
         assert data["error"]["code"] == "JOB_QUEUE_FULL"
 
 
+class TestPostApiJobsDirection:
+    """Tests pour POST /api/jobs avec direction du port (Story 4.2 - Task 8.1)."""
+
+    def test_create_job_with_direction_dst(self, client, mock_no_slots):
+        """POST /api/jobs avec target_port_direction='dst' retourne 201."""
+        response = client.post('/api/jobs', json={
+            "target_ip": "192.168.1.100",
+            "target_port": 4444,
+            "target_port_direction": "dst",
+        })
+
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["result"]["spec"]["target_port_direction"] == "dst"
+
+    def test_create_job_with_direction_src(self, client, mock_no_slots):
+        """POST /api/jobs avec target_port_direction='src' retourne 201."""
+        response = client.post('/api/jobs', json={
+            "target_ip": "192.168.1.100",
+            "target_port": 4444,
+            "target_port_direction": "src",
+        })
+
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data["result"]["spec"]["target_port_direction"] == "src"
+
+    def test_create_job_with_direction_invalid(self, client, mock_no_slots):
+        """POST /api/jobs avec direction invalide retourne 400."""
+        response = client.post('/api/jobs', json={
+            "target_ip": "192.168.1.100",
+            "target_port": 4444,
+            "target_port_direction": "invalid",
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert data["error"]["code"] == "JOB_INVALID_PARAMS"
+
+    def test_create_job_with_direction_without_port(self, client, mock_no_slots):
+        """POST /api/jobs avec direction sans port retourne 400."""
+        response = client.post('/api/jobs', json={
+            "target_ip": "192.168.1.100",
+            "target_port_direction": "dst",
+        })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert data["error"]["code"] == "JOB_INVALID_PARAMS"
+
+    def test_create_job_port_without_direction_backward_compat(self, client, mock_no_slots):
+        """POST /api/jobs sans direction mais avec port retourne 201 (backward compat)."""
+        response = client.post('/api/jobs', json={
+            "target_ip": "192.168.1.100",
+            "target_port": 443,
+        })
+
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data["result"]["spec"]["target_port_direction"] is None
+
+    def test_create_and_get_job_with_direction_e2e(self, client):
+        """End-to-end sans mock: creer job avec direction, verifier GET retourne la direction (regle #11)."""
+        create_resp = client.post('/api/jobs', json={
+            "target_ip": "192.168.1.200",
+            "target_port": 8080,
+            "target_port_direction": "dst",
+            "duration": 5,
+        })
+        assert create_resp.status_code == 201
+        job_id = create_resp.get_json()["result"]["id"]
+
+        get_resp = client.get(f'/api/jobs/{job_id}')
+        assert get_resp.status_code == 200
+        job_data = get_resp.get_json()["result"]
+        assert job_data["spec"]["target_port_direction"] == "dst"
+        assert job_data["spec"]["target_port"] == 8080
+
+
 class TestGetApiJobs:
     """Tests pour GET /api/jobs."""
 

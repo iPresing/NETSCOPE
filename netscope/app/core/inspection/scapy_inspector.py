@@ -48,10 +48,17 @@ def build_bpf_filter(spec: JobSpec) -> str:
     """
     parts = [f"host {spec.target_ip}"]
 
-    if spec.protocol and spec.target_port:
-        parts.append(f"{spec.protocol.lower()} port {spec.target_port}")
-    elif spec.target_port:
-        parts.append(f"port {spec.target_port}")
+    if spec.target_port:
+        direction = spec.target_port_direction
+        if direction and direction != "both":
+            port_expr = f"{direction} port {spec.target_port}"
+        else:
+            port_expr = f"port {spec.target_port}"
+
+        if spec.protocol:
+            parts.append(f"{spec.protocol.lower()} {port_expr}")
+        else:
+            parts.append(port_expr)
     elif spec.protocol:
         parts.append(spec.protocol.lower())
 

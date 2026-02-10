@@ -12,12 +12,13 @@ from app.core.inspection.scapy_inspector import ScapyInspector, build_bpf_filter
 class TestBuildBpfFilter:
     """Tests pour build_bpf_filter()."""
 
-    def _make_spec(self, ip="192.168.1.1", port=None, protocol=None):
+    def _make_spec(self, ip="192.168.1.1", port=None, protocol=None, direction=None):
         """Helper pour creer un JobSpec minimal."""
         return JobSpec(
             id="job_test1234",
             target_ip=ip,
             target_port=port,
+            target_port_direction=direction,
             protocol=protocol,
         )
 
@@ -45,6 +46,50 @@ class TestBuildBpfFilter:
         """build_bpf_filter() avec protocole ICMP."""
         spec = self._make_spec(ip="10.0.0.1", protocol="ICMP")
         assert build_bpf_filter(spec) == "host 10.0.0.1 and icmp"
+
+
+class TestBpfFilterWithDirection:
+    """Tests pour build_bpf_filter() avec direction du port (Story 4.2 - Task 7.2)."""
+
+    def _make_spec(self, ip="192.168.1.1", port=None, protocol=None, direction=None):
+        """Helper pour creer un JobSpec minimal."""
+        return JobSpec(
+            id="job_test1234",
+            target_ip=ip,
+            target_port=port,
+            target_port_direction=direction,
+            protocol=protocol,
+        )
+
+    def test_ip_port_direction_dst(self):
+        """IP + port + direction 'dst' → 'host X and dst port Y'."""
+        spec = self._make_spec(ip="10.0.0.1", port=4444, direction="dst")
+        assert build_bpf_filter(spec) == "host 10.0.0.1 and dst port 4444"
+
+    def test_ip_port_direction_src(self):
+        """IP + port + direction 'src' → 'host X and src port Y'."""
+        spec = self._make_spec(ip="10.0.0.1", port=4444, direction="src")
+        assert build_bpf_filter(spec) == "host 10.0.0.1 and src port 4444"
+
+    def test_ip_port_direction_both(self):
+        """IP + port + direction 'both' → 'host X and port Y'."""
+        spec = self._make_spec(ip="10.0.0.1", port=4444, direction="both")
+        assert build_bpf_filter(spec) == "host 10.0.0.1 and port 4444"
+
+    def test_ip_port_proto_direction_dst(self):
+        """IP + port + proto + direction 'dst' → 'host X and tcp dst port Y'."""
+        spec = self._make_spec(ip="10.0.0.1", port=4444, protocol="TCP", direction="dst")
+        assert build_bpf_filter(spec) == "host 10.0.0.1 and tcp dst port 4444"
+
+    def test_ip_port_proto_direction_src(self):
+        """IP + port + proto + direction 'src' → 'host X and udp src port Y'."""
+        spec = self._make_spec(ip="10.0.0.1", port=4444, protocol="UDP", direction="src")
+        assert build_bpf_filter(spec) == "host 10.0.0.1 and udp src port 4444"
+
+    def test_ip_port_no_direction_backward_compat(self):
+        """IP + port sans direction → 'host X and port Y' (backward compat)."""
+        spec = self._make_spec(ip="10.0.0.1", port=4444)
+        assert build_bpf_filter(spec) == "host 10.0.0.1 and port 4444"
 
 
 class TestScapyInspectorRun:

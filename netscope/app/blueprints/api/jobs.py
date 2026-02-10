@@ -65,6 +65,7 @@ def create_inspection_job():
             target_port=data.get("target_port"),
             protocol=data.get("protocol"),
             duration=data.get("duration", 30),
+            target_port_direction=data.get("target_port_direction"),
         )
     except ValueError as exc:
         return jsonify({

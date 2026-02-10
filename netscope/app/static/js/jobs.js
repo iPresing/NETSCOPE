@@ -17,6 +17,7 @@
     // DOM Elements
     var targetIpEl = document.getElementById('job-target-ip');
     var targetPortEl = document.getElementById('job-target-port');
+    var portDirectionEl = document.getElementById('job-port-direction');
     var protocolEl = document.getElementById('job-protocol');
     var durationEl = document.getElementById('job-duration');
     var createBtnEl = document.getElementById('btn-create-job');
@@ -40,6 +41,9 @@
 
     // IP validation regex (rule #13)
     var IP_PATTERN = /^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
+
+    // Valid port directions (rule #13 - client-side validation)
+    var VALID_DIRECTIONS = ['src', 'dst', 'both'];
 
     // Status display configuration
     var STATUS_CONFIG = {
@@ -74,6 +78,14 @@
             var port = parseInt(targetPortEl.value, 10);
             if (port >= 1 && port <= 65535) {
                 body.target_port = port;
+
+                // Direction only when port is specified (rule #13)
+                if (portDirectionEl && portDirectionEl.value) {
+                    var dir = portDirectionEl.value;
+                    if (VALID_DIRECTIONS.indexOf(dir) !== -1) {
+                        body.target_port_direction = dir;
+                    }
+                }
             }
         }
 
@@ -111,8 +123,13 @@
                 // Reset form
                 if (targetIpEl) targetIpEl.value = '';
                 if (targetPortEl) targetPortEl.value = '';
+                if (portDirectionEl) {
+                    portDirectionEl.value = 'both';
+                }
                 if (protocolEl) protocolEl.value = '';
                 if (durationEl) durationEl.value = '30';
+                // Update direction state after reset (let toggle logic handle disabled state)
+                updatePortDirectionState();
                 loadJobs();
             }
         })
@@ -312,6 +329,18 @@
     /**
      * Initialize the jobs page module
      */
+    /**
+     * Toggle port direction select based on port field value (Story 4.2 - Task 5.3)
+     */
+    function updatePortDirectionState() {
+        if (!portDirectionEl) return;
+        var hasPort = targetPortEl && targetPortEl.value.trim() !== '';
+        portDirectionEl.disabled = !hasPort;
+        if (!hasPort) {
+            portDirectionEl.value = 'both';
+        }
+    }
+
     function init() {
         console.debug('[jobs] Initializing jobs page module');
 
@@ -321,6 +350,11 @@
                 e.preventDefault();
                 createJob();
             });
+        }
+
+        // Port field change toggles direction select (Story 4.2 - Task 5.3)
+        if (targetPortEl) {
+            targetPortEl.addEventListener('input', updatePortDirectionState);
         }
 
         // Load initial jobs list
