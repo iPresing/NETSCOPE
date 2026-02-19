@@ -14,7 +14,7 @@
 (function() {
     'use strict';
 
-    // DOM Elements
+    // DOM Elements (rule #4: check existence before manipulation)
     var targetIpEl = document.getElementById('job-target-ip');
     var targetPortEl = document.getElementById('job-target-port');
     var portDirectionEl = document.getElementById('job-port-direction');
@@ -24,6 +24,8 @@
     var activeListEl = document.getElementById('jobs-active-list');
     var queueListEl = document.getElementById('jobs-queue-list');
     var historyListEl = document.getElementById('jobs-history-list');
+    var queueCapacityEl = document.getElementById('queue-capacity');
+    var jobsSlotsEl = document.getElementById('jobs-slots');
 
     // Polling interval (rule #10)
     var POLL_INTERVAL_MS = 3000;
@@ -118,7 +120,8 @@
         })
         .then(function(data) {
             if (data.success) {
-                showToast('Job cree - inspection en cours', 'success');
+                var toastMsg = data.message || 'Job cree - inspection en cours';
+                showToast(toastMsg, 'success');
                 console.info('[jobs] Job created (job_id=' + data.result.id + ')');
                 // Reset form
                 if (targetIpEl) targetIpEl.value = '';
@@ -160,7 +163,7 @@
             })
             .then(function(data) {
                 if (data.success && data.result) {
-                    renderJobs(data.result.jobs || []);
+                    renderJobs(data.result.jobs || [], data.result.queue_stats || null);
                     console.debug('[jobs] Loaded ' + (data.result.count || 0) + ' jobs (slots=' + data.result.available_slots + ')');
                 }
             })
@@ -172,8 +175,9 @@
     /**
      * Render jobs into the three sections: active, queue, history
      * @param {Array} jobs - List of job objects
+     * @param {Object|null} queueStats - Queue statistics from API
      */
-    function renderJobs(jobs) {
+    function renderJobs(jobs, queueStats) {
         var active = [];
         var pending = [];
         var history = [];
@@ -191,8 +195,8 @@
             }
         });
 
-        renderActiveJobs(active);
-        renderQueueJobs(pending);
+        renderActiveJobs(active, queueStats);
+        renderQueueJobs(pending, queueStats);
         renderHistoryJobs(history);
 
         // Start/stop polling based on active jobs
@@ -206,8 +210,17 @@
     /**
      * Render active (running) jobs
      * @param {Array} jobs - Running jobs
+     * @param {Object|null} queueStats - Queue statistics
      */
-    function renderActiveJobs(jobs) {
+    function renderActiveJobs(jobs, queueStats) {
+        // Slots indicator (rule #4: check element existence)
+        if (jobsSlotsEl && queueStats) {
+            var avail = queueStats.available_slots || 0;
+            var max = queueStats.max_concurrent_jobs || 1;
+            jobsSlotsEl.innerHTML = '<span class="slots-indicator">Slots: ' +
+                escapeHtml(String(avail)) + '/' + escapeHtml(String(max)) + ' dispo</span>';
+        }
+
         if (!activeListEl) return;
 
         if (jobs.length === 0) {
@@ -241,10 +254,27 @@
     }
 
     /**
-     * Render pending (queued) jobs
+     * Render pending (queued) jobs with position and capacity
      * @param {Array} jobs - Pending jobs
+     * @param {Object|null} queueStats - Queue statistics
      */
-    function renderQueueJobs(jobs) {
+    function renderQueueJobs(jobs, queueStats) {
+        // Queue capacity indicator (rule #4: check element existence)
+        if (queueCapacityEl && queueStats) {
+            var pending = queueStats.pending_count || 0;
+            var maxSize = queueStats.max_queue_size || 10;
+            var pct = Math.round((pending / maxSize) * 100);
+            var barColor = pct < 50 ? 'var(--matrix-green, #00ff41)' :
+                           pct < 80 ? 'var(--alert-amber, #ffb700)' :
+                                      'var(--danger-red, #ff3333)';
+            queueCapacityEl.innerHTML =
+                '<div class="queue-capacity-label">File d\'attente: ' +
+                escapeHtml(String(pending)) + '/' + escapeHtml(String(maxSize)) + ' jobs</div>' +
+                '<div class="queue-capacity-bar" style="height:6px;background:rgba(255,255,255,0.1);border-radius:3px;margin-top:4px;">' +
+                    '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';border-radius:3px;transition:width 0.3s;"></div>' +
+                '</div>';
+        }
+
         if (!queueListEl) return;
 
         if (jobs.length === 0) {
@@ -257,11 +287,19 @@
             var spec = job.spec || {};
             var target = escapeHtml(spec.target_ip || '');
             if (spec.target_port) target += ':' + spec.target_port;
+            var position = job.queue_position || 0;
+            var jobsAhead = position > 0 ? position - 1 : 0;
 
             html += '<div class="job-item status-pending">' +
-                '<span class="job-status-icon">\u23F3</span>' +
-                '<span class="job-target">' + target + '</span>' +
-                '<span class="job-id">' + escapeHtml(job.id || '') + '</span>' +
+                '<div class="job-header">' +
+                    '<span class="job-status-icon">\u23F3</span>' +
+                    '<span class="job-target">' + target + '</span>' +
+                    '<span class="queue-position">Position: ' + escapeHtml(String(position)) + '</span>' +
+                    '<span class="job-id">' + escapeHtml(job.id || '') + '</span>' +
+                '</div>' +
+                '<div class="job-queue-info">' +
+                    '<span class="jobs-ahead">' + escapeHtml(String(jobsAhead)) + ' jobs devant</span>' +
+                '</div>' +
             '</div>';
         });
 

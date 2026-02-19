@@ -17,7 +17,7 @@ import logging
 from flask import jsonify, request
 
 from . import api_bp
-from app.core.inspection.job_models import create_job
+from app.core.inspection.job_models import create_job, JobStatus
 from app.core.inspection.job_queue import get_job_queue
 from app.services.thread_manager import get_thread_manager
 
@@ -79,12 +79,17 @@ def create_inspection_job():
 
     queue = get_job_queue()
     if queue.is_full():
+        stats = queue.get_queue_stats()
         return jsonify({
             "success": False,
             "error": {
                 "code": "JOB_QUEUE_FULL",
-                "message": "File d'attente saturee, reessayez plus tard",
-                "details": {},
+                "message": f"File d'attente saturee ({stats['pending_count']}/{stats['max_queue_size']} jobs en attente)",
+                "details": {
+                    "max_queue_size": stats["max_queue_size"],
+                    "pending_count": stats["pending_count"],
+                    "running_count": stats["running_count"],
+                },
             },
         }), 503
 
@@ -95,10 +100,29 @@ def create_inspection_job():
         f"target={submitted.spec.target_ip})"
     )
 
-    return jsonify({
+    result = submitted.to_dict()
+    response = {
         "success": True,
-        "result": submitted.to_dict(),
-    }), 201
+        "result": result,
+    }
+
+    if submitted.status == JobStatus.PENDING:
+        position = queue.get_queue_position(submitted.spec.id)
+        if position is not None:
+            result["queue_position"] = position
+            jobs_ahead = position - 1
+            if jobs_ahead == 0:
+                response["message"] = "Job en attente - premier dans la file"
+            elif jobs_ahead == 1:
+                response["message"] = "Job en attente - 1 job devant"
+            else:
+                response["message"] = f"Job en attente - {jobs_ahead} jobs devant"
+        else:
+            response["message"] = "Job en attente"
+    else:
+        response["message"] = "Job cree - inspection en cours"
+
+    return jsonify(response), 201
 
 
 @api_bp.route('/jobs', methods=['GET'])
@@ -114,12 +138,22 @@ def list_jobs():
     jobs = queue.get_all_jobs()
     tm = get_thread_manager()
 
+    job_dicts = []
+    for j in jobs:
+        d = j.to_dict()
+        if j.status == JobStatus.PENDING:
+            position = queue.get_queue_position(j.spec.id)
+            if position is not None:
+                d["queue_position"] = position
+        job_dicts.append(d)
+
     return jsonify({
         "success": True,
         "result": {
-            "jobs": [j.to_dict() for j in jobs],
+            "jobs": job_dicts,
             "count": len(jobs),
             "available_slots": tm.get_available_job_slots(),
+            "queue_stats": queue.get_queue_stats(),
         },
     }), 200
 
@@ -150,7 +184,14 @@ def get_job(job_id):
             },
         }), 404
 
+    result = job.to_dict()
+    if job.status == JobStatus.PENDING:
+        position = queue.get_queue_position(job_id)
+        if position is not None:
+            result["queue_position"] = position
+            result["jobs_ahead"] = position - 1
+
     return jsonify({
         "success": True,
-        "result": job.to_dict(),
+        "result": result,
     }), 200

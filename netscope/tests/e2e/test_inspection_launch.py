@@ -121,3 +121,50 @@ class TestJobsPageDirection:
         assert data["success"] is True
         spec = data["result"]["spec"]
         assert spec["target_port_direction"] == "both"
+
+
+class TestJobsPageQueue:
+    """Tests E2E pour l'affichage queue (Story 4.3 - Task 8)."""
+
+    def test_jobs_page_shows_queue_capacity(self, client):
+        """Page /jobs affiche l'indicateur de capacite queue."""
+        response = client.get('/jobs')
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        assert 'queue-capacity' in html
+
+    def test_jobs_page_shows_queue_position(self, client):
+        """Jobs en attente affichent leur position via l'API.
+
+        Note: mock utilise uniquement pour creer des jobs PENDING (empecher le
+        demarrage reel des threads). La verification se fait sans mock via l'API.
+        """
+        from unittest.mock import patch, MagicMock
+        with patch("app.core.inspection.job_queue.get_thread_manager") as mock_get_tm:
+            tm = MagicMock()
+            tm.acquire_job_slot.return_value = False
+            tm.get_available_job_slots.return_value = 0
+            tm.max_concurrent_jobs = 2
+            mock_get_tm.return_value = tm
+
+            # Create 2 jobs that will be PENDING
+            client.post('/api/jobs', json={"target_ip": "192.168.1.1"})
+            client.post('/api/jobs', json={"target_ip": "192.168.1.2"})
+
+        # Verify positions via API
+        list_resp = client.get('/api/jobs')
+        data = list_resp.get_json()
+        pending_jobs = [j for j in data["result"]["jobs"] if j["status"] == "pending"]
+        assert len(pending_jobs) >= 2
+        positions = [j.get("queue_position") for j in pending_jobs]
+        assert 1 in positions
+        assert 2 in positions
+
+    def test_jobs_page_shows_slots_indicator(self, client):
+        """Page /jobs affiche l'indicateur de slots."""
+        response = client.get('/jobs')
+
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        assert 'jobs-slots' in html

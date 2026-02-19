@@ -52,9 +52,20 @@ class JobQueue:
         with self._lock:
             self._jobs[job.spec.id] = job
 
-        logger.info(f"Job soumis (job_id={job.spec.id}, target={job.spec.target_ip})")
-
         self._try_execute(job)
+
+        position = self.get_queue_position(job.spec.id)
+        if position is not None:
+            logger.info(
+                "[inspection.job_queue] Job queued at position %d (job_id=%s)",
+                position, job.spec.id,
+            )
+        else:
+            logger.info(
+                "[inspection.job_queue] Job started immediately (job_id=%s)",
+                job.spec.id,
+            )
+
         return job
 
     def get_job(self, job_id: str) -> Job | None:
@@ -86,6 +97,70 @@ class JobQueue:
                 if j.status == JobStatus.PENDING
             )
         return pending_count >= MAX_QUEUED_JOBS
+
+    def get_queue_position(self, job_id: str) -> int | None:
+        """Retourne la position 1-indexed du job dans la queue PENDING.
+
+        Args:
+            job_id: Identifiant du job
+
+        Returns:
+            Position 1-indexed si PENDING, None sinon
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None or job.status != JobStatus.PENDING:
+                return None
+
+            pending_jobs = sorted(
+                (j for j in self._jobs.values() if j.status == JobStatus.PENDING),
+                key=lambda j: j.spec.created_at,
+            )
+            for idx, pj in enumerate(pending_jobs, 1):
+                if pj.spec.id == job_id:
+                    return idx
+            return None
+
+    def get_queue_stats(self) -> dict:
+        """Retourne les statistiques de la queue.
+
+        Returns:
+            Dict avec pending_count, running_count, completed_count,
+            failed_count, cancelled_count, max_queue_size,
+            max_concurrent_jobs, available_slots
+        """
+        tm = get_thread_manager()
+        with self._lock:
+            counts: dict[str, int] = {
+                "pending_count": 0,
+                "running_count": 0,
+                "completed_count": 0,
+                "failed_count": 0,
+                "cancelled_count": 0,
+            }
+            for j in self._jobs.values():
+                key = f"{j.status.value}_count"
+                if key in counts:
+                    counts[key] += 1
+
+        counts["max_queue_size"] = MAX_QUEUED_JOBS
+        counts["max_concurrent_jobs"] = tm.max_concurrent_jobs
+        counts["available_slots"] = tm.get_available_job_slots()
+        return counts
+
+    def get_jobs_ahead(self, job_id: str) -> int:
+        """Retourne le nombre de jobs devant ce job dans la queue.
+
+        Args:
+            job_id: Identifiant du job
+
+        Returns:
+            Nombre de jobs PENDING devant (0 si premier)
+        """
+        position = self.get_queue_position(job_id)
+        if position is None:
+            return 0
+        return position - 1
 
     def _try_execute(self, job: Job) -> None:
         """Tente de lancer l'execution d'un job si un slot est disponible."""
