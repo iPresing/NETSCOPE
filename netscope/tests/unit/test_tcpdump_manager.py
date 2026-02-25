@@ -143,7 +143,9 @@ class TestTcpdumpManagerBuildCommand:
         assert "-i" in cmd
         assert "eth0" in cmd
         assert "-s" in cmd
-        assert "100" in cmd
+        # snap_length loaded from config (default 1500)
+        s_index = cmd.index("-s")
+        assert cmd[s_index + 1].isdigit()
         assert "-w" in cmd
         assert "/opt/netscope/data/captures/test.pcap" in cmd
         assert "-G" in cmd

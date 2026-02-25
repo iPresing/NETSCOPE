@@ -93,6 +93,17 @@ def whitelist():
     return render_template('whitelist.html')
 
 
+@dashboard_bp.route('/packets')
+def packets():
+    """Packet viewer page (Story 4.4).
+
+    Returns:
+        Rendered packets template
+    """
+    logger.debug(f'Packets page rendered (ip={request.remote_addr})')
+    return render_template('packets.html')
+
+
 @dashboard_bp.route('/jobs')
 def jobs():
     """Jobs inspection page.

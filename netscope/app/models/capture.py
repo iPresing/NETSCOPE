@@ -35,6 +35,7 @@ class CaptureConfig:
     duration: int = 120
     interface: str = "auto"
     bpf_filter: str = "not port 22"
+    snap_length: int = 1500
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -42,6 +43,7 @@ class CaptureConfig:
             "duration_seconds": self.duration,
             "interface": self.interface,
             "bpf_filter": self.bpf_filter,
+            "snap_length": self.snap_length,
         }
 
 
@@ -72,6 +74,7 @@ class PacketInfo:
     dns_queries: list[str] = field(default_factory=list)
     http_host: str | None = None
     payload_preview: str | None = None
+    tcp_flags: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -91,6 +94,8 @@ class PacketInfo:
             result["http_host"] = self.http_host
         if self.payload_preview:
             result["payload_preview"] = self.payload_preview
+        if self.tcp_flags:
+            result["tcp_flags"] = self.tcp_flags
         return result
 
 

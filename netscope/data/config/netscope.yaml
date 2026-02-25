@@ -7,8 +7,8 @@
 capture:
   default_duration: 120          # Duree defaut en secondes (2 min)
   max_duration: 600              # Duree max autorisee (10 min)
-  headers_only: true             # Mode headers-only (100 bytes/paquet)
-  snap_length: 100               # Bytes captures par paquet
+  headers_only: false            # Mode complet pour inspection paquets
+  snap_length: 1500              # Bytes captures par paquet (1500 = MTU Ethernet)
   interface: "auto"              # "auto" = detection automatique, ou "eth0", "usb0"
   bpf_filter: "not port 22"      # Filtre BPF par defaut (exclut SSH)
 

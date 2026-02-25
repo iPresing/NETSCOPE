@@ -2880,6 +2880,328 @@ select.form-control {
 }
 
 /* =============================================================================
+   Story 4.4: Packet Viewer
+   ============================================================================= */
+
+/* Packets Container */
+.packets-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+/* Anomaly Context Banner */
+.anomaly-context-banner {
+    background: linear-gradient(135deg, var(--panel-bg) 0%, rgba(255, 51, 85, 0.05) 100%);
+    border-left: 4px solid var(--danger-red);
+}
+
+.anomaly-context-banner .banner-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+
+.anomaly-context-banner .banner-icon {
+    font-size: 1.2rem;
+}
+
+.anomaly-context-banner .banner-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--text-highlight);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    flex: 1;
+}
+
+.anomaly-context-banner .banner-details {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding-top: var(--space-sm);
+}
+
+.anomaly-context-banner .banner-value {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-highlight);
+}
+
+.anomaly-context-banner .banner-score {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Pagination */
+.packet-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-lg);
+    padding: var(--space-md);
+}
+
+.packet-pagination .pagination-info {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Packet row clickable */
+.packet-row {
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.packet-row:hover {
+    background: rgba(0, 245, 255, 0.08) !important;
+}
+
+.packet-row.selected {
+    background: rgba(0, 245, 255, 0.15) !important;
+    border-left: 3px solid var(--neon-cyan);
+}
+
+/* Responsive Packets */
+@media (max-width: 768px) {
+    .anomaly-context-banner .banner-details {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .packet-pagination {
+        gap: var(--space-md);
+    }
+}
+
+/* =============================================================================
+   Story 4.5: Packet Detail Panel
+   ============================================================================= */
+
+/* Slide-in detail panel */
+.packet-detail-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 480px;
+    height: 100vh;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--border-accent);
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.packet-detail-panel.open {
+    transform: translateX(0);
+}
+
+/* Panel header */
+.detail-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--deep-space);
+    border-bottom: 1px solid var(--border-accent);
+    flex-shrink: 0;
+}
+
+.detail-panel-header h3 {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    color: var(--neon-cyan);
+    margin: 0;
+}
+
+/* Panel summary */
+.detail-panel-summary {
+    padding: var(--space-sm) var(--space-lg);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: var(--void-black);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+    word-break: break-all;
+}
+
+/* Tabs */
+.detail-panel-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.tab-btn:hover {
+    color: var(--text-secondary);
+    background: rgba(0, 245, 255, 0.05);
+}
+
+.tab-btn.active {
+    color: var(--neon-cyan);
+    border-bottom-color: var(--neon-cyan);
+}
+
+/* Tab content */
+.detail-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-md) var(--space-lg);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Layer accordion */
+.layer-accordion {
+    margin-bottom: var(--space-sm);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.layer-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--deep-space);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    user-select: none;
+}
+
+.layer-header:hover {
+    background: rgba(0, 245, 255, 0.1);
+}
+
+.layer-arrow {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.layer-accordion.open .layer-arrow {
+    transform: rotate(90deg);
+}
+
+.layer-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--neon-cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.layer-field-count {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.layer-body {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--void-black);
+}
+
+/* Layer fields table */
+.layer-fields-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.layer-fields-table td {
+    padding: var(--space-xs) var(--space-sm);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: top;
+}
+
+.field-name {
+    color: var(--text-muted);
+    width: 40%;
+    white-space: nowrap;
+}
+
+.field-value {
+    color: var(--text-highlight);
+    word-break: break-all;
+}
+
+/* Hex dump */
+.hex-dump-content {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--matrix-green);
+    background: var(--void-black);
+    padding: var(--space-md);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    overflow-x: auto;
+    white-space: pre;
+    margin: 0;
+}
+
+/* ASCII dump */
+.ascii-dump-content {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--void-black);
+    padding: var(--space-md);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+}
+
+/* Responsive detail panel */
+@media (max-width: 768px) {
+    .packet-detail-panel {
+        width: 100%;
+    }
+}
+
+/* =============================================================================
    Story 2.8: DataTables Filtres & Tri
    ============================================================================= */
 

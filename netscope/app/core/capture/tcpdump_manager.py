@@ -35,7 +35,27 @@ from app.core.capture.interface_detector import (
 )
 from app.services.thread_manager import get_thread_manager
 
+import yaml
+
 logger = logging.getLogger(__name__)
+
+
+def _load_snap_length() -> int:
+    """Load snap_length from netscope.yaml configuration.
+
+    Returns:
+        Snap length value, defaults to 1500 if config is missing or unreadable.
+    """
+    config_path = Path("data/config/netscope.yaml")
+    try:
+        if config_path.exists():
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+            if config and "capture" in config:
+                return int(config["capture"].get("snap_length", 1500))
+    except Exception as e:
+        logger.warning(f"Failed to load snap_length from config (error={e})")
+    return 1500
 
 
 def is_windows() -> bool:
@@ -390,6 +410,8 @@ class TcpdumpManager:
         Returns:
             Command as list of arguments (always list, never shell string for security)
         """
+        snap_length = _load_snap_length()
+
         if is_windows():
             # On Windows: wrap with WSL using list format (avoids shell=True)
             wsl_output_path = get_wsl_path(output_path)
@@ -400,7 +422,7 @@ class TcpdumpManager:
             # the outer command is a list passed to subprocess (shell=False)
             bash_cmd = (
                 f"cd '{wsl_cwd}' && "
-                f"sudo tcpdump -i {interface} -s 100 "
+                f"sudo tcpdump -i {interface} -s {snap_length} "
                 f"-w '{wsl_output_path}' "
                 f"-G {duration} -W 1 '{bpf_filter}'"
             )
@@ -415,7 +437,7 @@ class TcpdumpManager:
             cmd = [
                 "sudo", "tcpdump",
                 "-i", interface,
-                "-s", "100",  # Headers-only (100 bytes)
+                "-s", str(snap_length),
                 "-w", output_path,
                 "-G", str(duration),
                 "-W", "1",

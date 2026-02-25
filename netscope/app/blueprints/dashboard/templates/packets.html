@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block title %}Visionneuse Paquets - NETSCOPE{% endblock %}
+
+{% block content %}
+<div class="packets-container">
+    <section class="page-header">
+        <h2>Visionneuse de Paquets</h2>
+        <p class="text-muted">Inspection des paquets captures</p>
+    </section>
+
+    <!-- Anomaly context banner (shown when navigating from an anomaly) -->
+    <section id="anomaly-context-banner" class="anomaly-context-banner card" style="display: none;">
+        <div class="banner-header">
+            <span class="banner-icon">&#x1F6A8;</span>
+            <span class="banner-title">Contexte Anomalie</span>
+            <a href="/anomalies" class="btn btn-sm btn-outline">Retour anomalies</a>
+        </div>
+        <div class="banner-details">
+            <span class="banner-value" id="banner-matched-value"></span>
+            <span class="banner-type badge" id="banner-match-type"></span>
+            <span class="banner-score" id="banner-score"></span>
+        </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="packets-filters card">
+        <div class="filter-row">
+            <div class="form-group">
+                <label for="protocol-filter">Protocole:</label>
+                <select id="protocol-filter" class="form-control">
+                    <option value="all">Tous</option>
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                    <option value="ICMP">ICMP</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="direction-filter">Direction:</label>
+                <select id="direction-filter" class="form-control">
+                    <option value="all">Tous</option>
+                    <option value="src">Source</option>
+                    <option value="dst">Destination</option>
+                </select>
+            </div>
+            <span id="packet-count" class="filter-count">0 paquets</span>
+        </div>
+    </section>
+
+    <!-- Packet table -->
+    <section class="packets-table-section card">
+        <div class="raw-data-table-wrapper" id="packets-table-wrapper">
+            <table class="data-table raw-data-table" id="packets-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Heure</th>
+                        <th>Source</th>
+                        <th>Destination</th>
+                        <th>Proto</th>
+                        <th>Taille</th>
+                        <th>Flags</th>
+                        <th>Info</th>
+                    </tr>
+                </thead>
+                <tbody id="packets-tbody">
+                    <tr class="placeholder-row">
+                        <td colspan="8" class="text-muted text-center">Chargement des paquets...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Pagination -->
+    <section class="packet-pagination" id="packet-pagination" style="display: none;">
+        <button class="btn btn-sm btn-outline" id="prev-page" disabled>Precedent</button>
+        <span class="pagination-info" id="pagination-info">Page 1/1</span>
+        <button class="btn btn-sm btn-outline" id="next-page" disabled>Suivant</button>
+    </section>
+
+    <!-- Packet detail panel (Story 4.5) -->
+    <aside class="packet-detail-panel" id="packet-detail-panel" style="display: none;">
+        <div class="detail-panel-header">
+            <h3 id="detail-panel-title">Paquet #0</h3>
+            <button class="btn btn-sm btn-outline" id="close-detail-panel">&#x2715;</button>
+        </div>
+        <div class="detail-panel-summary" id="detail-panel-summary"></div>
+        <div class="detail-panel-tabs">
+            <button class="tab-btn active" data-tab="layers">Couches</button>
+            <button class="tab-btn" data-tab="hex">Hex Dump</button>
+            <button class="tab-btn" data-tab="ascii">ASCII</button>
+        </div>
+        <div class="detail-panel-body">
+            <div class="tab-content active" id="tab-layers"></div>
+            <div class="tab-content" id="tab-hex"></div>
+            <div class="tab-content" id="tab-ascii"></div>
+        </div>
+    </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/packets.js') }}"></script>
+<script src="{{ url_for('static', filename='js/packet-detail.js') }}"></script>
+{% endblock %}

@@ -10,6 +10,9 @@ from app.core.capture.tcpdump_manager import (
 from app.core.capture.packet_parser import (
     parse_capture_file,
     get_capture_statistics,
+    filter_packets,
+    find_pcap_by_capture_id,
+    _extract_tcp_flags,
     SCAPY_AVAILABLE,
     DPKT_AVAILABLE,
 )
@@ -19,6 +22,12 @@ from app.core.capture.bpf_filters import (
     combine_filters,
     build_capture_filter,
     DEFAULT_BPF_FILTER,
+)
+from app.core.capture.packet_dissector import (
+    dissect_packet,
+    PacketDetail,
+    LayerInfo,
+    LayerField,
 )
 from app.core.capture.interface_detector import (
     InterfaceType,
@@ -38,8 +47,16 @@ __all__ = [
     # Packet Parser
     "parse_capture_file",
     "get_capture_statistics",
+    "filter_packets",
+    "find_pcap_by_capture_id",
+    "_extract_tcp_flags",
     "SCAPY_AVAILABLE",
     "DPKT_AVAILABLE",
+    # Packet Dissector
+    "dissect_packet",
+    "PacketDetail",
+    "LayerInfo",
+    "LayerField",
     # BPF Filters
     "build_default_filter",
     "validate_filter",

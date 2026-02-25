@@ -40,6 +40,36 @@ except ImportError:
     pass
 
 
+def _extract_tcp_flags(tcp_layer) -> str:
+    """Extract TCP flags from a Scapy TCP layer.
+
+    Args:
+        tcp_layer: Scapy TCP layer object
+
+    Returns:
+        String representation of flags (e.g., 'SYN ACK')
+    """
+    flags = []
+    flag_map = {
+        'S': 'SYN',
+        'A': 'ACK',
+        'F': 'FIN',
+        'R': 'RST',
+        'P': 'PSH',
+        'U': 'URG',
+        'E': 'ECE',
+        'C': 'CWR',
+    }
+    try:
+        flag_str = str(tcp_layer.flags)
+        for char, name in flag_map.items():
+            if char in flag_str:
+                flags.append(name)
+    except Exception:
+        pass
+    return ' '.join(flags) if flags else ''
+
+
 def parse_capture_file(pcap_path: str | Path) -> tuple[list[PacketInfo], CaptureSummary]:
     """Parse a pcap capture file.
 
@@ -122,6 +152,8 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
         http_host: str | None = None
         payload_preview: str | None = None
 
+        tcp_flags: str | None = None
+
         if TCP in pkt:
             tcp_layer = pkt[TCP]
             port_src = tcp_layer.sport
@@ -129,6 +161,7 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
             protocol = "TCP"
             port_counter[port_src] += 1
             port_counter[port_dst] += 1
+            tcp_flags = _extract_tcp_flags(tcp_layer)
 
             # Extract HTTP Host header (AC2) and payload preview (AC3)
             if Raw in pkt:
@@ -206,6 +239,7 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
             dns_queries=dns_queries,
             http_host=http_host,
             payload_preview=payload_preview,
+            tcp_flags=tcp_flags,
         )
         packets.append(packet_info)
 
@@ -363,3 +397,57 @@ def get_capture_statistics(pcap_path: str | Path) -> CaptureSummary:
     """
     _, summary = parse_capture_file(pcap_path)
     return summary
+
+
+def find_pcap_by_capture_id(capture_id: str) -> Path | None:
+    """Resolve a capture ID to its pcap file path.
+
+    Searches in data/captures/ for a file named {capture_id}.pcap.
+
+    Args:
+        capture_id: Capture session ID (e.g., 'cap_20260115_143001')
+
+    Returns:
+        Path to pcap file, or None if not found
+    """
+    captures_dir = Path("data/captures")
+    pcap_path = captures_dir / f"{capture_id}.pcap"
+    if pcap_path.exists():
+        return pcap_path
+    return None
+
+
+def filter_packets(
+    packets: list[PacketInfo],
+    filter_ip: str | None = None,
+    filter_domain: str | None = None,
+) -> list[PacketInfo]:
+    """Filter packets by IP address and/or domain.
+
+    Args:
+        packets: List of PacketInfo objects to filter
+        filter_ip: IP address to filter by (matches src or dst)
+        filter_domain: Domain to filter by (matches DNS queries or HTTP Host)
+
+    Returns:
+        Filtered list of PacketInfo objects
+    """
+    filtered = packets
+
+    if filter_ip:
+        filtered = [
+            p for p in filtered
+            if p.ip_src == filter_ip or p.ip_dst == filter_ip
+        ]
+
+    if filter_domain:
+        domain_lower = filter_domain.lower()
+        filtered = [
+            p for p in filtered
+            if (
+                any(domain_lower in q.lower() for q in p.dns_queries)
+                or (p.http_host and domain_lower in p.http_host.lower())
+            )
+        ]
+
+    return filtered
