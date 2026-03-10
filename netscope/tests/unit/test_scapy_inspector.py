@@ -110,12 +110,10 @@ class TestScapyInspectorRun:
     @patch("app.core.inspection.scapy_inspector.sniff")
     def test_run_with_mocked_scapy(self, mock_sniff):
         """7.17: run() avec Scapy mocke retourne resultat."""
-        # Simuler 5 paquets captures
-        mock_packets = MagicMock()
-        mock_packets.__len__ = MagicMock(return_value=5)
-        mock_sniff.return_value = mock_packets
+        # Retourner 1 paquet par iteration (duration=5 → 5 appels → 5 paquets)
+        mock_sniff.return_value = [MagicMock()]
 
-        spec = JobSpec(id="job_test1234", target_ip="192.168.1.1", duration=10)
+        spec = JobSpec(id="job_test1234", target_ip="192.168.1.1", duration=5)
         inspector = ScapyInspector()
 
         result = inspector.run(spec)
@@ -124,7 +122,7 @@ class TestScapyInspectorRun:
         assert result.packets_captured == 5
         assert result.start_time is not None
         assert result.end_time is not None
-        mock_sniff.assert_called_once()
+        assert mock_sniff.call_count == 5
 
     @patch("app.core.inspection.scapy_inspector.SCAPY_AVAILABLE", True)
     @patch("app.core.inspection.scapy_inspector.sniff")
@@ -144,21 +142,90 @@ class TestScapyInspectorRun:
     @patch("app.core.inspection.scapy_inspector.sniff")
     def test_run_with_bpf_filter(self, mock_sniff):
         """run() utilise le bon filtre BPF."""
-        mock_packets = MagicMock()
-        mock_packets.__len__ = MagicMock(return_value=0)
-        mock_sniff.return_value = mock_packets
+        mock_sniff.return_value = []
 
         spec = JobSpec(
             id="job_test1234",
             target_ip="10.0.0.1",
             target_port=443,
             protocol="TCP",
-            duration=15,
+            duration=5,
         )
         inspector = ScapyInspector()
         inspector.run(spec)
 
-        mock_sniff.assert_called_once_with(
+        # Verifier que tous les appels utilisent le bon filtre BPF
+        assert mock_sniff.call_count == 5
+        mock_sniff.assert_called_with(
             filter="host 10.0.0.1 and tcp port 443",
-            timeout=15,
+            timeout=1.0,
         )
+
+
+class TestScapyInspectorStopEvent:
+    """Tests pour stop_event dans ScapyInspector.run() (Story 4.6 - Task 6.2)."""
+
+    @patch("app.core.inspection.scapy_inspector.SCAPY_AVAILABLE", True)
+    @patch("app.core.inspection.scapy_inspector.sniff")
+    def test_run_with_stop_event_stops_early(self, mock_sniff):
+        """run() avec stop_event set s'arrete et retourne CANCELLED."""
+        import threading
+
+        stop_event = threading.Event()
+        call_count = [0]
+
+        def sniff_side_effect(**kwargs):
+            call_count[0] += 1
+            if call_count[0] >= 2:
+                stop_event.set()
+            return []
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        spec = JobSpec(id="job_test1234", target_ip="192.168.1.1", duration=30)
+        inspector = ScapyInspector()
+
+        result = inspector.run(spec, stop_event=stop_event)
+
+        assert result.status == JobStatus.CANCELLED
+        assert result.error_message == "Arrêté manuellement"
+        assert mock_sniff.call_count < 30
+
+    @patch("app.core.inspection.scapy_inspector.SCAPY_AVAILABLE", True)
+    @patch("app.core.inspection.scapy_inspector.sniff")
+    def test_run_with_stop_event_preserves_partial_packets(self, mock_sniff):
+        """run() avec stop_event conserve les paquets captes avant l'arret."""
+        import threading
+
+        stop_event = threading.Event()
+        call_count = [0]
+
+        def sniff_side_effect(**kwargs):
+            call_count[0] += 1
+            if call_count[0] >= 3:
+                stop_event.set()
+            return [MagicMock()]
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        spec = JobSpec(id="job_test1234", target_ip="192.168.1.1", duration=30)
+        inspector = ScapyInspector()
+
+        result = inspector.run(spec, stop_event=stop_event)
+
+        assert result.status == JobStatus.CANCELLED
+        assert result.packets_captured > 0
+
+    @patch("app.core.inspection.scapy_inspector.SCAPY_AVAILABLE", True)
+    @patch("app.core.inspection.scapy_inspector.sniff")
+    def test_run_without_stop_event_works_normally(self, mock_sniff):
+        """run() sans stop_event fonctionne normalement (backward compat)."""
+        mock_sniff.return_value = [MagicMock()]
+
+        spec = JobSpec(id="job_test1234", target_ip="192.168.1.1", duration=5)
+        inspector = ScapyInspector()
+
+        result = inspector.run(spec)
+
+        assert result.status == JobStatus.COMPLETED
+        assert result.packets_captured == 5

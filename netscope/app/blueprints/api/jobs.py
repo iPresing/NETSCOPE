@@ -158,6 +158,79 @@ def list_jobs():
     }), 200
 
 
+@api_bp.route('/jobs/<job_id>/cancel', methods=['POST'])
+def cancel_job(job_id):
+    """Annuler ou arreter un job d'inspection.
+
+    Args:
+        job_id: ID du job a annuler
+
+    Returns:
+        200: Job annule/arrete
+        404: Job non trouve
+        409: Job deja termine
+    """
+    logger.debug(f"POST /api/jobs/{job_id}/cancel called")
+
+    if not job_id or not job_id.strip():
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": "JOB_NOT_FOUND",
+                "message": "Job inexistant",
+                "details": {"job_id": job_id},
+            },
+        }), 404
+
+    queue = get_job_queue()
+    job = queue.get_job(job_id)
+
+    if job is None:
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": "JOB_NOT_FOUND",
+                "message": "Job inexistant",
+                "details": {"job_id": job_id},
+            },
+        }), 404
+
+    previous_status = job.status.value
+
+    if job.status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": "JOB_ALREADY_COMPLETED",
+                "message": "Le job est déjà terminé",
+                "details": {"job_id": job_id, "status": previous_status},
+            },
+        }), 409
+
+    success = queue.cancel_job(job_id)
+
+    if success:
+        message = "Job arrêté" if previous_status == "running" else "Job annulé"
+        return jsonify({
+            "success": True,
+            "result": {
+                "job_id": job_id,
+                "previous_status": previous_status,
+                "status": "cancelled",
+            },
+            "message": message,
+        }), 200
+
+    return jsonify({
+        "success": False,
+        "error": {
+            "code": "JOB_ALREADY_COMPLETED",
+            "message": "Le job est déjà terminé",
+            "details": {"job_id": job_id, "status": job.status.value},
+        },
+    }), 409
+
+
 @api_bp.route('/jobs/<job_id>', methods=['GET'])
 def get_job(job_id):
     """Details d'un job specifique.

@@ -168,3 +168,65 @@ class TestJobsPageQueue:
         assert response.status_code == 200
         html = response.data.decode('utf-8')
         assert 'jobs-slots' in html
+
+
+class TestJobsCancelE2E:
+    """Tests E2E pour l'arret/annulation de jobs (Story 4.6 - Task 8.1)."""
+
+    def test_running_job_shows_stop_button(self, client):
+        """jobs.js contient le bouton Arreter pour les jobs RUNNING et la page l'inclut."""
+        page = client.get('/jobs')
+        assert page.status_code == 200
+        assert 'jobs.js' in page.data.decode('utf-8')
+
+        js_resp = client.get('/static/js/jobs.js')
+        assert js_resp.status_code == 200
+        js_content = js_resp.data.decode('utf-8')
+        assert 'stop-job-btn' in js_content
+        assert 'btn-danger' in js_content
+
+    def test_pending_job_shows_cancel_button(self, client):
+        """jobs.js contient le bouton Annuler pour les jobs PENDING et le cancel fonctionne via API."""
+        js_resp = client.get('/static/js/jobs.js')
+        assert js_resp.status_code == 200
+        js_content = js_resp.data.decode('utf-8')
+        assert 'cancel-job-btn' in js_content
+        assert 'btn-outline' in js_content
+
+        from unittest.mock import patch, MagicMock
+        with patch("app.core.inspection.job_queue.get_thread_manager") as mock_get_tm:
+            tm = MagicMock()
+            tm.acquire_job_slot.return_value = False
+            tm.get_available_job_slots.return_value = 0
+            tm.max_concurrent_jobs = 2
+            mock_get_tm.return_value = tm
+
+            create_resp = client.post('/api/jobs', json={"target_ip": "192.168.1.1"})
+            job_id = create_resp.get_json()["result"]["id"]
+            assert create_resp.get_json()["result"]["status"] == "pending"
+
+        cancel_resp = client.post(f'/api/jobs/{job_id}/cancel')
+        assert cancel_resp.status_code == 200
+        data = cancel_resp.get_json()
+        assert "annulé" in data["message"].lower()
+
+    def test_cancelled_job_shows_correct_status(self, client):
+        """Job annule affiche le statut 'cancelled' dans la liste."""
+        from unittest.mock import patch, MagicMock
+        with patch("app.core.inspection.job_queue.get_thread_manager") as mock_get_tm:
+            tm = MagicMock()
+            tm.acquire_job_slot.return_value = False
+            tm.get_available_job_slots.return_value = 0
+            tm.max_concurrent_jobs = 2
+            mock_get_tm.return_value = tm
+
+            create_resp = client.post('/api/jobs', json={"target_ip": "192.168.1.1"})
+            job_id = create_resp.get_json()["result"]["id"]
+
+        client.post(f'/api/jobs/{job_id}/cancel')
+
+        list_resp = client.get('/api/jobs')
+        jobs = list_resp.get_json()["result"]["jobs"]
+        cancelled = [j for j in jobs if j["id"] == job_id]
+        assert len(cancelled) == 1
+        assert cancelled[0]["status"] == "cancelled"

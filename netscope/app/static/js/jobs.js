@@ -53,7 +53,7 @@
         pending:   { icon: '\u23F3',        label: 'En attente', class: 'status-pending' },
         completed: { icon: '\u2705',        label: 'Termine',    class: 'status-completed' },
         failed:    { icon: '\u274C',        label: 'Echec',      class: 'status-failed' },
-        cancelled: { icon: '\u26D4',        label: 'Annule',     class: 'status-cancelled' }
+        cancelled: { icon: '\u26D4',        label: 'Annul\u00e9',     class: 'status-cancelled' }
     };
 
     /**
@@ -247,6 +247,9 @@
                     '</div>' +
                     '<span class="progress-text">' + (job.progress_percent || 0) + '%</span>' +
                 '</div>' +
+                '<div class="job-actions">' +
+                    '<button class="btn btn-sm btn-danger stop-job-btn" data-job-id="' + escapeHtml(job.id || '') + '">Arr\u00eater</button>' +
+                '</div>' +
             '</div>';
         });
 
@@ -299,6 +302,7 @@
                 '</div>' +
                 '<div class="job-queue-info">' +
                     '<span class="jobs-ahead">' + escapeHtml(String(jobsAhead)) + ' jobs devant</span>' +
+                    '<button class="btn btn-sm btn-outline cancel-job-btn" data-job-id="' + escapeHtml(job.id || '') + '">Annuler</button>' +
                 '</div>' +
             '</div>';
         });
@@ -323,6 +327,10 @@
             var spec = job.spec || {};
             var result = job.result || {};
             var config = STATUS_CONFIG[job.status] || STATUS_CONFIG.completed;
+            // Task 5.2: Differentiate cancelled label based on error_message
+            if (job.status === 'cancelled' && result.error_message === 'Arr\u00eat\u00e9 manuellement') {
+                config = { icon: config.icon, label: 'Arr\u00eat\u00e9', class: config.class };
+            }
             var target = escapeHtml(spec.target_ip || '');
             if (spec.target_port) target += ':' + spec.target_port;
             var packets = result.packets_captured || 0;
@@ -342,6 +350,29 @@
         });
 
         historyListEl.innerHTML = html;
+    }
+
+    /**
+     * Cancel or stop a job via POST /api/jobs/{id}/cancel (Story 4.6 - Task 4.3)
+     * @param {string} jobId - Job ID to cancel
+     */
+    function cancelJob(jobId) {
+        fetch('/api/jobs/' + encodeURIComponent(jobId) + '/cancel', { method: 'POST' })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.json().then(function(err) { throw err; });
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                showToast(data.message || 'Job annul\u00e9', 'success');
+                loadJobs();
+            })
+            .catch(function(error) {
+                var msg = error.error ? error.error.message : 'Erreur lors de l\'annulation';
+                showToast(msg, 'error');
+                loadJobs();
+            });
     }
 
     /**
@@ -393,6 +424,27 @@
         // Port field change toggles direction select (Story 4.2 - Task 5.3)
         if (targetPortEl) {
             targetPortEl.addEventListener('input', updatePortDirectionState);
+        }
+
+        // Event delegation for stop/cancel buttons (Story 4.6 - Task 4.4)
+        if (activeListEl) {
+            activeListEl.addEventListener('click', function(e) {
+                var btn = e.target.closest('.stop-job-btn');
+                if (btn && !btn.disabled) {
+                    btn.disabled = true;
+                    cancelJob(btn.getAttribute('data-job-id'));
+                }
+            });
+        }
+
+        if (queueListEl) {
+            queueListEl.addEventListener('click', function(e) {
+                var btn = e.target.closest('.cancel-job-btn');
+                if (btn && !btn.disabled) {
+                    btn.disabled = true;
+                    cancelJob(btn.getAttribute('data-job-id'));
+                }
+            });
         }
 
         // Load initial jobs list

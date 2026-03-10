@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.core.inspection.job_models import JobStatus
 from app.core.inspection.job_queue import reset_job_queue
 
 
@@ -399,3 +400,98 @@ class TestEndToEnd:
         assert detail_resp.status_code == 200
         detail = detail_resp.get_json()
         assert detail["result"]["id"] == job2_id
+
+
+class TestJobCancelApi:
+    """Tests pour POST /api/jobs/<job_id>/cancel (Story 4.6 - Task 7.1)."""
+
+    def test_post_cancel_pending_job_returns_200(self, client, mock_no_slots):
+        """POST /api/jobs/{id}/cancel sur PENDING → 200."""
+        create_resp = client.post('/api/jobs', json={"target_ip": "192.168.1.1"})
+        job_id = create_resp.get_json()["result"]["id"]
+
+        response = client.post(f'/api/jobs/{job_id}/cancel')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["result"]["status"] == "cancelled"
+        assert data["result"]["previous_status"] == "pending"
+
+    def test_post_cancel_running_job_returns_200(self, client, mock_no_slots):
+        """POST /api/jobs/{id}/cancel sur RUNNING → 200."""
+        create_resp = client.post('/api/jobs', json={"target_ip": "192.168.1.1"})
+        job_id = create_resp.get_json()["result"]["id"]
+
+        # Mettre manuellement en RUNNING
+        from app.core.inspection.job_queue import get_job_queue
+        queue = get_job_queue()
+        job = queue.get_job(job_id)
+        with queue._lock:
+            job.status = JobStatus.RUNNING
+
+        response = client.post(f'/api/jobs/{job_id}/cancel')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["result"]["previous_status"] == "running"
+
+    def test_post_cancel_nonexistent_returns_404(self, client):
+        """POST /api/jobs/nonexistent/cancel → 404 JOB_NOT_FOUND."""
+        response = client.post('/api/jobs/job_nonexistent/cancel')
+
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data["success"] is False
+        assert data["error"]["code"] == "JOB_NOT_FOUND"
+
+    def test_post_cancel_completed_returns_409(self, client, mock_no_slots):
+        """POST /api/jobs/{id}/cancel sur COMPLETED → 409."""
+        create_resp = client.post('/api/jobs', json={"target_ip": "192.168.1.1"})
+        job_id = create_resp.get_json()["result"]["id"]
+
+        from app.core.inspection.job_queue import get_job_queue
+        queue = get_job_queue()
+        job = queue.get_job(job_id)
+        with queue._lock:
+            job.status = JobStatus.COMPLETED
+
+        response = client.post(f'/api/jobs/{job_id}/cancel')
+
+        assert response.status_code == 409
+        data = response.get_json()
+        assert data["success"] is False
+        assert data["error"]["code"] == "JOB_ALREADY_COMPLETED"
+
+    def test_cancel_response_includes_message(self, client, mock_no_slots):
+        """Reponse cancel contient 'message'."""
+        create_resp = client.post('/api/jobs', json={"target_ip": "192.168.1.1"})
+        job_id = create_resp.get_json()["result"]["id"]
+
+        response = client.post(f'/api/jobs/{job_id}/cancel')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "message" in data
+        assert "annulé" in data["message"].lower() or "arrêté" in data["message"].lower()
+
+    def test_end_to_end_cancel_flow_without_mock(self, client):
+        """E2E sans mock: soumettre job, annuler, verifier statut (regle #11)."""
+        create_resp = client.post('/api/jobs', json={
+            "target_ip": "192.168.1.200",
+            "duration": 5,
+        })
+        assert create_resp.status_code == 201
+        job_id = create_resp.get_json()["result"]["id"]
+
+        # Cancel le job
+        cancel_resp = client.post(f'/api/jobs/{job_id}/cancel')
+        # Peut etre 200 (pending/running) ou 409 (si deja termine)
+        assert cancel_resp.status_code in (200, 409)
+
+        # Verifier le statut du job
+        get_resp = client.get(f'/api/jobs/{job_id}')
+        assert get_resp.status_code == 200
+        job_data = get_resp.get_json()["result"]
+        assert job_data["status"] in ("cancelled", "completed", "failed")

@@ -18,6 +18,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import threading
 from enum import Enum
 
 
@@ -159,6 +160,7 @@ class Job:
     status: JobStatus = JobStatus.PENDING
     result: JobResult | None = None
     progress_percent: int = 0
+    stop_event: threading.Event | None = None
 
     def to_dict(self) -> dict:
         """Serialize vers dictionnaire pour reponse JSON."""

@@ -330,3 +330,121 @@ class TestJobQueuePosition:
         queue.submit(job)
 
         assert queue.is_full() is False
+
+
+class TestJobCancellation:
+    """Tests pour cancel_job() et stop_job() (Story 4.6 - Task 6.1)."""
+
+    def test_cancel_pending_job_sets_cancelled(self, mock_thread_manager):
+        """cancel_job() sur un PENDING → statut CANCELLED."""
+        mock_thread_manager.acquire_job_slot.return_value = False
+        queue = JobQueue()
+        job = create_job(target_ip="192.168.1.1")
+        queue.submit(job)
+
+        queue.cancel_job(job.spec.id)
+
+        assert job.status == JobStatus.CANCELLED
+
+    def test_cancel_pending_job_returns_true(self, mock_thread_manager):
+        """cancel_job() retourne True pour PENDING."""
+        mock_thread_manager.acquire_job_slot.return_value = False
+        queue = JobQueue()
+        job = create_job(target_ip="192.168.1.1")
+        queue.submit(job)
+
+        assert queue.cancel_job(job.spec.id) is True
+
+    def test_cancel_running_job_sets_stop_event(self, mock_thread_manager):
+        """cancel_job() sur un RUNNING → stop_event.is_set()."""
+        mock_thread_manager.acquire_job_slot.return_value = False
+        queue = JobQueue()
+        job = create_job(target_ip="192.168.1.1")
+        queue.submit(job)
+        # Mettre manuellement en RUNNING (pas de vrai thread)
+        with queue._lock:
+            job.status = JobStatus.RUNNING
+
+        queue.cancel_job(job.spec.id)
+
+        assert job.stop_event.is_set()
+
+    def test_cancel_running_job_returns_true(self, mock_thread_manager):
+        """cancel_job() retourne True pour RUNNING."""
+        mock_thread_manager.acquire_job_slot.return_value = False
+        queue = JobQueue()
+        job = create_job(target_ip="192.168.1.1")
+        queue.submit(job)
+        with queue._lock:
+            job.status = JobStatus.RUNNING
+
+        assert queue.cancel_job(job.spec.id) is True
+
+    def test_cancel_completed_job_returns_false(self, mock_thread_manager):
+        """cancel_job() retourne False pour COMPLETED."""
+        mock_thread_manager.acquire_job_slot.return_value = False
+        queue = JobQueue()
+        job = create_job(target_ip="192.168.1.1")
+        queue.submit(job)
+        with queue._lock:
+            job.status = JobStatus.COMPLETED
+
+        assert queue.cancel_job(job.spec.id) is False
+
+    def test_cancel_nonexistent_job_returns_false(self, mock_thread_manager):
+        """cancel_job() retourne False pour job_id inexistant."""
+        queue = JobQueue()
+
+        assert queue.cancel_job("job_nonexistent") is False
+
+    def test_cancel_pending_frees_queue_position(self, mock_thread_manager):
+        """cancel d'un PENDING → positions recalculees."""
+        mock_thread_manager.acquire_job_slot.return_value = False
+        queue = JobQueue()
+        job1 = create_job(target_ip="192.168.1.1")
+        job2 = create_job(target_ip="192.168.1.2")
+        job3 = create_job(target_ip="192.168.1.3")
+        queue.submit(job1)
+        queue.submit(job2)
+        queue.submit(job3)
+
+        queue.cancel_job(job1.spec.id)
+
+        assert queue.get_queue_position(job2.spec.id) == 1
+        assert queue.get_queue_position(job3.spec.id) == 2
+
+    def test_stop_job_only_works_on_running(self, mock_thread_manager):
+        """stop_job() sur PENDING/COMPLETED → False."""
+        mock_thread_manager.acquire_job_slot.return_value = False
+        queue = JobQueue()
+        job = create_job(target_ip="192.168.1.1")
+        queue.submit(job)
+
+        # PENDING
+        assert queue.stop_job(job.spec.id) is False
+
+        # COMPLETED
+        with queue._lock:
+            job.status = JobStatus.COMPLETED
+        assert queue.stop_job(job.spec.id) is False
+
+    def test_process_queue_after_cancel(self, mock_thread_manager):
+        """cancel RUNNING → prochain PENDING demarre via _process_queue."""
+        mock_thread_manager.acquire_job_slot.return_value = False
+        queue = JobQueue()
+        job1 = create_job(target_ip="192.168.1.1")
+        job2 = create_job(target_ip="192.168.1.2")
+        queue.submit(job1)
+        queue.submit(job2)
+
+        # Mettre job1 en RUNNING
+        with queue._lock:
+            job1.status = JobStatus.RUNNING
+
+        queue.cancel_job(job1.spec.id)
+
+        # Simuler le finally de _execute_job: _process_queue
+        mock_thread_manager.acquire_job_slot.return_value = True
+        queue._process_queue()
+
+        assert job2.status == JobStatus.RUNNING

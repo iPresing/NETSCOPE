@@ -50,6 +50,7 @@ class JobQueue:
             Job avec status PENDING ou RUNNING
         """
         with self._lock:
+            job.stop_event = threading.Event()
             self._jobs[job.spec.id] = job
 
         self._try_execute(job)
@@ -162,6 +163,59 @@ class JobQueue:
             return 0
         return position - 1
 
+    def cancel_job(self, job_id: str) -> bool:
+        """Annule un job PENDING ou arrete un job RUNNING.
+
+        Args:
+            job_id: Identifiant du job
+
+        Returns:
+            True si le job a ete annule/arrete, False sinon
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return False
+            if job.status == JobStatus.PENDING:
+                job.status = JobStatus.CANCELLED
+                logger.info(
+                    "[inspection.job_queue] Job cancelled (job_id=%s, was=pending)",
+                    job_id,
+                )
+                return True
+            if job.status == JobStatus.RUNNING:
+                job.status = JobStatus.CANCELLED
+                if job.stop_event:
+                    job.stop_event.set()
+                logger.info(
+                    "[inspection.job_queue] Job cancelled (job_id=%s, was=running)",
+                    job_id,
+                )
+                return True
+            # COMPLETED, FAILED, CANCELLED
+            return False
+
+    def stop_job(self, job_id: str) -> bool:
+        """Arrete un job en cours d'execution via stop_event.
+
+        Args:
+            job_id: Identifiant du job
+
+        Returns:
+            True si le signal d'arret a ete envoye, False sinon
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None or job.status != JobStatus.RUNNING:
+                return False
+            if job.stop_event:
+                job.stop_event.set()
+            logger.info(
+                "[inspection.job_queue] Job cancelled (job_id=%s, was=running)",
+                job_id,
+            )
+            return True
+
     def _try_execute(self, job: Job) -> None:
         """Tente de lancer l'execution d'un job si un slot est disponible."""
         tm = get_thread_manager()
@@ -205,12 +259,13 @@ class JobQueue:
                 with self._lock:
                     job.progress_percent = percent
 
-            result = inspector.run(job.spec, progress_callback=progress_callback)
+            result = inspector.run(job.spec, progress_callback=progress_callback, stop_event=job.stop_event)
 
             with self._lock:
                 job.result = result
                 job.status = result.status
-                job.progress_percent = 100
+                if result.status != JobStatus.CANCELLED:
+                    job.progress_percent = 100
 
             logger.info(
                 f"Job completed "

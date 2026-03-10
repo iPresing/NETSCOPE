@@ -75,6 +75,7 @@ class ScapyInspector:
         self,
         spec: JobSpec,
         progress_callback: Callable[[int], None] | None = None,
+        stop_event: threading.Event | None = None,
     ) -> JobResult:
         """Execute une inspection Scapy selon les specifications.
 
@@ -107,22 +108,42 @@ class ScapyInspector:
             f"(job_id={spec.id}, filter='{bpf_filter}', duration={spec.duration}s)"
         )
 
-        stop_event = None
+        _progress_stop = None
         try:
             # Lancer un thread de progression base sur le temps
             if progress_callback:
-                stop_event = threading.Event()
+                _progress_stop = threading.Event()
                 self._start_progress_tracker(
-                    spec.duration, progress_callback, stop_event
+                    spec.duration, progress_callback, _progress_stop
                 )
 
-            packets = sniff(
-                filter=bpf_filter,
-                timeout=spec.duration,
-            )
+            all_packets = []
+            remaining = spec.duration
+            while remaining > 0 and not (stop_event and stop_event.is_set()):
+                chunk_timeout = min(1.0, remaining)
+                packets = sniff(filter=bpf_filter, timeout=chunk_timeout)
+                all_packets.extend(packets)
+                remaining -= chunk_timeout
 
             end_time = datetime.now(timezone.utc)
-            packets_count = len(packets)
+
+            if stop_event and stop_event.is_set():
+                packets_count = len(all_packets)
+                logger.info(
+                    "[inspection.scapy] Job stopped by user (job_id=%s, packets=%d)",
+                    spec.id, packets_count,
+                )
+                return JobResult(
+                    job_id=spec.id,
+                    status=JobStatus.CANCELLED,
+                    packets_captured=packets_count,
+                    start_time=start_time,
+                    end_time=end_time,
+                    error_message="Arrêté manuellement",
+                    raw_data=all_packets if all_packets else None,
+                )
+
+            packets_count = len(all_packets)
 
             logger.info(
                 f"Job completed "
@@ -164,8 +185,8 @@ class ScapyInspector:
             )
 
         finally:
-            if stop_event:
-                stop_event.set()
+            if _progress_stop:
+                _progress_stop.set()
 
     def _start_progress_tracker(
         self,
