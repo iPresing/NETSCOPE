@@ -8,6 +8,7 @@
   Scanner le trafic Wi-Fi/Ethernet · Attribuer un Score de Santé · Visualiser les connexions
   
   [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+  ![Raspberry Pi](https://img.shields.io/badge/platform-RaspberryPi-red)
   [![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com/)
   [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](#)
 </div>
