@@ -1,6 +1,18 @@
-# NETSCOPE - Guide de setup Raspberry Pi
-
-Guide pas-à-pas pour installer NETSCOPE sur un Raspberry Pi, de la création de l'image SD au lancement en mode debug.
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/074c3466-2042-48f5-b723-48ab99828575" alt="Logo NETSCOPE" width="80" height="85" />
+  
+  # NETSCOPE
+  ### Sonde Réseau Portable pour Raspberry Pi
+  
+  **Un outil pédagogique d'analyse réseau basé sur Python**  
+  <br>Scanner le trafic Wi-Fi/Ethernet · Attribuer un Score de Santé · Visualiser les connexions
+  <br>Guide pas-à-pas pour installer NETSCOPE sur un Raspberry Pi, de la création de l'image SD au lancement en mode debug.
+  
+  [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+  ![Raspberry Pi](https://img.shields.io/badge/platform-RaspberryPi-red)
+  [![Flask](https://img.shields.io/badge/Flask-3.x-green.svg)](https://flask.palletsprojects.com/)
+  [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](#)
+</div>
 
 ---
 
@@ -22,17 +34,17 @@ Guide pas-à-pas pour installer NETSCOPE sur un Raspberry Pi, de la création de
    - La version Lite suffit (pas besoin de desktop)
 4. **Choisir la carte SD** comme support de destination
 5. **Cliquer sur l'engrenage** (ou `Ctrl+Shift+X`) pour ouvrir les **options avancées** :
-   - **Activer SSH** : cocher `Activer SSH` > `Utiliser un mot de passe`
+   - **Nom d'hôte** : Définir un nom d'hôte pour le raspberry
+   - **Localisation** : Sélectionner votre lieu pour suggérer un fuseau horaire et un type de clavier
    - **Définir le nom d'utilisateur et mot de passe** :
      - Utilisateur : `pi` (ou au choix)
-     - Mot de passe : choisir un mot de passe
+     - Mot de passe : (choisir un mot de passe)
    - **Configurer le Wi-Fi** :
-     - SSID : le nom de votre réseau Wi-Fi
-     - Mot de passe : le mot de passe Wi-Fi
-     - Pays Wi-Fi : `FR`
-   - **Définir les paramètres régionaux** :
-     - Fuseau horaire : `Europe/Paris`
-     - Clavier : `fr`
+     - SSID : le `nom` de votre réseau Wi-Fi
+     - Mot de passe : le `mot de passe` de votre réseau Wi-Fi
+   - **Activer SSH** : cocher `Activer SSH` > `Utiliser un mot de passe`
+   - **Rasberry pi connect** : (optionnel) 
+  
 6. **Écrire** l'image sur la carte SD
 
 ---
@@ -44,7 +56,7 @@ Guide pas-à-pas pour installer NETSCOPE sur un Raspberry Pi, de la création de
 3. **Attendre ~1-2 min** le temps du premier boot et de l'expansion du filesystem
 4. **Trouver l'IP du Pi** sur votre réseau :
    - Depuis votre PC : `ping raspberrypi.local` (si mDNS disponible)
-   - Ou consulter la liste des clients dans l'interface de votre box/routeur
+   - Télécharger **Wireless Network Watcher** : https://www.nirsoft.net/utils/wireless_network_watcher.html
 5. **Se connecter en SSH** :
    ```bash
    ssh pi@<IP_DU_PI>
@@ -67,11 +79,9 @@ sudo apt install -y python3 python3-pip python3-venv git tcpdump
 
 ```bash
 cd ~
-git clone <URL_DU_REPO> netscope
-cd netscope/netscope
+git clone https://github.com/iPresing/NETSCOPE.git netscope
+cd NETSCOPE/netscope
 ```
-
-> Remplacer `<URL_DU_REPO>` par l'URL du dépôt Git du projet.
 
 ---
 
@@ -140,7 +150,7 @@ sudo venv/bin/python run.py
 
 > **`sudo` est requis** car la capture réseau (tcpdump/scapy) nécessite les droits root.
 
-L'application démarre sur **`http://0.0.0.0:5000`**.
+L'application démarre sur **`http://<IP_DU_PI>:5000`**.
 
 ### Accéder à l'interface web
 
@@ -168,8 +178,8 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git tcpdump
 
 cd ~
-git clone <URL_DU_REPO> netscope
-cd netscope/netscope
+git clone https://github.com/iPresing/NETSCOPE.git netscope
+cd NETSCOPE/netscope
 
 python3 -m venv venv
 source venv/bin/activate
