@@ -49,11 +49,11 @@
 
     // Status display configuration
     var STATUS_CONFIG = {
-        running:   { icon: '\uD83D\uDD04', label: 'En cours',  class: 'status-running' },
-        pending:   { icon: '\u23F3',        label: 'En attente', class: 'status-pending' },
-        completed: { icon: '\u2705',        label: 'Termine',    class: 'status-completed' },
-        failed:    { icon: '\u274C',        label: 'Echec',      class: 'status-failed' },
-        cancelled: { icon: '\u26D4',        label: 'Annul\u00e9',     class: 'status-cancelled' }
+        running:   { icon: '<span class="dot-indicator dot-indicator--info"></span>',    label: 'En cours',   class: 'status-running' },
+        pending:   { icon: '<span class="dot-indicator dot-indicator--muted"></span>',   label: 'En attente', class: 'status-pending' },
+        completed: { icon: '<span class="dot-indicator dot-indicator--normal"></span>',  label: 'Termin\u00e9',    class: 'status-completed' },
+        failed:    { icon: '<span class="dot-indicator dot-indicator--critical"></span>', label: '\u00c9chec',      class: 'status-failed' },
+        cancelled: { icon: '<span class="dot-indicator dot-indicator--warning"></span>', label: 'Annul\u00e9',     class: 'status-cancelled' }
     };
 
     /**
@@ -104,7 +104,7 @@
 
         if (createBtnEl) {
             createBtnEl.disabled = true;
-            createBtnEl.textContent = '\u23F3 Lancement...';
+            createBtnEl.textContent = 'Lancement...';
         }
 
         fetch('/api/jobs', {
@@ -143,7 +143,7 @@
         .finally(function() {
             if (createBtnEl) {
                 createBtnEl.disabled = false;
-                createBtnEl.innerHTML = '<span class="btn-icon">\uD83D\uDD2C</span> Lancer Inspection';
+                createBtnEl.innerHTML = 'Lancer Inspection';
             }
         });
     }

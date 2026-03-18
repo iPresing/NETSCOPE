@@ -32,17 +32,17 @@
     // Criticality configuration
     var CRITICALITY_CONFIG = {
         critical: {
-            indicator: '\u{1F534}',  // Red circle emoji
+            indicator: '<span class="dot-indicator dot-indicator--critical"></span>',
             class: 'critical',
             label: 'CRITIQUE'
         },
         warning: {
-            indicator: '\u{1F7E1}',  // Yellow circle emoji
+            indicator: '<span class="dot-indicator dot-indicator--warning"></span>',
             class: 'warning',
             label: 'ATTENTION'
         },
         normal: {
-            indicator: '\u{1F7E2}',  // Green circle emoji
+            indicator: '<span class="dot-indicator dot-indicator--normal"></span>',
             class: 'normal',
             label: 'NORMAL'
         }
@@ -447,13 +447,13 @@
             '<div class="anomaly-actions">' +
                 '<button class="btn btn-sm btn-outline btn-inspect"' +
                     ' title="Voir les paquets associes">' +
-                    '\u{1F52C} Inspecter' +
+                    'Inspecter' +
                 '</button>' +
                 '<button class="btn btn-sm btn-outline btn-whitelist"' +
                     ' data-ip="' + escapeHtml(anomaly.matched_value || '') + '"' +
                     ' data-port="' + escapeHtml(String(packetInfo.port_dst || packetInfo.port_src || '')) + '"' +
                     ' title="Ajouter a la whitelist">' +
-                    '\u2705 Whitelist' +
+                    'Whitelist' +
                 '</button>' +
             '</div>' +
         '</div>';
@@ -578,7 +578,7 @@
                     if (data.success) {
                         var showToast = window.NetScopeUtils ? window.NetScopeUtils.showToast : function() {};
                         showToast('Element ajoute a la whitelist', 'success');
-                        button.textContent = '\u2705 Whiteliste';
+                        button.textContent = 'Whitelis\u00e9';
                         // Reload anomalies to hide whitelisted item
                         loadAnomalies();
                     }

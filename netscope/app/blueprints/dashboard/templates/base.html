@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="NETSCOPE - Terminal de surveillance réseau pour Raspberry Pi">
-    <meta name="theme-color" content="#030508">
+    <meta name="theme-color" content="#0f1117">
     <meta name="color-scheme" content="dark">
     <title>{% block title %}NETSCOPE{% endblock %}</title>
 
@@ -18,7 +18,7 @@
     {# Inline critical styles for faster first paint #}
     <style>
         /* Prevent FOUC (Flash of Unstyled Content) */
-        html { background-color: #030508; }
+        html { background-color: #0f1117; }
         body { opacity: 0; transition: opacity 0.3s ease; }
         body.loaded { opacity: 1; }
     </style>
@@ -29,23 +29,32 @@
     <header class="site-header">
         <div class="header-top">
             <div class="nav-brand">
-                <span class="brand-icon">🛡️</span>
+                <span class="brand-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                        <circle cx="12" cy="12" r="8"/>
+                        <circle cx="12" cy="12" r="3"/>
+                        <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+                    </svg>
+                </span>
                 <h1>NETSCOPE</h1>
             </div>
-            <div class="nav-network-status">
-                {% if netscope_ip %}
-                <span class="network-indicator connected" title="{{ netscope_connection_mode }}">
-                    <span class="status-dot"></span>
-                    <span class="network-ip">{{ netscope_ip }}</span>
-                    <span class="network-mode">({{ netscope_connection_mode }})</span>
-                </span>
-                {% else %}
-                <span class="network-indicator disconnected" title="Aucune connexion">
-                    <span class="status-dot"></span>
-                    <span class="network-ip">Non connecté</span>
-                </span>
-                {% endif %}
+            {% if netscope_ip %}
+            <div class="header-status is-connected" title="{{ netscope_connection_mode }}">
+                <div class="header-status-row">
+                    <span class="header-status-dot"></span>
+                    <span class="header-status-ip">{{ netscope_ip }}</span>
+                </div>
+                <span class="header-status-mode">{{ netscope_connection_mode }}</span>
             </div>
+            {% else %}
+            <div class="header-status is-disconnected">
+                <div class="header-status-row">
+                    <span class="header-status-dot"></span>
+                    <span class="header-status-ip">Hors ligne</span>
+                </div>
+            </div>
+            {% endif %}
         </div>
         {% include 'components/_nav.html' %}
     </header>

@@ -119,7 +119,7 @@
             // Show loading state on button (AC5: immediate feedback)
             btnStart.disabled = true;
             btnStart.classList.add('btn-loading');
-            btnStart.innerHTML = '<span class="btn-icon btn-spinner">&#8987;</span> Lancement...';
+            btnStart.innerHTML = '<span class="btn-icon btn-spinner">\u21BB</span> Lancement...';
 
             const response = await fetch('/api/captures/start', {
                 method: 'POST',
@@ -153,7 +153,7 @@
         if (btnStart) {
             btnStart.disabled = false;
             btnStart.classList.remove('btn-loading');
-            btnStart.innerHTML = '<span class="btn-icon">&#128640;</span> Lancer Capture';
+            btnStart.innerHTML = '<span class="btn-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="2,0 14,7 2,14"/></svg></span> Lancer Capture';
         }
     }
 
@@ -740,17 +740,17 @@
     // Criticality icons and labels
     const CRITICALITY_CONFIG = {
         critical: {
-            icon: '\u{1F534}',  // Red circle
+            icon: '<span class="dot-indicator dot-indicator--critical"></span>',
             label: 'CRITICAL',
             class: 'anomaly-critical'
         },
         warning: {
-            icon: '\u{1F7E1}',  // Yellow circle
+            icon: '<span class="dot-indicator dot-indicator--warning"></span>',
             label: 'ATTENTION',
             class: 'anomaly-warning'
         },
         normal: {
-            icon: '\u{1F7E2}',  // Green circle
+            icon: '<span class="dot-indicator dot-indicator--normal"></span>',
             label: 'NORMAL',
             class: 'anomaly-normal'
         }
@@ -909,7 +909,7 @@
         btnReload.classList.add('loading');
         btnReload.disabled = true;
         const originalText = btnReload.innerHTML;
-        btnReload.innerHTML = '&#8987; Chargement...';
+        btnReload.innerHTML = 'Chargement...';
 
         try {
             const response = await fetch('/api/blacklists/reload', {
@@ -1192,7 +1192,7 @@
 
         ips.forEach(function(ip) {
             var statusClass = ip.is_blacklisted ? 'status-critical' : (ip.is_external ? 'status-warning' : 'status-normal');
-            var statusText = ip.is_blacklisted ? '\u{1F534} Blacklistee' : (ip.is_external ? '\u{1F7E1} Externe' : '\u{1F7E2} Interne');
+            var statusText = ip.is_blacklisted ? '<span class="dot-indicator dot-indicator--critical"></span>Blacklistee' : (ip.is_external ? '<span class="dot-indicator dot-indicator--warning"></span>Externe' : '<span class="dot-indicator dot-indicator--normal"></span>Interne');
 
             html += '<tr class="' + statusClass + '">';
             html += '<td class="ip-cell">' + escapeHtml(ip.ip) + '</td>';
@@ -1256,7 +1256,7 @@
 
         ports.forEach(function(port) {
             var statusClass = port.is_suspicious ? 'status-critical' : 'status-normal';
-            var statusText = port.is_suspicious ? '\u{1F534} Suspect' : '\u{1F7E2} Normal';
+            var statusText = port.is_suspicious ? '<span class="dot-indicator dot-indicator--critical"></span>Suspect' : '<span class="dot-indicator dot-indicator--normal"></span>Normal';
 
             html += '<tr class="' + statusClass + '">';
             html += '<td class="port-cell">' + port.port + '</td>';
@@ -1271,7 +1271,7 @@
         // Show details if any
         if (analysis.details && analysis.details.length > 0) {
             html += '<div class="essentials-warnings">';
-            html += '<h4>\u26A0\uFE0F Alertes</h4>';
+            html += '<h4>Alertes</h4>';
             html += '<ul>';
             analysis.details.forEach(function(detail) {
                 html += '<li>' + escapeHtml(detail) + '</li>';

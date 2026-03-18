@@ -37,11 +37,15 @@
             </div>
             <div class="capture-actions">
                 <button id="btn-start-capture" class="btn btn-primary btn-capture">
-                    <span class="btn-icon">&#128640;</span>
+                    <span class="btn-icon">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="2,0 14,7 2,14"/></svg>
+                    </span>
                     Lancer Capture
                 </button>
                 <button id="btn-stop-capture" class="btn btn-danger btn-capture" style="display: none;">
-                    <span class="btn-icon">&#9632;</span>
+                    <span class="btn-icon">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect width="12" height="12" rx="2"/></svg>
+                    </span>
                     Arr&ecirc;ter
                 </button>
             </div>
@@ -70,7 +74,11 @@
 
         {# Error Display #}
         <div id="capture-error" class="capture-error" style="display: none;">
-            <span class="error-icon">&#9888;</span>
+            <span class="error-icon">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+                    <path d="M8 2l6.5 11H1.5L8 2z"/><path d="M8 7v2.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r=".6" fill="currentColor" stroke="none"/>
+                </svg>
+            </span>
             <span id="error-message" class="error-message"></span>
         </div>
     </section>
@@ -86,7 +94,6 @@
         {# Jobs Inspection Section #}
         <section class="jobs-inspection card">
             <h2 class="card-title">
-                <span class="title-icon">&#128300;</span>
                 Jobs Inspection
             </h2>
             <div class="jobs-placeholder">
@@ -99,24 +106,20 @@
     {# Blacklists Actives Section #}
     <section class="blacklists-section card">
         <h2 class="card-title">
-            <span class="title-icon">&#128737;</span>
             Blacklists Actives
         </h2>
         <div class="blacklist-stats">
             <div class="blacklist-stat">
-                <span class="blacklist-stat-icon">&#127760;</span>
                 <span class="blacklist-stat-label">IPs</span>
                 <span class="blacklist-stat-value" id="blacklist-ips-count">{{ blacklist_ips_count }}</span>
                 <span class="blacklist-stat-unit">entr&eacute;es</span>
             </div>
             <div class="blacklist-stat">
-                <span class="blacklist-stat-icon">&#128279;</span>
                 <span class="blacklist-stat-label">Domaines</span>
                 <span class="blacklist-stat-value" id="blacklist-domains-count">{{ blacklist_domains_count }}</span>
                 <span class="blacklist-stat-unit">entr&eacute;es</span>
             </div>
             <div class="blacklist-stat">
-                <span class="blacklist-stat-icon">&#128221;</span>
                 <span class="blacklist-stat-label">Termes</span>
                 <span class="blacklist-stat-value" id="blacklist-terms-count">{{ blacklist_terms_count }}</span>
                 <span class="blacklist-stat-unit">entr&eacute;es</span>
@@ -125,7 +128,7 @@
         <div class="blacklist-summary">
             <span class="blacklist-total">Total: <strong id="blacklist-total">{{ blacklist_total_entries }}</strong> entr&eacute;es</span>
             <button id="btn-reload-blacklists" class="btn btn-sm" title="Recharger les blacklists">
-                &#128260; Recharger
+                Recharger
             </button>
         </div>
     </section>
@@ -196,8 +199,7 @@
     {# Anomalies Section - Story 2.2 #}
     <section id="anomalies-section" class="anomalies-section card" style="display: none;">
         <h2 class="card-title">
-            <span class="title-icon">&#128680;</span>
-            ANOMALIES D&Eacute;TECT&Eacute;ES
+            Anomalies d&eacute;tect&eacute;es
             <span id="anomalies-count" class="anomalies-badge">0</span>
         </h2>
         <div id="anomalies-list" class="anomalies-list">
@@ -205,11 +207,11 @@
         </div>
         <div class="anomalies-summary">
             <span class="anomaly-stat">
-                <span class="anomaly-stat-icon critical">&#128308;</span>
+                <span class="anomaly-stat-icon critical"></span>
                 Critique: <strong id="anomalies-critical">0</strong>
             </span>
             <span class="anomaly-stat">
-                <span class="anomaly-stat-icon warning">&#128993;</span>
+                <span class="anomaly-stat-icon warning"></span>
                 Attention: <strong id="anomalies-warning">0</strong>
             </span>
         </div>
