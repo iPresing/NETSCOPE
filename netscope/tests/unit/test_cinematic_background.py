@@ -17,24 +17,19 @@ class TestVideoBackgroundElement:
         assert '<video' in html
         assert 'class="video-bg"' in html
 
-    def test_video_has_muted_loop_playsinline(self, client):
-        """Test that video has muted, loop, playsinline attributes (AC1).
-
-        Note: autoplay est géré via JS (lazy play) et non via l'attribut HTML
-        pour éviter le démarrage systématique avant visibilitycheck.
-        """
+    def test_video_has_autoplay_muted_loop(self, client):
+        """Test that video has autoplay, muted, loop, playsinline attributes (AC1)."""
         response = client.get('/')
         html = response.data.decode('utf-8')
+        assert 'autoplay' in html
         assert 'muted' in html
         assert 'loop' in html
         assert 'playsinline' in html
-        assert 'autoplay' not in html.split('class="video-bg"')[1].split('>')[0]
 
-    def test_video_lazy_play_js_present(self, client):
-        """Test que le JS lazy play est présent dans la page (AC5)."""
+    def test_video_recovery_js_present(self, client):
+        """Test que le JS de récupération visibilitychange est présent (AC5)."""
         response = client.get('/')
         html = response.data.decode('utf-8')
-        assert 'videoBg.play()' in html
         assert 'visibilitychange' in html
         assert 'prefersReduced' in html
 

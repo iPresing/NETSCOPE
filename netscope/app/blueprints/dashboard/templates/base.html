@@ -27,7 +27,7 @@
 </head>
 <body>
     <!-- Cinematic Background System -->
-    <video class="video-bg" muted loop playsinline preload="metadata">
+    <video class="video-bg" autoplay muted loop playsinline preload="metadata">
         <source src="{{ url_for('static', filename='video/background.mp4') }}" type="video/mp4">
     </video>
     <div class="overlay-dark"></div>
@@ -126,23 +126,13 @@
                     });
                 }
 
-                // Lazy play: démarrer uniquement quand le document est visible
-                // (autoplay retiré du HTML pour éviter le démarrage systématique)
+                // Récupération si la vidéo s'est arrêtée (onglet inactif puis retour)
                 if (!prefersReduced.matches) {
-                    if (!document.hidden) {
-                        videoBg.play().catch(function() {
-                            videoBg.style.display = 'none';
-                        });
-                    } else {
-                        document.addEventListener('visibilitychange', function onVisible() {
-                            if (!document.hidden) {
-                                videoBg.play().catch(function() {
-                                    videoBg.style.display = 'none';
-                                });
-                                document.removeEventListener('visibilitychange', onVisible);
-                            }
-                        });
-                    }
+                    document.addEventListener('visibilitychange', function() {
+                        if (!document.hidden && videoBg.paused) {
+                            videoBg.play();
+                        }
+                    });
                 }
             }
         });
