@@ -27,7 +27,7 @@
 </head>
 <body>
     <!-- Cinematic Background System -->
-    <video class="video-bg" autoplay muted loop playsinline preload="metadata">
+    <video class="video-bg" autoplay muted loop playsinline preload="auto">
         <source src="{{ url_for('static', filename='video/background.mp4') }}" type="video/mp4">
     </video>
     <div class="overlay-dark"></div>
@@ -115,14 +115,18 @@
                     }
                 });
 
-                // Fallback: hide video on error
+                // Fallback: masquer uniquement si la vidéo n'a jamais démarré
                 videoBg.addEventListener('error', function() {
-                    videoBg.style.display = 'none';
+                    if (videoBg.currentTime === 0) {
+                        videoBg.style.display = 'none';
+                    }
                 }, true);
                 var source = videoBg.querySelector('source');
                 if (source) {
                     source.addEventListener('error', function() {
-                        videoBg.style.display = 'none';
+                        if (videoBg.currentTime === 0) {
+                            videoBg.style.display = 'none';
+                        }
                     });
                 }
 

@@ -33,11 +33,15 @@ class TestVideoBackgroundElement:
         assert 'visibilitychange' in html
         assert 'prefersReduced' in html
 
-    def test_video_has_preload_metadata(self, client):
-        """Test that video uses preload=metadata for performance (AC5)."""
+    def test_video_has_preload_auto(self, client):
+        """Test that video uses preload=auto pour fiabilité du loop (AC5).
+
+        preload=auto force le téléchargement complet (590KB) évitant les
+        erreurs de range-request sur les fichiers MP4 sans faststart.
+        """
         response = client.get('/')
         html = response.data.decode('utf-8')
-        assert 'preload="metadata"' in html
+        assert 'preload="auto"' in html
 
     def test_video_source_points_to_mp4(self, client):
         """Test that video source references background.mp4 (AC1)."""
