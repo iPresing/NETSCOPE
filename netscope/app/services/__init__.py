@@ -28,6 +28,17 @@ from .whitelist_manager import (
     get_whitelist_manager,
     reset_whitelist_manager,
 )
+from .resource_monitor import (
+    ResourceMonitor,
+    get_resource_monitor,
+    reset_resource_monitor,
+)
+from .graceful_degradation import (
+    DegradationState,
+    GracefulDegradationManager,
+    get_degradation_manager,
+    reset_degradation_manager,
+)
 
 __all__ = [
     # Hardware detection
@@ -53,4 +64,13 @@ __all__ = [
     "WhitelistManager",
     "get_whitelist_manager",
     "reset_whitelist_manager",
+    # Resource monitor (Story 4.7)
+    "ResourceMonitor",
+    "get_resource_monitor",
+    "reset_resource_monitor",
+    # Graceful degradation (Story 4.7)
+    "DegradationState",
+    "GracefulDegradationManager",
+    "get_degradation_manager",
+    "reset_degradation_manager",
 ]

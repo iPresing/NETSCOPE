@@ -20,6 +20,7 @@ from . import api_bp
 from app.core.inspection.job_models import create_job, JobStatus
 from app.core.inspection.job_queue import get_job_queue
 from app.services.thread_manager import get_thread_manager
+from app.services.graceful_degradation import get_degradation_manager
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,18 @@ def create_inspection_job():
                 "details": {},
             },
         }), 400
+
+    # Check degradation mode (Task 4.3)
+    degradation = get_degradation_manager()
+    if not degradation.can_accept_job():
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": "JOB_DEGRADATION_ACTIVE",
+                "message": "Système en mode économie - jobs suspendus",
+                "details": degradation.get_status(),
+            },
+        }), 503
 
     queue = get_job_queue()
     if queue.is_full():
@@ -147,13 +160,17 @@ def list_jobs():
                 d["queue_position"] = position
         job_dicts.append(d)
 
+    degradation = get_degradation_manager()
+    queue_stats = queue.get_queue_stats()
+    queue_stats["degradation_active"] = not degradation.can_accept_job()
+
     return jsonify({
         "success": True,
         "result": {
             "jobs": job_dicts,
             "count": len(jobs),
             "available_slots": tm.get_available_job_slots(),
-            "queue_stats": queue.get_queue_stats(),
+            "queue_stats": queue_stats,
         },
     }), 200
 

@@ -35,6 +35,9 @@ def create_app(config_name='default'):
     # Initialize blacklist manager
     _configure_blacklists(app)
 
+    # Initialize graceful degradation monitoring (Story 4.7)
+    _configure_degradation(app)
+
     # Register blueprints
     _register_blueprints(app)
 
@@ -220,6 +223,59 @@ def _configure_blacklists(app):
         app.logger.error(f'Failed to configure blacklists (error={str(e)})')
         # Set defaults for graceful degradation
         app.config['NETSCOPE_BLACKLIST_STATS'] = None
+
+
+def _configure_degradation(app):
+    """Initialize graceful degradation monitoring.
+
+    Sets up ResourceMonitor and GracefulDegradationManager,
+    wires callbacks, and starts the monitoring daemon thread.
+
+    Args:
+        app: Flask application instance
+    """
+    from app.services.resource_monitor import get_resource_monitor
+    from app.services.graceful_degradation import get_degradation_manager
+    from app.services.performance_config import get_current_targets
+
+    try:
+        targets = get_current_targets()
+        sample_interval = 5
+        degradation_samples = targets.degradation_window_seconds // sample_interval
+        recovery_samples = targets.recovery_window_seconds // sample_interval
+        critical_samples = targets.critical_window_seconds // sample_interval
+
+        monitor = get_resource_monitor()
+        monitor.configure(
+            degradation_threshold=targets.degradation_cpu_threshold,
+            recovery_threshold=targets.recovery_cpu_threshold,
+            critical_threshold=targets.critical_cpu_threshold,
+            degradation_samples=degradation_samples,
+            recovery_samples=recovery_samples,
+            critical_samples=critical_samples,
+        )
+
+        degradation = get_degradation_manager()
+        monitor.set_callbacks(
+            on_degradation_enter=degradation.on_degradation_enter,
+            on_degradation_exit=degradation.on_degradation_exit,
+            on_critical_overload=degradation.on_critical_overload,
+        )
+
+        monitor.start()
+
+        app.logger.info(
+            'Degradation monitoring configured '
+            '(thresholds: degrade=%d%%, recover=%d%%, critical=%d%%)',
+            targets.degradation_cpu_threshold,
+            targets.recovery_cpu_threshold,
+            targets.critical_cpu_threshold,
+        )
+
+    except Exception as e:
+        app.logger.error(
+            'Failed to configure degradation monitoring (error=%s)', str(e)
+        )
 
 
 def _register_blueprints(app):

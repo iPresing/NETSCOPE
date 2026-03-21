@@ -5,6 +5,8 @@ import pytest
 from app import create_app
 from app.core.inspection.job_queue import reset_job_queue
 from app.services.whitelist_manager import reset_whitelist_manager
+from app.services.resource_monitor import reset_resource_monitor
+from app.services.graceful_degradation import reset_degradation_manager
 
 
 @pytest.fixture
@@ -16,10 +18,14 @@ def app():
     """
     reset_whitelist_manager()
     reset_job_queue()
+    reset_resource_monitor()
+    reset_degradation_manager()
     app = create_app('testing')
     yield app
     reset_whitelist_manager()
     reset_job_queue()
+    reset_resource_monitor()
+    reset_degradation_manager()
 
 
 @pytest.fixture

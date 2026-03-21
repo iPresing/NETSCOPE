@@ -183,7 +183,7 @@ class TestJobStatusEnum:
 
     def test_job_status_covers_all_states(self):
         """7.7: JobStatus enum couvre tous les etats."""
-        expected = {"pending", "running", "completed", "failed", "cancelled"}
+        expected = {"pending", "running", "suspended", "completed", "failed", "cancelled"}
         actual = {s.value for s in JobStatus}
         assert actual == expected
 

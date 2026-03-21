@@ -40,6 +40,7 @@ class JobStatus(Enum):
 
     PENDING = "pending"
     RUNNING = "running"
+    SUSPENDED = "suspended"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"

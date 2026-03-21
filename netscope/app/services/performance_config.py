@@ -4,9 +4,10 @@ Provides performance targets adapted to the Raspberry Pi model,
 ensuring optimal resource usage across different Pi variants.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 from .hardware_detection import PiModel, get_hardware_info
 
@@ -21,10 +22,22 @@ class PerformanceTargets:
         cpu_threshold_percent: Maximum CPU usage percentage target
         ram_threshold_percent: Maximum RAM usage percentage target
         max_concurrent_jobs: Maximum number of concurrent Scapy jobs
+        degradation_cpu_threshold: CPU% to trigger degradation mode
+        recovery_cpu_threshold: CPU% to exit degradation mode
+        critical_cpu_threshold: CPU% to trigger critical overload
+        degradation_window_seconds: Sustained duration for degradation
+        recovery_window_seconds: Sustained duration for recovery
+        critical_window_seconds: Sustained duration for critical
     """
     cpu_threshold_percent: int
     ram_threshold_percent: int
     max_concurrent_jobs: int
+    degradation_cpu_threshold: int = 80
+    recovery_cpu_threshold: int = 70
+    critical_cpu_threshold: int = 95
+    degradation_window_seconds: int = 30
+    recovery_window_seconds: int = 60
+    critical_window_seconds: int = 120
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -32,6 +45,12 @@ class PerformanceTargets:
             "cpu_threshold_percent": self.cpu_threshold_percent,
             "ram_threshold_percent": self.ram_threshold_percent,
             "max_concurrent_jobs": self.max_concurrent_jobs,
+            "degradation_cpu_threshold": self.degradation_cpu_threshold,
+            "recovery_cpu_threshold": self.recovery_cpu_threshold,
+            "critical_cpu_threshold": self.critical_cpu_threshold,
+            "degradation_window_seconds": self.degradation_window_seconds,
+            "recovery_window_seconds": self.recovery_window_seconds,
+            "critical_window_seconds": self.critical_window_seconds,
         }
 
 
@@ -75,10 +94,10 @@ PERFORMANCE_TARGETS_MAP = {
 }
 
 # Cached targets
-_performance_targets: Optional[PerformanceTargets] = None
+_performance_targets: PerformanceTargets | None = None
 
 
-def get_performance_targets(pi_model: Optional[PiModel] = None, _log: bool = False) -> PerformanceTargets:
+def get_performance_targets(pi_model: PiModel | None = None, _log: bool = False) -> PerformanceTargets:
     """Get performance targets for a specific Pi model.
 
     Args:

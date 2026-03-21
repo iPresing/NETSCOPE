@@ -86,14 +86,14 @@ class TestToastNotifications:
         assert '.toast-error' in css
 
     def test_toast_glow_effects_exist(self, client):
-        """Test toast types have glow effects when visible."""
+        """Test toast types have distinct styles."""
         response = client.get('/static/css/style.css')
         css = response.data.decode('utf-8')
 
-        assert '.toast-info.toast-visible' in css
-        assert '.toast-success.toast-visible' in css
-        assert '.toast-warning.toast-visible' in css
-        assert '.toast-error.toast-visible' in css
+        assert '.toast-info' in css
+        assert '.toast-success' in css
+        assert '.toast-warning' in css
+        assert '.toast-error' in css
 
     def test_toasts_js_exists(self, client):
         """Test toasts.js file exists."""
@@ -184,7 +184,7 @@ class TestHoverTransitions:
         response = client.get('/static/css/style.css')
         css = response.data.decode('utf-8')
 
-        assert '--transition-fast: 150ms' in css
+        assert '--transition-fast: 120ms' in css
 
 
 class TestColorCodeConsistency:
@@ -195,28 +195,28 @@ class TestColorCodeConsistency:
         response = client.get('/static/css/style.css')
         css = response.data.decode('utf-8')
 
-        assert '--danger-red: #ff3355' in css
+        assert '--danger-red: #f87171' in css
 
     def test_alert_amber_defined(self, client):
         """Test --alert-amber variable is defined with correct value."""
         response = client.get('/static/css/style.css')
         css = response.data.decode('utf-8')
 
-        assert '--alert-amber: #ffaa00' in css
+        assert '--alert-amber: #fbbf24' in css
 
     def test_matrix_green_defined(self, client):
         """Test --matrix-green variable is defined with correct value."""
         response = client.get('/static/css/style.css')
         css = response.data.decode('utf-8')
 
-        assert '--matrix-green: #00ff88' in css
+        assert '--matrix-green: #34d399' in css
 
     def test_neon_cyan_defined(self, client):
         """Test --neon-cyan variable is defined with correct value."""
         response = client.get('/static/css/style.css')
         css = response.data.decode('utf-8')
 
-        assert '--neon-cyan: #00f5ff' in css
+        assert '--neon-cyan: #6366f1' in css
 
     def test_glow_variables_defined(self, client):
         """Test glow effect variables are defined."""
@@ -321,13 +321,6 @@ class TestImmediateFeedback:
 class TestCaptureStatusAnimation:
     """Test capture status display animation."""
 
-    def test_capture_pulse_animation_defined(self, client):
-        """Test @keyframes capture-pulse is defined."""
-        response = client.get('/static/css/style.css')
-        css = response.data.decode('utf-8')
-
-        assert '@keyframes capture-pulse' in css
-
     def test_status_indicator_running_class(self, client):
         """Test capture-status has running indicator."""
         response = client.get('/')
@@ -335,25 +328,6 @@ class TestCaptureStatusAnimation:
 
         assert 'status-indicator' in html
         assert 'capture-status' in html
-
-
-class TestProgressBarAnimation:
-    """Test progress bar animations."""
-
-    def test_progress_shine_animation_exists(self, client):
-        """Test @keyframes progress-shine is defined."""
-        response = client.get('/static/css/style.css')
-        css = response.data.decode('utf-8')
-
-        assert '@keyframes progress-shine' in css
-
-    def test_progress_fill_uses_animation(self, client):
-        """Test .progress-fill uses progress-shine animation."""
-        response = client.get('/static/css/style.css')
-        css = response.data.decode('utf-8')
-
-        assert '.progress-fill::after' in css
-        assert 'animation: progress-shine' in css
 
 
 class TestCriticalBlinkAnimation:

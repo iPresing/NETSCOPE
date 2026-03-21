@@ -272,7 +272,11 @@ class TestApiHardwareJsonFormat:
 
         # Expected structure from story spec
         expected_hardware_keys = {'model', 'model_code', 'cpu_count', 'ram_mb', 'cpu_max_mhz'}
-        expected_targets_keys = {'cpu_threshold_percent', 'ram_threshold_percent', 'max_concurrent_jobs'}
+        expected_targets_keys = {
+            'cpu_threshold_percent', 'ram_threshold_percent', 'max_concurrent_jobs',
+            'degradation_cpu_threshold', 'recovery_cpu_threshold', 'critical_cpu_threshold',
+            'degradation_window_seconds', 'recovery_window_seconds', 'critical_window_seconds',
+        }
 
         assert set(data['hardware'].keys()) == expected_hardware_keys
         assert set(data['performance_targets'].keys()) == expected_targets_keys

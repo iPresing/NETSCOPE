@@ -41,16 +41,30 @@ class JobQueue:
         """Soumet un job d'inspection a la queue.
 
         Ajoute le job a la queue et lance l'execution
-        si un slot est disponible.
+        si un slot est disponible. Si le mode degradation est actif,
+        le job est mis en SUSPENDED.
 
         Args:
             job: Job a soumettre
 
         Returns:
-            Job avec status PENDING ou RUNNING
+            Job avec status PENDING, RUNNING ou SUSPENDED
         """
+        from app.services.graceful_degradation import get_degradation_manager
+
+        degradation = get_degradation_manager()
+
         with self._lock:
             job.stop_event = threading.Event()
+            if not degradation.can_accept_job():
+                job.status = JobStatus.SUSPENDED
+                self._jobs[job.spec.id] = job
+                logger.warning(
+                    "[inspection.job_queue] Job suspended "
+                    "(degradation active, job_id=%s)",
+                    job.spec.id,
+                )
+                return job
             self._jobs[job.spec.id] = job
 
         self._try_execute(job)
@@ -135,6 +149,7 @@ class JobQueue:
             counts: dict[str, int] = {
                 "pending_count": 0,
                 "running_count": 0,
+                "suspended_count": 0,
                 "completed_count": 0,
                 "failed_count": 0,
                 "cancelled_count": 0,
@@ -164,7 +179,7 @@ class JobQueue:
         return position - 1
 
     def cancel_job(self, job_id: str) -> bool:
-        """Annule un job PENDING ou arrete un job RUNNING.
+        """Annule un job PENDING, SUSPENDED ou arrete un job RUNNING.
 
         Args:
             job_id: Identifiant du job
@@ -176,11 +191,12 @@ class JobQueue:
             job = self._jobs.get(job_id)
             if job is None:
                 return False
-            if job.status == JobStatus.PENDING:
+            if job.status in (JobStatus.PENDING, JobStatus.SUSPENDED):
+                prev = job.status.value
                 job.status = JobStatus.CANCELLED
                 logger.info(
-                    "[inspection.job_queue] Job cancelled (job_id=%s, was=pending)",
-                    job_id,
+                    "[inspection.job_queue] Job cancelled (job_id=%s, was=%s)",
+                    job_id, prev,
                 )
                 return True
             if job.status == JobStatus.RUNNING:
@@ -194,6 +210,53 @@ class JobQueue:
                 return True
             # COMPLETED, FAILED, CANCELLED
             return False
+
+    def suspend_pending_jobs(self) -> int:
+        """Suspend all PENDING jobs. Returns count of suspended jobs."""
+        count = 0
+        with self._lock:
+            for job in self._jobs.values():
+                if job.status == JobStatus.PENDING:
+                    job.status = JobStatus.SUSPENDED
+                    count += 1
+        if count > 0:
+            logger.info(
+                "[inspection.job_queue] %d job(s) PENDING -> SUSPENDED", count
+            )
+        return count
+
+    def resume_suspended_jobs(self) -> int:
+        """Resume all SUSPENDED jobs back to PENDING and process queue.
+
+        Returns count of resumed jobs.
+        """
+        count = 0
+        with self._lock:
+            for job in self._jobs.values():
+                if job.status == JobStatus.SUSPENDED:
+                    job.status = JobStatus.PENDING
+                    count += 1
+        if count > 0:
+            logger.info(
+                "[inspection.job_queue] %d job(s) SUSPENDED -> PENDING", count
+            )
+            self._process_queue()
+        return count
+
+    def cancel_suspended_jobs(self) -> int:
+        """Cancel all SUSPENDED jobs. Returns count of cancelled jobs."""
+        count = 0
+        with self._lock:
+            for job in self._jobs.values():
+                if job.status == JobStatus.SUSPENDED:
+                    job.status = JobStatus.CANCELLED
+                    count += 1
+        if count > 0:
+            logger.info(
+                "[inspection.job_queue] %d job(s) SUSPENDED -> CANCELLED",
+                count,
+            )
+        return count
 
     def stop_job(self, job_id: str) -> bool:
         """Arrete un job en cours d'execution via stop_event.
@@ -293,6 +356,12 @@ class JobQueue:
 
     def _process_queue(self) -> None:
         """Lance le prochain job en attente si un slot est disponible."""
+        from app.services.graceful_degradation import get_degradation_manager
+
+        degradation = get_degradation_manager()
+        if not degradation.can_accept_job():
+            return
+
         with self._lock:
             pending_jobs = [
                 j for j in self._jobs.values()

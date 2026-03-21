@@ -59,6 +59,11 @@
         {% include 'components/_nav.html' %}
     </header>
 
+    <div id="degradation-banner" class="degradation-banner" style="display: none;">
+        <span class="degradation-banner-icon">&#9888;&#65039;</span>
+        <span class="degradation-banner-text">Mode économie actif — <span id="degradation-reason"></span></span>
+    </div>
+
     <main>
         {% block content %}
         <p>Network Traffic Analyzer</p>
@@ -75,6 +80,7 @@
 
     <script src="{{ url_for('static', filename='js/api.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/toasts.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/degradation.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     {% block scripts %}{% endblock %}
 
