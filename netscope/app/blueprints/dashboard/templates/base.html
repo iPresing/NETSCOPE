@@ -26,6 +26,14 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <!-- Cinematic Background System -->
+    <video class="video-bg" muted loop playsinline preload="metadata">
+        <source src="{{ url_for('static', filename='video/background.mp4') }}" type="video/mp4">
+    </video>
+    <div class="overlay-dark"></div>
+    <div class="overlay-vignette"></div>
+    <div class="overlay-gradient"></div>
+
     <header class="site-header">
         <div class="header-top">
             <div class="nav-brand">
@@ -88,6 +96,55 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             document.body.classList.add('loaded');
+
+            // Cinematic video background management
+            var videoBg = document.querySelector('.video-bg');
+            if (videoBg) {
+                // Respect prefers-reduced-motion
+                var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+                if (prefersReduced.matches) {
+                    videoBg.style.display = 'none';
+                }
+                prefersReduced.addEventListener('change', function(e) {
+                    if (e.matches) {
+                        videoBg.pause();
+                        videoBg.style.display = 'none';
+                    } else {
+                        videoBg.style.display = '';
+                        videoBg.play();
+                    }
+                });
+
+                // Fallback: hide video on error
+                videoBg.addEventListener('error', function() {
+                    videoBg.style.display = 'none';
+                }, true);
+                var source = videoBg.querySelector('source');
+                if (source) {
+                    source.addEventListener('error', function() {
+                        videoBg.style.display = 'none';
+                    });
+                }
+
+                // Lazy play: démarrer uniquement quand le document est visible
+                // (autoplay retiré du HTML pour éviter le démarrage systématique)
+                if (!prefersReduced.matches) {
+                    if (!document.hidden) {
+                        videoBg.play().catch(function() {
+                            videoBg.style.display = 'none';
+                        });
+                    } else {
+                        document.addEventListener('visibilitychange', function onVisible() {
+                            if (!document.hidden) {
+                                videoBg.play().catch(function() {
+                                    videoBg.style.display = 'none';
+                                });
+                                document.removeEventListener('visibilitychange', onVisible);
+                            }
+                        });
+                    }
+                }
+            }
         });
     </script>
 </body>

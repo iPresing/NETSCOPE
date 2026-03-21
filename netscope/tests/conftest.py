@@ -1,5 +1,12 @@
 """Pytest fixtures for NETSCOPE tests."""
 
+import os
+import sys
+
+# Scapy sur Windows cherche %ProgramFiles% absent dans Git Bash
+if sys.platform == 'win32' and 'ProgramFiles' not in os.environ:
+    os.environ['ProgramFiles'] = os.environ.get('PROGRAMFILES', 'C:\\Program Files')
+
 import pytest
 
 from app import create_app
