@@ -92,6 +92,9 @@
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     {% block scripts %}{% endblock %}
 
+    {# hls.js : stream HLS distant pour le fond cinématique (Chrome/Edge) #}
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+
     {# Page load animation trigger #}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -100,6 +103,8 @@
             // Cinematic video background management
             var videoBg = document.querySelector('.video-bg');
             if (videoBg) {
+                var HLS_URL = 'https://stream.mux.com/BuGGTsiXq1T00WUb8qfURrHkTCbhrkfFLSv4uAOZzdhw.m3u8';
+
                 // Respect prefers-reduced-motion
                 var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
                 if (prefersReduced.matches) {
@@ -111,32 +116,55 @@
                         videoBg.style.display = 'none';
                     } else {
                         videoBg.style.display = '';
-                        videoBg.play();
+                        videoBg.play().catch(function() {});
                     }
                 });
 
-                // Fallback: masquer uniquement si la vidéo n'a jamais démarré
-                videoBg.addEventListener('error', function() {
-                    if (videoBg.currentTime === 0) {
-                        videoBg.style.display = 'none';
+                // Fallback local si HLS indisponible ou en erreur fatale
+                function playLocal() {
+                    var localSource = videoBg.querySelector('source');
+                    if (localSource) {
+                        videoBg.src = localSource.src;
+                        videoBg.load();
+                        videoBg.play().catch(function() {
+                            if (videoBg.currentTime === 0) { videoBg.style.display = 'none'; }
+                        });
                     }
-                }, true);
-                var source = videoBg.querySelector('source');
-                if (source) {
-                    source.addEventListener('error', function() {
-                        if (videoBg.currentTime === 0) {
-                            videoBg.style.display = 'none';
-                        }
-                    });
                 }
+
+                // Masquer seulement si la vidéo n'a jamais démarré
+                videoBg.addEventListener('error', function() {
+                    if (videoBg.currentTime === 0) { videoBg.style.display = 'none'; }
+                }, true);
 
                 // Récupération si la vidéo s'est arrêtée (onglet inactif puis retour)
                 if (!prefersReduced.matches) {
                     document.addEventListener('visibilitychange', function() {
                         if (!document.hidden && videoBg.paused) {
-                            videoBg.play();
+                            videoBg.play().catch(function() {});
                         }
                     });
+                }
+
+                // HLS : stream Mux CDN en priorité, vidéo locale en fallback
+                if (!prefersReduced.matches) {
+                    if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                        var hls = new Hls({ enableWorker: true });
+                        hls.loadSource(HLS_URL);
+                        hls.attachMedia(videoBg);
+                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                            videoBg.play().catch(function() {});
+                        });
+                        hls.on(Hls.Events.ERROR, function(event, data) {
+                            if (data.fatal) { hls.destroy(); playLocal(); }
+                        });
+                    } else if (videoBg.canPlayType('application/vnd.apple.mpegurl')) {
+                        // Safari : HLS natif
+                        videoBg.src = HLS_URL;
+                        videoBg.load();
+                        videoBg.play().catch(function() {});
+                    }
+                    // else : autoplay + <source> local géré nativement
                 }
             }
         });

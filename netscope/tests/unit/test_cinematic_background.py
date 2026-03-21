@@ -26,10 +26,13 @@ class TestVideoBackgroundElement:
         assert 'loop' in html
         assert 'playsinline' in html
 
-    def test_video_recovery_js_present(self, client):
-        """Test que le JS de récupération visibilitychange est présent (AC5)."""
+    def test_video_hls_and_recovery_js_present(self, client):
+        """Test que le JS HLS et la récupération visibilitychange sont présents (AC5)."""
         response = client.get('/')
         html = response.data.decode('utf-8')
+        assert 'hls.js' in html
+        assert 'HLS_URL' in html
+        assert 'playLocal' in html
         assert 'visibilitychange' in html
         assert 'prefersReduced' in html
 
