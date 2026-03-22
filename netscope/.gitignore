@@ -119,3 +119,6 @@ data/blacklists/*
 # OS
 .DS_Store
 Thumbs.db
+
+
+/app/static/video/OLD
