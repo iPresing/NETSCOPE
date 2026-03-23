@@ -232,28 +232,53 @@ EOF
   # Captive portal toggle script (called by Flask to enable/disable)
   cat > "$CAPTIVE_TOGGLE" <<TOGGLEEOF
 #!/usr/bin/env bash
-set -euo pipefail
+# Ne PAS utiliser set -e : le filesystem peut être read-only,
+# chaque opération doit être tentée indépendamment.
+set -uo pipefail
 
 CAPTIVE_DNS_CONF="/etc/dnsmasq.d/netscope-captive.conf"
 STATE_FILE="/run/netscope-captive.active"
 IPTABLES_BIN="\$(command -v iptables)"
 AP_HOST_IP="${AP_IP%/*}"
 
+# Tente remount rw si nécessaire, restore ro à la fin
+_remount_rw() {
+  if ! touch /etc/.rw-test 2>/dev/null; then
+    mount -o remount,rw / 2>/dev/null && _DID_REMOUNT=1
+  else
+    rm -f /etc/.rw-test
+  fi
+}
+_remount_ro() {
+  [[ "\${_DID_REMOUNT:-0}" == "1" ]] && mount -o remount,ro / 2>/dev/null || true
+}
+_DID_REMOUNT=0
+
 case "\${1:-status}" in
   enable)
+    _remount_rw
     cat > "\$CAPTIVE_DNS_CONF" <<DNSEOF
 # NETSCOPE captive portal DNS hijack — auto-generated
 address=/#/\$AP_HOST_IP
 DNSEOF
     systemctl restart dnsmasq 2>/dev/null || true
     echo "active" > "\$STATE_FILE"
+    _remount_ro
     logger -t NETSCOPE "Captive portal enabled"
     ;;
   disable)
-    rm -f "\$CAPTIVE_DNS_CONF"
-    systemctl restart dnsmasq 2>/dev/null || true
+    # 1. Flush iptables EN PREMIER (toujours en mémoire, pas de fs)
     "\$IPTABLES_BIN" -t nat -F NETSCOPE_PREROUTING 2>/dev/null || true
-    rm -f "\$STATE_FILE"
+
+    # 2. Supprimer le DNS hijack (peut nécessiter remount rw)
+    _remount_rw
+    rm -f "\$CAPTIVE_DNS_CONF" 2>/dev/null || true
+    systemctl restart dnsmasq 2>/dev/null || true
+
+    # 3. Supprimer le state file (/run = tmpfs, toujours writable)
+    rm -f "\$STATE_FILE" 2>/dev/null || true
+    _remount_ro
+
     logger -t NETSCOPE "Captive portal disabled"
     ;;
   status)
