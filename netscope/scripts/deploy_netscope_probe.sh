@@ -57,6 +57,9 @@ MODE_SCRIPT="/usr/local/sbin/netscope-mode.sh"
 MODE_SERVICE="/etc/systemd/system/netscope-mode.service"
 MODE_TIMER="/etc/systemd/system/netscope-mode.timer"
 
+CAPTIVE_DNS_CONF="/etc/dnsmasq.d/netscope-captive.conf"
+CAPTIVE_TOGGLE="/usr/local/sbin/netscope-captive-toggle.sh"
+
 need_root() {
   [[ $EUID -eq 0 ]] || { echo "[-] Lance avec sudo/root"; exit 1; }
 }
@@ -212,8 +215,64 @@ EOF
 configure_sysctl() {
   backup "$SYSCTL_FILE"
   cat > "$SYSCTL_FILE" <<EOF
-net.ipv4.ip_forward=0
+net.ipv4.ip_forward=1
 EOF
+}
+
+configure_captive() {
+  backup "$CAPTIVE_DNS_CONF"
+
+  # DNS hijack — all domains resolve to probe IP for captive portal interception
+  cat > "$CAPTIVE_DNS_CONF" <<EOF
+# NETSCOPE captive portal DNS hijack — auto-generated
+# Resolves ALL domains to probe IP so Flask can intercept HTTP requests
+address=/#/${AP_IP%/*}
+EOF
+
+  # Captive portal toggle script (called by Flask to enable/disable)
+  cat > "$CAPTIVE_TOGGLE" <<TOGGLEEOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+CAPTIVE_DNS_CONF="/etc/dnsmasq.d/netscope-captive.conf"
+STATE_FILE="/run/netscope-captive.active"
+IPTABLES_BIN="\$(command -v iptables)"
+AP_HOST_IP="${AP_IP%/*}"
+
+case "\${1:-status}" in
+  enable)
+    cat > "\$CAPTIVE_DNS_CONF" <<DNSEOF
+# NETSCOPE captive portal DNS hijack — auto-generated
+address=/#/\$AP_HOST_IP
+DNSEOF
+    systemctl restart dnsmasq 2>/dev/null || true
+    echo "active" > "\$STATE_FILE"
+    logger -t NETSCOPE "Captive portal enabled"
+    ;;
+  disable)
+    rm -f "\$CAPTIVE_DNS_CONF"
+    systemctl restart dnsmasq 2>/dev/null || true
+    "\$IPTABLES_BIN" -t nat -F NETSCOPE_PREROUTING 2>/dev/null || true
+    rm -f "\$STATE_FILE"
+    logger -t NETSCOPE "Captive portal disabled"
+    ;;
+  status)
+    if [[ -f "\$STATE_FILE" ]] && [[ "\$(cat "\$STATE_FILE" 2>/dev/null)" == "active" ]]; then
+      echo "active"
+    else
+      echo "inactive"
+    fi
+    ;;
+  *)
+    echo "Usage: \$0 {enable|disable|status}" >&2
+    exit 1
+    ;;
+esac
+TOGGLEEOF
+  chmod 0755 "$CAPTIVE_TOGGLE"
+
+  # Activate captive portal state for first boot
+  echo "active" > /run/netscope-captive.active 2>/dev/null || true
 }
 
 configure_ap0_service() {
@@ -283,7 +342,9 @@ AP_IF="${AP_IF}"
 USB_IF="${USB_IF}"
 WIFI_UPLINK_IF="${WIFI_UPLINK_IF}"
 AP_NET="${AP_NET}"
+AP_IP="${AP_IP}"
 USB_NET="${USB_NET}"
+USB_IP="${USB_IP}"
 HOSTAPD_CONF="${HOSTAPD_CONF}"
 AP_CHANNEL_FALLBACK="${AP_CHANNEL_FALLBACK}"
 
@@ -332,10 +393,15 @@ ensure_chains() {
   "\$IPTABLES_BIN" -t filter -N NETSCOPE_FORWARD 2>/dev/null || true
   "\$IPTABLES_BIN" -t filter -C FORWARD -j NETSCOPE_FORWARD 2>/dev/null || \
     "\$IPTABLES_BIN" -t filter -I FORWARD 1 -j NETSCOPE_FORWARD
+
+  "\$IPTABLES_BIN" -t nat -N NETSCOPE_PREROUTING 2>/dev/null || true
+  "\$IPTABLES_BIN" -t nat -C PREROUTING -j NETSCOPE_PREROUTING 2>/dev/null || \
+    "\$IPTABLES_BIN" -t nat -I PREROUTING 1 -j NETSCOPE_PREROUTING
 }
 
 flush_chains() {
   "\$IPTABLES_BIN" -t nat -F NETSCOPE_POSTROUTING 2>/dev/null || true
+  "\$IPTABLES_BIN" -t nat -F NETSCOPE_PREROUTING 2>/dev/null || true
   "\$IPTABLES_BIN" -t filter -F NETSCOPE_FORWARD 2>/dev/null || true
 }
 
@@ -387,6 +453,16 @@ enter_gateway_wifi() {
     iptables_ensure nat    NETSCOPE_POSTROUTING -s "\$AP_NET" -o "\$WIFI_UPLINK_IF" -j MASQUERADE
     iptables_ensure filter NETSCOPE_FORWARD     -i "\$AP_IF" -o "\$WIFI_UPLINK_IF" -s "\$AP_NET" -j ACCEPT
     iptables_ensure filter NETSCOPE_FORWARD     -i "\$WIFI_UPLINK_IF" -o "\$AP_IF" -d "\$AP_NET" -m state --state RELATED,ESTABLISHED -j ACCEPT
+  fi
+
+  # Captive portal DNAT — redirect HTTP port 80 to probe when captive active
+  if [[ -f /run/netscope-captive.active ]] && [[ "\$(cat /run/netscope-captive.active 2>/dev/null)" == "active" ]]; then
+    if "\$IP_BIN" link show "\$AP_IF" >/dev/null 2>&1; then
+      iptables_ensure nat NETSCOPE_PREROUTING -i "\$AP_IF" -p tcp --dport 80 -j DNAT --to-destination "\${AP_IP%/*}:80"
+    fi
+    if "\$IP_BIN" link show "\$USB_IF" >/dev/null 2>&1; then
+      iptables_ensure nat NETSCOPE_PREROUTING -i "\$USB_IF" -p tcp --dport 80 -j DNAT --to-destination "\${USB_IP%/*}:80"
+    fi
   fi
 
   command -v netfilter-persistent >/dev/null 2>&1 && netfilter-persistent save >/dev/null 2>&1 || true
@@ -473,6 +549,9 @@ main() {
 
   step "Configuration sysctl"
   configure_sysctl
+
+  step "Configuration portail captif"
+  configure_captive
 
   step "Installation du service ap0"
   configure_ap0_service

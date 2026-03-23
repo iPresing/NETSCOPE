@@ -1,0 +1,229 @@
+{# Standalone template — n'étend PAS base.html volontairement.
+   Le portail captif est servi à des clients dont le DNS est hijacké.
+   Les assets statiques (CSS/JS) du dashboard ne sont pas garantis
+   accessibles dans ce contexte réseau restreint. #}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NETSCOPE — Portail Captif</title>
+    <style>
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f1117;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at 30% 20%, rgba(0, 200, 255, 0.08) 0%, transparent 60%),
+                        radial-gradient(ellipse at 70% 80%, rgba(100, 60, 255, 0.06) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .portal-card {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 48px 40px;
+            max-width: 460px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .portal-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 24px;
+            color: #00c8ff;
+        }
+
+        .portal-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #00c8ff 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .portal-subtitle {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 28px;
+        }
+
+        .portal-description {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 32px;
+        }
+
+        .portal-btn {
+            display: inline-block;
+            padding: 14px 36px;
+            background: linear-gradient(135deg, #00c8ff 0%, #0090cc 100%);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            text-decoration: none;
+            width: 100%;
+        }
+
+        .portal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 200, 255, 0.3);
+        }
+
+        .portal-btn:active {
+            transform: translateY(0);
+        }
+
+        .portal-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .portal-footer {
+            margin-top: 24px;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        .portal-status {
+            display: none;
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .portal-status.error {
+            display: block;
+            background: rgba(255, 80, 80, 0.1);
+            border: 1px solid rgba(255, 80, 80, 0.2);
+            color: #ff8080;
+        }
+    </style>
+</head>
+<body>
+    <div class="portal-card">
+        <div class="portal-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <circle cx="12" cy="12" r="8"/>
+                <circle cx="12" cy="12" r="3"/>
+                <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+                <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+            </svg>
+        </div>
+
+        <h1 class="portal-title">NETSCOPE</h1>
+        <p class="portal-subtitle">Terminal de surveillance réseau</p>
+
+        <p class="portal-description">
+            Vous êtes connecté au point d'accès <strong>NETSCOPE_PROBE</strong>.
+            Ce système analyse le trafic réseau pour détecter les anomalies et menaces potentielles.
+            Cliquez ci-dessous pour accéder à Internet.
+        </p>
+
+        <button class="portal-btn" id="release-btn" type="button">
+            Accéder à Internet
+        </button>
+
+        <div class="portal-status" id="status-msg"></div>
+
+        <p class="portal-footer">
+            NETSCOPE v1.0 — Analyse réseau passive
+        </p>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            var btn = document.getElementById('release-btn');
+            var statusEl = document.getElementById('status-msg');
+
+            if (!btn || !statusEl) return;
+
+            btn.addEventListener('click', function() {
+                btn.disabled = true;
+                btn.textContent = 'Connexion en cours\u2026';
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/captive/release', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.timeout = 10000;
+
+                xhr.onload = function() {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        btn.textContent = 'Connect\u00e9 !';
+                        setTimeout(function() {
+                            window.location.href = '/';
+                        }, 1000);
+                    } else {
+                        showError('Erreur lors de la lib\u00e9ration. R\u00e9essayez.');
+                        btn.disabled = false;
+                        btn.textContent = 'Acc\u00e9der \u00e0 Internet';
+                    }
+                };
+
+                xhr.onerror = function() {
+                    showError('Erreur r\u00e9seau. V\u00e9rifiez votre connexion.');
+                    btn.disabled = false;
+                    btn.textContent = 'Acc\u00e9der \u00e0 Internet';
+                };
+
+                xhr.ontimeout = function() {
+                    showError('D\u00e9lai d\u00e9pass\u00e9. R\u00e9essayez.');
+                    btn.disabled = false;
+                    btn.textContent = 'Acc\u00e9der \u00e0 Internet';
+                };
+
+                xhr.send('{}');
+            });
+
+            function showError(msg) {
+                statusEl.className = 'portal-status error';
+                statusEl.textContent = msg;
+            }
+        })();
+    </script>
+</body>
+</html>

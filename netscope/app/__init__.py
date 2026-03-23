@@ -287,10 +287,12 @@ def _register_blueprints(app):
     from app.blueprints.dashboard import dashboard_bp
     from app.blueprints.api import api_bp
     from app.blueprints.admin import admin_bp
+    from app.blueprints.captive import captive_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(captive_bp, url_prefix='/captive')
 
 
 def _register_error_handlers(app):

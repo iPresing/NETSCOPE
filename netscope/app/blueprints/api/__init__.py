@@ -15,3 +15,4 @@ from app.blueprints.api import whitelist  # noqa: E402, F401  # Story 3.6
 from app.blueprints.api import jobs  # noqa: E402, F401  # Story 4.1
 from app.blueprints.api import packets  # noqa: E402, F401  # Story 4.4
 from app.blueprints.api import system  # noqa: E402, F401  # Story 4.7
+from app.blueprints.api import captive  # noqa: E402, F401  # Story 4b.1
