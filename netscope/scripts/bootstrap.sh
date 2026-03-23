@@ -40,7 +40,7 @@ if ! grep -qi 'raspberry\|BCM' /proc/cpuinfo 2>/dev/null; then
 fi
 
 # ── Configuration ───────────────────────────────────────────────────────────
-NETSCOPE_REPO="${NETSCOPE_REPO:-https://github.com/timit/NETSCOPE.git}"
+NETSCOPE_REPO="${NETSCOPE_REPO:-https://github.com/iPresing/NETSCOPE.git}"
 NETSCOPE_BRANCH="${NETSCOPE_BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/netscope}"
 VENV_DIR="${INSTALL_DIR}/venv"
