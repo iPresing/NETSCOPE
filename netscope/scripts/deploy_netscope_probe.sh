@@ -196,17 +196,17 @@ EOF
   cat > "$DNSMASQ_AP" <<EOF
 interface=${AP_IF}
 bind-dynamic
-dhcp-range=${AP_DHCP_START},${AP_DHCP_END},${AP_DHCP_LEASE}
-dhcp-option=option:router,${AP_IP%/*}
-dhcp-option=option:dns-server,${AP_IP%/*}
+dhcp-range=set:apnet,${AP_DHCP_START},${AP_DHCP_END},${AP_DHCP_LEASE}
+dhcp-option=tag:apnet,option:router,${AP_IP%/*}
+dhcp-option=tag:apnet,option:dns-server,${AP_IP%/*}
 EOF
 
   cat > "$DNSMASQ_USB" <<EOF
 interface=${USB_IF}
 bind-dynamic
-dhcp-range=${USB_DHCP_START},${USB_DHCP_END},${USB_DHCP_LEASE}
-dhcp-option=option:router,${USB_IP%/*}
-dhcp-option=option:dns-server,${USB_IP%/*}
+dhcp-range=set:usbnet,${USB_DHCP_START},${USB_DHCP_END},${USB_DHCP_LEASE}
+dhcp-option=tag:usbnet,option:router,${USB_IP%/*}
+dhcp-option=tag:usbnet,option:dns-server,${USB_IP%/*}
 EOF
 
   safe_enable "dnsmasq.service"
