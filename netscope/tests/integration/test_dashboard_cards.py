@@ -276,13 +276,17 @@ class TestNavigationToDetails:
         assert 'hideCardDetails' in js
         assert "addEventListener('click'" in js
 
-    def test_voir_link_present_on_cards(self, client):
-        """Test 'Voir' link present on cards."""
+    def test_voir_link_not_on_status_cards(self, client):
+        """Test generic 'Voir' links removed from status cards (Story 4b.3 AC4)."""
+        from bs4 import BeautifulSoup
         response = client.get('/')
-        html = response.data.decode('utf-8')
-
-        assert 'status-card-link' in html
-        assert 'Voir' in html
+        soup = BeautifulSoup(response.data, 'html.parser')
+        for card_id in ['card-ips', 'card-protocols', 'card-ports', 'card-volume']:
+            card = soup.find(id=card_id)
+            if card:
+                assert card.find('a', class_='status-card-link') is None, (
+                    f"{card_id} should not have a generic 'Voir' link"
+                )
 
 
 class TestResponsiveDesign:

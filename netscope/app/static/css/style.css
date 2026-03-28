@@ -875,7 +875,8 @@ select.form-control {
     font-size: 0.75rem;
     color: var(--text-secondary);
     margin-bottom: var(--space-sm);
-    min-height: 1.2rem;
+    max-height: 4.5rem;
+    overflow: hidden;
 }
 
 .status-card-details .detail-item {
@@ -1319,16 +1320,6 @@ select.form-control {
     text-decoration: none;
 }
 
-.admin-card.disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-
-.admin-card.disabled:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: var(--border-subtle);
-}
 
 .admin-card-icon {
     font-size: 2.5rem;
@@ -1787,6 +1778,9 @@ select.form-control {
     flex-direction: column;
     gap: var(--space-md);
     margin-bottom: var(--space-lg);
+    max-height: 60vh;
+    overflow-y: auto;
+    scroll-behavior: smooth;
 }
 
 .anomaly-card {
@@ -1798,10 +1792,26 @@ select.form-control {
     border-radius: var(--radius-md);
     border-left: 3px solid transparent;
     transition: var(--transition-fast);
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    overflow: hidden;
 }
 
 .anomaly-card:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.anomalies-view-all {
+    margin-left: auto;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    transition: var(--transition-fast);
+}
+
+.anomalies-view-all:hover {
+    color: var(--text-primary);
 }
 
 .anomaly-card.anomaly-critical {
@@ -1941,6 +1951,9 @@ select.form-control {
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
+    max-height: 70vh;
+    overflow-y: auto;
+    scroll-behavior: smooth;
 }
 
 .anomaly-empty-state {
@@ -2146,6 +2159,9 @@ select.form-control {
 
 .essentials-modal-body {
     padding: var(--space-md) 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    scroll-behavior: smooth;
 }
 
 .essentials-detail {
@@ -2756,11 +2772,11 @@ select.form-control {
     }
 
     .status-cards {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
 
     .admin-cards {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
 
     .info-grid {
@@ -3131,12 +3147,86 @@ select.form-control {
     }
 }
 
-/* Reduced motion: disable video and overlays, keep static background */
+/* =============================================================================
+   Custom Scrollbar — Glassmorphism Theme
+   ============================================================================= */
+
+/* Scrollbar theme tokens */
+.anomalies-list,
+.anomaly-list,
+.essentials-modal-body,
+.raw-data-table-wrapper {
+    --scrollbar-track: rgba(255, 255, 255, 0.03);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+}
+
+/* Webkit (Chrome, Edge, Safari) */
+.anomalies-list::-webkit-scrollbar,
+.anomaly-list::-webkit-scrollbar,
+.essentials-modal-body::-webkit-scrollbar,
+.raw-data-table-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+
+.anomalies-list::-webkit-scrollbar-track,
+.anomaly-list::-webkit-scrollbar-track,
+.essentials-modal-body::-webkit-scrollbar-track,
+.raw-data-table-wrapper::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 3px;
+}
+
+.anomalies-list::-webkit-scrollbar-thumb,
+.anomaly-list::-webkit-scrollbar-thumb,
+.essentials-modal-body::-webkit-scrollbar-thumb,
+.raw-data-table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
+}
+
+.anomalies-list::-webkit-scrollbar-thumb:hover,
+.anomaly-list::-webkit-scrollbar-thumb:hover,
+.essentials-modal-body::-webkit-scrollbar-thumb:hover,
+.raw-data-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+/* Firefox */
+.anomalies-list,
+.anomaly-list,
+.essentials-modal-body,
+.raw-data-table-wrapper {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* =============================================================================
+   Reduced Motion — Accessibility (Rule #20)
+   ============================================================================= */
+
+/* Reduced motion: disable video, overlays, animations, transitions, smooth scroll */
 @media (prefers-reduced-motion: reduce) {
     .video-bg,
     .overlay-dark,
     .overlay-vignette,
     .overlay-gradient {
         display: none;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .status-card:hover,
+    .anomaly-card:hover,
+    .admin-card:hover,
+    .anomaly-item:hover {
+        transform: none !important;
     }
 }

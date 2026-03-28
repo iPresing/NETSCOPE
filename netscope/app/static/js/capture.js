@@ -835,7 +835,7 @@
             }
         }
 
-        return '<div class="anomaly-card ' + config.class + '">' +
+        return '<a href="/anomalies" class="anomaly-card ' + config.class + '">' +
             '<div class="anomaly-header">' +
             '<span class="anomaly-icon">' + config.icon + '</span>' +
             '<span class="anomaly-value">' + escapeHtml(anomaly.matched_value) + '</span>' +
@@ -846,7 +846,7 @@
             (anomaly.source_file ? ' <span class="anomaly-source">(' + escapeHtml(anomaly.source_file) + ')</span>' : '') +
             '</div>' +
             (connectionInfo ? '<div class="anomaly-connection">\u2192 ' + escapeHtml(connectionInfo) + '</div>' : '') +
-            '</div>';
+            '</a>';
     }
 
     /**

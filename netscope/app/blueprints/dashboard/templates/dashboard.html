@@ -144,7 +144,6 @@
             <div class="status-card-details" id="stat-top-ips-list">
                 <span class="status-message">Lancez une capture pour voir les analyses</span>
             </div>
-            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
         <div class="status-card card" id="card-protocols" data-card-type="protocols">
@@ -156,7 +155,6 @@
             <div class="status-card-details" id="stat-protocols-list">
                 <span class="status-message">Lancez une capture pour voir les analyses</span>
             </div>
-            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
         <div class="status-card card" id="card-ports" data-card-type="ports">
@@ -168,7 +166,6 @@
             <div class="status-card-details" id="stat-top-ports-list">
                 <span class="status-message">Lancez une capture pour voir les analyses</span>
             </div>
-            <a href="{{ url_for('dashboard.anomalies') }}" class="status-card-link">Voir &rarr;</a>
         </div>
 
         <div class="status-card card" id="card-volume" data-card-type="volume">
@@ -214,6 +211,7 @@
                 <span class="anomaly-stat-icon warning"></span>
                 Attention: <strong id="anomalies-warning">0</strong>
             </span>
+            <a href="{{ url_for('dashboard.anomalies') }}" class="anomalies-view-all">Voir tout &rarr;</a>
         </div>
     </section>
 
