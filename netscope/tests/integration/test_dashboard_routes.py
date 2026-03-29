@@ -213,3 +213,56 @@ class TestComponentIntegration:
         response = client.get('/')
         html = response.data.decode('utf-8')
         assert 'main-nav' in html or 'nav-links' in html
+
+
+class TestFooterGitHubLink:
+    """Tests for footer GitHub link — Story 4b.5."""
+
+    DASHBOARD_ROUTES = ['/', '/anomalies', '/jobs']
+
+    def test_github_link_points_to_correct_repo(self, client):
+        """Test GitHub link URL on all dashboard pages (AC1)."""
+        for route in self.DASHBOARD_ROUTES:
+            response = client.get(route)
+            html = response.data.decode('utf-8')
+            assert 'https://github.com/iPresing/NETSCOPE' in html, (
+                f"GitHub URL missing on {route}"
+            )
+
+    def test_github_link_old_url_absent(self, client):
+        """Test old placeholder URL is not present (regression guard)."""
+        response = client.get('/')
+        html = response.data.decode('utf-8')
+        assert 'href="https://github.com/netscope"' not in html
+
+    def test_github_link_opens_in_new_tab(self, client):
+        """Test GitHub link has target=_blank (AC1)."""
+        response = client.get('/')
+        html = response.data.decode('utf-8')
+        assert 'href="https://github.com/iPresing/NETSCOPE"' in html
+        assert 'target="_blank"' in html
+
+    def test_github_link_has_security_attrs(self, client):
+        """Test GitHub link has rel=noopener noreferrer for security (AC1)."""
+        response = client.get('/')
+        html = response.data.decode('utf-8')
+        assert 'rel="noopener noreferrer"' in html
+
+    def test_footer_version_still_present(self, client):
+        """Test footer still shows version info (AC2)."""
+        response = client.get('/')
+        html = response.data.decode('utf-8')
+        assert 'footer-version' in html
+        assert 'NETSCOPE v' in html
+
+    def test_footer_admin_link_still_present(self, client):
+        """Test footer still has Administration link (AC2)."""
+        response = client.get('/')
+        html = response.data.decode('utf-8')
+        assert 'Administration' in html
+
+    def test_footer_status_still_present(self, client):
+        """Test footer still shows connection status (AC2)."""
+        response = client.get('/')
+        html = response.data.decode('utf-8')
+        assert 'footer-status' in html
