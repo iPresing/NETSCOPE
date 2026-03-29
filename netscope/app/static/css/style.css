@@ -169,10 +169,16 @@ a:hover {
     gap: var(--space-sm);
 }
 
-.brand-icon {
-    color: var(--neon-cyan);
-    display: flex;
-    align-items: center;
+.nav-brand:focus-visible {
+    outline: 2px solid var(--neon-cyan);
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+.brand-logo {
+    height: 36px;
+    width: auto;
+    object-fit: contain;
 }
 
 .nav-brand h1 {
@@ -2750,6 +2756,10 @@ select.form-control {
 }
 
 @media (max-width: 768px) {
+    .brand-logo {
+        height: 26px;
+    }
+
     .header-top {
         flex-direction: column;
         gap: var(--space-md);
