@@ -192,9 +192,26 @@ def _configure_blacklists(app):
             app.logger.warning(f'Config file not found: {config_path}')
             blacklist_config = {}
 
-        # Initialize and load blacklists
+        # Initialize and load blacklists (defaults depuis fichiers)
         manager = get_blacklist_manager()
         manager.load_blacklists(blacklist_config, base_path=base_path)
+
+        # Appliquer les entrées user JSON persistées (sessions précédentes)
+        # Sans cela, les entrées user sont invisibles à la détection jusqu'au
+        # premier add/remove de la session courante.
+        try:
+            from app.services.blacklist_user_manager import BlacklistUserManager
+            user_json_path = Path(app.root_path).parent / "data" / "blacklists" / "user_blacklist.json"
+            if user_json_path.exists():
+                user_mgr_tmp = BlacklistUserManager(user_json_path)
+                user_entries = user_mgr_tmp.get_all()
+                if user_entries:
+                    manager.merge_user_entries(user_entries)
+                    app.logger.info(
+                        f'User blacklist entries applied at startup ({len(user_entries)} entrées)'
+                    )
+        except Exception as e:
+            app.logger.warning(f'Could not apply user blacklist entries at startup (error={str(e)})')
 
         # Store reference in app for easy access
         if not hasattr(app, 'extensions'):

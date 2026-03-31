@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestion Blacklists - NETSCOPE{% endblock %}
+
+{% block content %}
+<div class="whitelist-container">
+    <section class="page-header">
+        <h2>Gestion Blacklists</h2>
+        <p class="text-muted">Gérer les éléments surveillés par la détection</p>
+    </section>
+
+    <section class="whitelist-add card">
+        <h3>Ajouter un élément</h3>
+        <form id="blacklist-add-form" class="config-form">
+            <div class="form-group">
+                <label for="bl-type">Type :</label>
+                <select id="bl-type" class="form-control">
+                    <option value="ip">IP</option>
+                    <option value="domain">Domaine</option>
+                    <option value="term">Terme suspect</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="bl-value">Valeur :</label>
+                <input type="text" id="bl-value" class="form-control"
+                       placeholder="Ex: 192.168.1.100, evil.com, malware" required>
+            </div>
+            <div class="form-group">
+                <label for="bl-reason">Raison (optionnelle) :</label>
+                <input type="text" id="bl-reason" class="form-control"
+                       placeholder="Ex: Serveur C2 identifié">
+            </div>
+            <button type="submit" class="btn" id="bl-add-btn">Ajouter</button>
+        </form>
+    </section>
+
+    <section class="whitelist-list card">
+        <h3>Entrées blacklist (<span id="bl-count">0</span>)</h3>
+        <div id="blacklist-table-container">
+            <table class="whitelist-table" id="blacklist-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Valeur</th>
+                        <th>Source</th>
+                        <th>Raison</th>
+                        <th>Date d'ajout</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="blacklist-tbody">
+                </tbody>
+            </table>
+            <p class="text-muted text-center" id="blacklist-empty" style="display: none;">
+                Aucune entrée dans les blacklists
+            </p>
+        </div>
+    </section>
+
+    <div class="page-actions">
+        <a href="{{ url_for('dashboard.index') }}" class="btn">&larr; Retour au dashboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/blacklist.js') }}" defer></script>
+{% endblock %}

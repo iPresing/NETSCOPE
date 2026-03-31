@@ -641,3 +641,188 @@ class TestBlacklistFileWatcher:
 
         finally:
             watcher.stop()
+
+
+class TestBlacklistManagerMergeUserEntries:
+    """Tests de merge_user_entries (Story 4b.6)."""
+
+    def test_merge_adds_ip(self, temp_blacklist_dir):
+        from app.models.blacklist import UserBlacklistEntry, BlacklistType as BT
+        from datetime import datetime, timezone
+
+        manager = BlacklistManager()
+        manager.load_blacklists(
+            {"defaults": {"ips_malware": str(temp_blacklist_dir / "ips_malware.txt")}},
+            base_path=temp_blacklist_dir,
+        )
+        initial_count = manager.get_stats().ips_count
+
+        entry = UserBlacklistEntry(
+            id="bl_test0001", entry_type=BT.IP, value="99.99.99.99",
+            reason="test", created_at=datetime.now(timezone.utc),
+        )
+        manager.merge_user_entries([entry])
+        assert manager.check_ip("99.99.99.99")
+        assert manager.get_stats().ips_count == initial_count + 1
+
+    def test_merge_adds_domain(self, temp_blacklist_dir):
+        from app.models.blacklist import UserBlacklistEntry, BlacklistType as BT
+        from datetime import datetime, timezone
+
+        manager = BlacklistManager()
+        manager.load_blacklists(
+            {"defaults": {"domains_phishing": str(temp_blacklist_dir / "domains_phishing.txt")}},
+            base_path=temp_blacklist_dir,
+        )
+
+        entry = UserBlacklistEntry(
+            id="bl_test0002", entry_type=BT.DOMAIN, value="NewEvil.Com",
+            reason="test", created_at=datetime.now(timezone.utc),
+        )
+        manager.merge_user_entries([entry])
+        assert manager.check_domain("newevil.com")
+
+    def test_merge_adds_term(self, temp_blacklist_dir):
+        from app.models.blacklist import UserBlacklistEntry, BlacklistType as BT
+        from datetime import datetime, timezone
+
+        manager = BlacklistManager()
+        manager.load_blacklists(
+            {"defaults": {"terms_suspect": str(temp_blacklist_dir / "terms_suspect.txt")}},
+            base_path=temp_blacklist_dir,
+        )
+
+        entry = UserBlacklistEntry(
+            id="bl_test0003", entry_type=BT.TERM, value="rootkit payload",
+            reason="test", created_at=datetime.now(timezone.utc),
+        )
+        manager.merge_user_entries([entry])
+        found = manager.check_term("contains rootkit payload here")
+        assert "rootkit payload" in found
+
+    def test_merge_multiple_entries(self, temp_blacklist_dir):
+        from app.models.blacklist import UserBlacklistEntry, BlacklistType as BT
+        from datetime import datetime, timezone
+
+        manager = BlacklistManager()
+        manager.load_blacklists({"defaults": {}})
+
+        entries = [
+            UserBlacklistEntry(
+                id="bl_m1", entry_type=BT.IP, value="1.1.1.1",
+                reason="", created_at=datetime.now(timezone.utc),
+            ),
+            UserBlacklistEntry(
+                id="bl_m2", entry_type=BT.DOMAIN, value="bad.org",
+                reason="", created_at=datetime.now(timezone.utc),
+            ),
+            UserBlacklistEntry(
+                id="bl_m3", entry_type=BT.TERM, value="backdoor",
+                reason="", created_at=datetime.now(timezone.utc),
+            ),
+        ]
+        manager.merge_user_entries(entries)
+        assert manager.check_ip("1.1.1.1")
+        assert manager.check_domain("bad.org")
+        assert "backdoor" in manager.check_term("has backdoor inside")
+
+    def test_merge_empty_list(self, temp_blacklist_dir):
+        manager = BlacklistManager()
+        manager.load_blacklists({"defaults": {}})
+        initial = manager.get_stats()
+        manager.merge_user_entries([])
+        after = manager.get_stats()
+        assert initial.ips_count == after.ips_count
+
+    def test_merge_remove_ip_no_longer_detected(self, temp_blacklist_dir):
+        """H2: suppression d'une user entry doit retirer l'IP des sets mémoire (AC5)."""
+        from app.models.blacklist import UserBlacklistEntry, BlacklistType as BT
+        from datetime import datetime, timezone
+
+        manager = BlacklistManager()
+        manager.load_blacklists({"defaults": {}})
+
+        entry = UserBlacklistEntry(
+            id="bl_rm01", entry_type=BT.IP, value="55.55.55.55",
+            reason="test", created_at=datetime.now(timezone.utc),
+        )
+        manager.merge_user_entries([entry])
+        assert manager.check_ip("55.55.55.55"), "L'IP doit être détectée après ajout"
+
+        # Simuler la suppression : merge avec liste vide
+        manager.merge_user_entries([])
+        assert not manager.check_ip("55.55.55.55"), "L'IP ne doit plus être détectée après suppression"
+
+    def test_merge_remove_domain_no_longer_detected(self, temp_blacklist_dir):
+        """H2: suppression d'un domaine user doit le retirer des sets mémoire."""
+        from app.models.blacklist import UserBlacklistEntry, BlacklistType as BT
+        from datetime import datetime, timezone
+
+        manager = BlacklistManager()
+        manager.load_blacklists({"defaults": {}})
+
+        entry = UserBlacklistEntry(
+            id="bl_rm02", entry_type=BT.DOMAIN, value="removed-evil.com",
+            reason="test", created_at=datetime.now(timezone.utc),
+        )
+        manager.merge_user_entries([entry])
+        assert manager.check_domain("removed-evil.com")
+
+        manager.merge_user_entries([])
+        assert not manager.check_domain("removed-evil.com")
+
+    def test_merge_defaults_preserved_after_user_removal(self, temp_blacklist_dir):
+        """H2: les entrées defaults doivent rester intactes après suppression d'une user entry."""
+        from app.models.blacklist import UserBlacklistEntry, BlacklistType as BT
+        from datetime import datetime, timezone
+
+        manager = BlacklistManager()
+        manager.load_blacklists(
+            {"defaults": {"ips_malware": "data/blacklists_defaults/ips_malware.txt"}},
+            base_path=temp_blacklist_dir,
+        )
+        default_count = manager.get_stats().ips_count
+
+        entry = UserBlacklistEntry(
+            id="bl_rm03", entry_type=BT.IP, value="77.77.77.77",
+            reason="test", created_at=datetime.now(timezone.utc),
+        )
+        manager.merge_user_entries([entry])
+        assert manager.get_stats().ips_count == default_count + 1
+
+        # Suppression de l'entrée user
+        manager.merge_user_entries([])
+        assert manager.get_stats().ips_count == default_count, "Les defaults doivent rester intacts"
+        assert manager.check_ip("192.168.1.100"), "IP default toujours détectée"
+
+    def test_merge_get_active_lists_includes_user_entries(self, temp_blacklist_dir):
+        """M3: get_active_lists() doit inclure les user entries après merge."""
+        from app.models.blacklist import UserBlacklistEntry, BlacklistType as BT
+        from datetime import datetime, timezone
+
+        manager = BlacklistManager()
+        manager.load_blacklists({"defaults": {}})
+
+        entries = [
+            UserBlacklistEntry(
+                id="bl_al1", entry_type=BT.IP, value="10.20.30.40",
+                reason="", created_at=datetime.now(timezone.utc),
+            ),
+            UserBlacklistEntry(
+                id="bl_al2", entry_type=BT.DOMAIN, value="active-bad.org",
+                reason="", created_at=datetime.now(timezone.utc),
+            ),
+            UserBlacklistEntry(
+                id="bl_al3", entry_type=BT.TERM, value="exploit payload",
+                reason="", created_at=datetime.now(timezone.utc),
+            ),
+        ]
+        manager.merge_user_entries(entries)
+
+        active = manager.get_active_lists()
+        assert "10.20.30.40" in active["ips"]
+        assert "active-bad.org" in active["domains"]
+        assert "exploit payload" in active["terms"]
+        # Vérifier que les listes sont triées
+        assert active["ips"] == sorted(active["ips"])
+        assert active["domains"] == sorted(active["domains"])

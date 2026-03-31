@@ -39,6 +39,11 @@ from .graceful_degradation import (
     get_degradation_manager,
     reset_degradation_manager,
 )
+from .blacklist_user_manager import (
+    BlacklistUserManager,
+    get_blacklist_user_manager,
+    reset_blacklist_user_manager,
+)
 
 __all__ = [
     # Hardware detection
@@ -73,4 +78,8 @@ __all__ = [
     "GracefulDegradationManager",
     "get_degradation_manager",
     "reset_degradation_manager",
+    # Blacklist user manager (Story 4b.6)
+    "BlacklistUserManager",
+    "get_blacklist_user_manager",
+    "reset_blacklist_user_manager",
 ]

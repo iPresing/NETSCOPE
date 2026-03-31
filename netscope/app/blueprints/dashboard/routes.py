@@ -93,6 +93,17 @@ def whitelist():
     return render_template('whitelist.html')
 
 
+@dashboard_bp.route('/blacklist')
+def blacklist():
+    """Blacklist management page (Story 4b.6).
+
+    Returns:
+        Rendered blacklist template
+    """
+    logger.debug(f'Blacklist page rendered (ip={request.remote_addr})')
+    return render_template('blacklist.html')
+
+
 @dashboard_bp.route('/packets')
 def packets():
     """Packet viewer page (Story 4.4).

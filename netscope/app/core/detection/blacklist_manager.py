@@ -47,6 +47,11 @@ class BlacklistManager:
         self._ips: set[str] = set()
         self._domains: set[str] = set()
         self._terms: set[str] = set()
+        # Snapshots des sets après chargement fichiers (defaults + txt user)
+        # Utilisés par merge_user_entries pour réinitialiser avant fusion
+        self._default_ips: set[str] = set()
+        self._default_domains: set[str] = set()
+        self._default_terms: set[str] = set()
         self._loaded_files: list[str] = []
         self._base_path: Path | None = None
         logger.debug("BlacklistManager initialized")
@@ -76,7 +81,12 @@ class BlacklistManager:
         paths = config.get("paths", {})
         self._load_user_blacklists(paths)
 
-        # 3. Log stats chargées
+        # 3. Sauvegarder snapshot des sets fichiers (pour merge_user_entries)
+        self._default_ips = set(self._ips)
+        self._default_domains = set(self._domains)
+        self._default_terms = set(self._terms)
+
+        # 4. Log stats chargées
         stats = self.get_stats()
         logger.info(
             f"Blacklists ready (ips={stats.ips_count}, "
@@ -285,6 +295,36 @@ class BlacklistManager:
                 found.append(term)
         return found
 
+    def merge_user_entries(self, user_entries) -> None:
+        """Fusionne les entrées utilisateur dans les sets en mémoire.
+
+        Réinitialise d'abord les sets au snapshot defaults (chargé depuis
+        les fichiers), puis ajoute les entrées utilisateur par-dessus.
+        Cela garantit que les suppressions sont répercutées immédiatement.
+
+        Args:
+            user_entries: Liste de UserBlacklistEntry à fusionner
+        """
+        # Réinitialiser aux defaults fichiers (supprime les user entries précédentes)
+        self._ips = set(self._default_ips)
+        self._domains = set(self._default_domains)
+        self._terms = set(self._default_terms)
+
+        # Ajouter les entrées utilisateur courantes par-dessus
+        for entry in user_entries:
+            if entry.entry_type == BlacklistType.IP:
+                self._ips.add(entry.value)
+            elif entry.entry_type == BlacklistType.DOMAIN:
+                self._domains.add(entry.value.lower())
+            elif entry.entry_type == BlacklistType.TERM:
+                self._terms.add(entry.value)
+
+        logger.info(
+            f"User entries merged (count={len(user_entries)}, "
+            f"total_ips={len(self._ips)}, total_domains={len(self._domains)}, "
+            f"total_terms={len(self._terms)})"
+        )
+
 
 # Global singleton instance
 _blacklist_manager: BlacklistManager | None = None
@@ -314,6 +354,9 @@ def reset_blacklist_manager() -> None:
         _blacklist_manager._ips.clear()
         _blacklist_manager._domains.clear()
         _blacklist_manager._terms.clear()
+        _blacklist_manager._default_ips.clear()
+        _blacklist_manager._default_domains.clear()
+        _blacklist_manager._default_terms.clear()
         _blacklist_manager._loaded_files.clear()
     _blacklist_manager = None
     BlacklistManager._instance = None
