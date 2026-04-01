@@ -71,6 +71,7 @@ Top talkers, distribution protocoles, ports inhabituels, connexions externes
 - **Raspberry Pi Zero 2 W** (recommandé) ou Pi 3/4/5
 - Carte microSD (8 Go minimum)
 - Câble USB ou adaptateur Ethernet
+- Setup du Raspberry Pi : https://github.com/iPresing/NETSCOPE/blob/main/netscope/docs/SETUP_RASPBERRY_PI.md
 
 ### Logiciel
 - Python 3.11+
