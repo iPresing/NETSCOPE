@@ -67,8 +67,16 @@
         123: 'NTP', 143: 'IMAP', 161: 'SNMP', 443: 'HTTPS', 465: 'SMTPS',
         587: 'SMTP', 993: 'IMAPS', 995: 'POP3S', 3306: 'MySQL',
         3389: 'RDP', 5432: 'PostgreSQL', 5900: 'VNC', 8080: 'HTTP-Alt',
-        8443: 'HTTPS-Alt', 27017: 'MongoDB'
+        8443: 'HTTPS-Alt', 27017: 'MongoDB',
+        4444: 'Meterpreter', 1337: 'Backdoor', 6666: 'IRC/Backdoor',
+        6667: 'IRC', 31337: 'Elite Backdoor', 12345: 'NetBus',
+        27374: 'SubSeven', 5555: 'Android ADB', 5353: 'mDNS'
     };
+
+    // Suspicious ports (mirrors ScoringEngine.SUSPICIOUS_PORTS)
+    const SUSPICIOUS_PORTS = new Set([
+        4444, 8080, 1337, 6666, 6667, 31337, 12345, 27374, 5555
+    ]);
 
     // State
     let captureTimer = null;
@@ -366,16 +374,30 @@
             return;
         }
 
+        // Build display list: top 5 + any suspicious ports not already included
+        var displayPorts = topPorts.slice(0, 5);
+        var displayedSet = new Set(displayPorts.map(function(p) { return p.port; }));
+
+        topPorts.slice(5).forEach(function(item) {
+            if (SUSPICIOUS_PORTS.has(item.port) && !displayedSet.has(item.port)) {
+                displayPorts.push(item);
+                displayedSet.add(item.port);
+            }
+        });
+
         const maxCount = topPorts[0]?.count || 1;
         let html = '';
 
-        topPorts.slice(0, 5).forEach(function(item) {
+        displayPorts.forEach(function(item) {
             const percent = Math.round((item.count / maxCount) * 100);
             const portName = getPortName(item.port);
+            const isSuspicious = SUSPICIOUS_PORTS.has(item.port);
             const portDisplay = portName ? item.port + ' (' + portName + ')' : item.port;
+            const rowClass = isSuspicious ? ' class="status-critical"' : '';
+            const suspectBadge = isSuspicious ? ' <span class="badge-suspect">suspect</span>' : '';
 
-            html += '<tr>' +
-                '<td class="port-cell">' + portDisplay + '</td>' +
+            html += '<tr' + rowClass + '>' +
+                '<td class="port-cell">' + portDisplay + suspectBadge + '</td>' +
                 '<td class="count-cell">' + item.count + '</td>' +
                 '<td class="bar-cell">' + createProgressBar(percent) + '</td>' +
                 '</tr>';
@@ -456,10 +478,19 @@
             ports.textContent = summary.unique_ports || '--';
         }
         if (topPortsList && summary.top_ports && summary.top_ports.length > 0) {
-            const topPort = summary.top_ports[0];
-            const portName = getPortName(topPort.port);
-            const display = portName ? topPort.port + ' (' + portName + ')' : topPort.port;
-            topPortsList.innerHTML = '<span class="detail-item">#1: ' + display + '</span>';
+            var suspectPorts = summary.top_ports.filter(function(p) { return SUSPICIOUS_PORTS.has(p.port); });
+            if (suspectPorts.length > 0) {
+                var suspectDisplay = suspectPorts.map(function(p) {
+                    var name = getPortName(p.port);
+                    return name ? p.port + ' (' + name + ')' : p.port;
+                }).join(', ');
+                topPortsList.innerHTML = '<span class="detail-item status-critical">Suspects: ' + suspectDisplay + '</span>';
+            } else {
+                const topPort = summary.top_ports[0];
+                const portName = getPortName(topPort.port);
+                const display = portName ? topPort.port + ' (' + portName + ')' : topPort.port;
+                topPortsList.innerHTML = '<span class="detail-item">#1: ' + display + '</span>';
+            }
         }
 
         // Volume card
