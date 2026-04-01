@@ -1,0 +1,18 @@
+[Unit]
+Description=NETSCOPE Beacon — Broadcast UDP pour identification de la sonde
+After=network-online.target netscope-web.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/netscope/venv/bin/python3 /opt/netscope/netscope/scripts/netscope_beacon.py
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netscope-beacon
+
+[Install]
+WantedBy=multi-user.target

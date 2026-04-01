@@ -193,9 +193,31 @@ SyslogIdentifier=netscope-web
 WantedBy=multi-user.target
 EOF
 
+cat > /etc/systemd/system/netscope-beacon.service <<BEACON_EOF
+[Unit]
+Description=NETSCOPE Beacon — Broadcast UDP pour identification de la sonde
+After=network-online.target netscope-web.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=${VENV_DIR}/bin/python3 ${APP_DIR}/scripts/netscope_beacon.py
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netscope-beacon
+
+[Install]
+WantedBy=multi-user.target
+BEACON_EOF
+
 systemctl daemon-reload
 systemctl enable netscope-web.service
-log "Service netscope-web créé et activé"
+systemctl enable netscope-beacon.service
+log "Services netscope-web et netscope-beacon créés et activés"
 
 # ── Étape 7 : Activation et résumé ─────────────────────────────────────────
 step "7/7 — Activation finale"
@@ -209,8 +231,9 @@ else
     warn "L'application ne démarre pas correctement (vérifier les logs après reboot)"
 fi
 
-# Démarrer le service
+# Démarrer les services
 systemctl start netscope-web.service || warn "Démarrage immédiat échoué (normal avant reboot)"
+systemctl start netscope-beacon.service || warn "Démarrage beacon échoué (normal avant reboot)"
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -220,6 +243,7 @@ echo ""
 echo -e "  Installation : ${CYAN}${INSTALL_DIR}${NC}"
 echo -e "  Venv Python  : ${CYAN}${VENV_DIR}${NC}"
 echo -e "  Service web  : ${CYAN}netscope-web.service${NC}"
+echo -e "  Beacon       : ${CYAN}netscope-beacon.service (UDP ${BEACON_PORT:-5742})${NC}"
 echo -e "  Port         : ${CYAN}80 (HTTP)${NC}"
 echo ""
 echo -e "  ${YELLOW}SSID Wi-Fi   : NETSCOPE_PROBE${NC}"
@@ -228,8 +252,13 @@ echo -e "  ${YELLOW}IP probe     : 192.168.88.1${NC}"
 echo ""
 echo -e "  Commandes utiles :"
 echo -e "    sudo systemctl status netscope-web"
+echo -e "    sudo systemctl status netscope-beacon"
 echo -e "    sudo journalctl -u netscope-web -f"
+echo -e "    sudo journalctl -u netscope-beacon -f"
 echo -e "    sudo netscope-captive-toggle.sh status"
+echo ""
+echo -e "  ${YELLOW}Retrouver la sonde sur le réseau :${NC}"
+echo -e "    python3 scripts/discover_probe.py"
 echo ""
 
 read -rp "Redémarrer maintenant ? [Y/n] " reboot_ans
