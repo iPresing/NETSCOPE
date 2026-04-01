@@ -580,6 +580,30 @@ class TcpdumpManager:
 
         return result
 
+    def redetect_latest(self) -> bool:
+        """Re-run blacklist detection on the latest capture result.
+
+        Used after blacklist user entries are added/removed to update
+        anomalies without requiring a new capture.
+
+        Returns:
+            True if re-detection was performed, False if no data available
+        """
+        if self._latest_result is None or not self._latest_result.packets:
+            return False
+
+        capture_id = (
+            self._latest_result.session.id
+            if self._latest_result.session
+            else None
+        )
+        if not capture_id:
+            return False
+
+        logger.info(f"Re-detecting anomalies on latest capture (capture_id={capture_id})")
+        self._run_detection(self._latest_result.packets, capture_id)
+        return True
+
     def _run_detection(self, packets: list, capture_id: str) -> None:
         """Run blacklist detection on parsed packets.
 

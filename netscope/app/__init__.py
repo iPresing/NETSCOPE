@@ -406,19 +406,24 @@ def _register_context_processors(app):
         - blacklist_domains_count: Number of blacklisted domains
         - blacklist_terms_count: Number of suspect terms
         - blacklist_total_entries: Total number of entries
-        """
-        stats = app.config.get('NETSCOPE_BLACKLIST_STATS')
 
-        if stats:
+        Reads live stats from BlacklistManager singleton to reflect
+        user additions/removals in real-time (fix: was using stale startup snapshot).
+        """
+        try:
+            from app.core.detection.blacklist_manager import get_blacklist_manager
+            manager = get_blacklist_manager()
+            stats = manager.get_stats()
             return {
                 'blacklist_ips_count': stats.ips_count,
                 'blacklist_domains_count': stats.domains_count,
                 'blacklist_terms_count': stats.terms_count,
                 'blacklist_total_entries': stats.ips_count + stats.domains_count + stats.terms_count,
             }
-        return {
-            'blacklist_ips_count': 0,
-            'blacklist_domains_count': 0,
-            'blacklist_terms_count': 0,
-            'blacklist_total_entries': 0,
-        }
+        except Exception:
+            return {
+                'blacklist_ips_count': 0,
+                'blacklist_domains_count': 0,
+                'blacklist_terms_count': 0,
+                'blacklist_total_entries': 0,
+            }

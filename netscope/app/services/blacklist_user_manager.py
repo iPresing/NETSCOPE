@@ -156,15 +156,31 @@ class BlacklistUserManager:
             logger.warning("BlacklistManager non disponible — vérification doublons defaults ignorée")
 
     def _trigger_reload(self) -> None:
-        """Déclenche le rechargement du BlacklistManager."""
+        """Déclenche le rechargement du BlacklistManager et la re-détection."""
         try:
             from app.core.detection.blacklist_manager import get_blacklist_manager
             manager = get_blacklist_manager()
             if hasattr(manager, 'merge_user_entries'):
                 manager.merge_user_entries(self._entries)
                 logger.debug("BlacklistManager rechargé avec entrées utilisateur")
+
+            # Re-lancer la détection sur la dernière capture pour
+            # que le health score reflète les changements immédiatement
+            self._trigger_redetection()
         except Exception as exc:
             logger.warning(f"Impossible de recharger BlacklistManager: {exc}")
+
+    def _trigger_redetection(self) -> None:
+        """Re-lance la détection d'anomalies sur la dernière capture."""
+        try:
+            from app.core.capture import get_tcpdump_manager
+            tcpdump = get_tcpdump_manager()
+            if tcpdump.redetect_latest():
+                logger.info("Re-détection effectuée après modification blacklist")
+            else:
+                logger.debug("Pas de capture disponible pour re-détection")
+        except Exception as exc:
+            logger.warning(f"Re-détection impossible: {exc}")
 
 
 # Singleton
