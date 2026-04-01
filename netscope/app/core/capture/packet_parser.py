@@ -26,8 +26,11 @@ SCAPY_AVAILABLE = False
 DPKT_AVAILABLE = False
 
 try:
-    from scapy.all import rdpcap, IP, TCP, UDP, ICMP, DNS, DNSQR, Raw
+    from scapy.all import rdpcap, IP, TCP, UDP, ICMP, DNS, DNSQR, Raw, bind_layers
     SCAPY_AVAILABLE = True
+    # Bind DNS layer to mDNS port 5353 so Scapy parses mDNS as DNS
+    bind_layers(UDP, DNS, dport=5353)
+    bind_layers(UDP, DNS, sport=5353)
     logger.debug("Scapy available for packet parsing")
 except ImportError:
     pass
@@ -194,7 +197,7 @@ def _parse_with_scapy(pcap_path: Path) -> tuple[list[PacketInfo], CaptureSummary
             port_counter[port_src] += 1
             port_counter[port_dst] += 1
 
-            # Extract DNS queries (AC2) - port 53
+            # Extract DNS/mDNS queries (AC2) - port 53 + 5353
             if DNS in pkt and pkt[DNS].qr == 0:  # qr=0 means query
                 dns_layer = pkt[DNS]
                 if DNSQR in pkt:
