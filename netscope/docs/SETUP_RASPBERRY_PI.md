@@ -18,10 +18,9 @@
 
 ## 1. Prérequis matériel
 
-- **Raspberry Pi** : Zero 2 W, Pi 3, Pi 4 ou Pi 5 (USB OTG requis pour le mode gadget USB)
+- **Raspberry Pi** : Zero 2 W, Pi 3, Pi 4 ou Pi 5
 - **Carte microSD** : 16 Go minimum (classe 10 recommandée)
-- **Alimentation** : 5V / 2.5A minimum (ou alimentation via USB du PC pour le Pi Zero)
-- **Câble USB** : micro-USB (Pi Zero) ou USB-C (Pi 4/5) pour connexion au PC
+- **Alimentation** : 5V / 2.5A minimum
 - **PC** avec lecteur de carte SD et **Raspberry Pi Imager** installé
 
 ---
@@ -121,14 +120,13 @@ NETSCOPE_CONFIG_PATH=data/config/netscope.yaml
 
 ## 8. (Optionnel) Déployer le réseau probe
 
-Si vous souhaitez configurer le mode AP (point d'accès Wi-Fi) et le gadget USB :
+Si vous souhaitez configurer le mode AP (point d'accès Wi-Fi) :
 
 ```bash
 sudo bash scripts/deploy_netscope_probe.sh
 ```
 
 Ce script configure :
-- **USB Gadget** (`usb0`) : le Pi apparaît comme une carte réseau USB (IP `192.168.50.1`)
 - **Point d'accès Wi-Fi** (`ap0`) : réseau `NETSCOPE_PROBE`, mot de passe `netscope123` (IP `192.168.88.1`)
 - **Commutation automatique** : sniff Ethernet branché / AP+NAT si débranché
 
@@ -157,7 +155,6 @@ L'application démarre sur **`http://<IP_DU_PI>:5000`**.
 | Mode de connexion | URL |
 |---|---|
 | Via Wi-Fi (même réseau) | `http://<IP_DU_PI>:5000` |
-| Via USB Gadget | `http://192.168.50.1:5000` |
 | Via AP NETSCOPE_PROBE | `http://192.168.88.1:5000` |
 
 ---
@@ -206,4 +203,3 @@ sudo venv/bin/python run.py
 | Pi introuvable sur le réseau | Vérifier la config Wi-Fi dans Imager, ou brancher un écran/clavier |
 | Port 5000 inaccessible | Vérifier le firewall : `sudo iptables -L` |
 | Module `scapy` introuvable | Vérifier que le venv est activé : `source venv/bin/activate` |
-| USB Gadget ne fonctionne pas | Rebooter après `deploy_netscope_probe.sh`, vérifier le câble USB data |

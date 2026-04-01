@@ -154,7 +154,7 @@ def _get_connection_mode(interface_type):
     from app.core.capture.interface_detector import InterfaceType
 
     mode_map = {
-        InterfaceType.USB_GADGET: 'USB Gadget',
+        InterfaceType.ACCESS_POINT: 'Access Point',
         InterfaceType.ETHERNET: 'Ethernet',
         InterfaceType.WIFI: 'WiFi',
         InterfaceType.UNKNOWN: 'Unknown',

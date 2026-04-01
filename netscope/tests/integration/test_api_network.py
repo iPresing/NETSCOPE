@@ -111,17 +111,17 @@ class TestNetworkInterfacesEndpoint:
             mac_address="aa:bb:cc:dd:ee:ff",
             description="Ethernet"
         )
-        usb_interface = NetworkInterface(
-            name="usb0",
-            type=InterfaceType.USB_GADGET,
-            ip_address="192.168.50.1",
+        ap_interface = NetworkInterface(
+            name="ap0",
+            type=InterfaceType.ACCESS_POINT,
+            ip_address="192.168.88.1",
             is_up=True,
             is_connected=True,
             mac_address="bb:cc:dd:ee:ff:aa",
-            description="USB Ethernet Gadget"
+            description="Point d'acces WiFi"
         )
 
-        mock_detect.return_value = [eth_interface, usb_interface]
+        mock_detect.return_value = [eth_interface, ap_interface]
         mock_recommended.return_value = eth_interface
 
         response = client.get('/api/network/interfaces')

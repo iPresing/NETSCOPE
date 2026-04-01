@@ -6,7 +6,6 @@ trap 'echo "[ERREUR] ligne $LINENO : $BASH_COMMAND" >&2' ERR
 # NETSCOPE - Raspberry Pi deployment script (safe SSH)
 # - Wi-Fi uplink on wlan0 (managed by your current system / NM)
 # - AP on ap0 (virtual interface on wlan0)
-# - USB gadget on usb0
 # - Ethernet plugged => sniff-only (AP off, no NAT)
 # - Ethernet unplugged => AP on + NAT via wlan0
 #
@@ -30,13 +29,6 @@ AP_DHCP_START="${AP_DHCP_START:-192.168.88.50}"
 AP_DHCP_END="${AP_DHCP_END:-192.168.88.200}"
 AP_DHCP_LEASE="${AP_DHCP_LEASE:-12h}"
 
-USB_IF="${USB_IF:-usb0}"
-USB_IP="${USB_IP:-192.168.50.1/24}"
-USB_NET="${USB_NET:-192.168.50.0/24}"
-USB_DHCP_START="${USB_DHCP_START:-192.168.50.50}"
-USB_DHCP_END="${USB_DHCP_END:-192.168.50.200}"
-USB_DHCP_LEASE="${USB_DHCP_LEASE:-12h}"
-
 DNS1="${DNS1:-1.1.1.1}"
 DNS2="${DNS2:-8.8.8.8}"
 
@@ -46,7 +38,6 @@ HOSTAPD_CONF="/etc/hostapd/hostapd.conf"
 HOSTAPD_DEFAULT="/etc/default/hostapd"
 DNSMASQ_MAIN="/etc/dnsmasq.conf"
 DNSMASQ_AP="/etc/dnsmasq.d/netscope-ap.conf"
-DNSMASQ_USB="/etc/dnsmasq.d/netscope-usb.conf"
 SYSCTL_FILE="/etc/sysctl.d/90-netscope.conf"
 NM_UNMANAGED_CONF="/etc/NetworkManager/conf.d/99-netscope-unmanaged.conf"
 
@@ -109,29 +100,13 @@ apt_install() {
     hostapd dnsmasq iw iproute2 iptables iptables-persistent wireless-regdb
 }
 
-configure_usb_gadget_boot() {
-  boot_paths
-  backup "$BOOT_CONFIG"
-  backup "$BOOT_CMDLINE"
-  backup "$MODULES_FILE"
-
-  grep -q '^dtoverlay=dwc2' "$BOOT_CONFIG" 2>/dev/null || {
-    printf "\n# NETSCOPE USB gadget\ndtoverlay=dwc2\n" >> "$BOOT_CONFIG"
-  }
-
-  ensure_cmdline_token "modules-load=dwc2,g_ether" "$BOOT_CMDLINE"
-
-  grep -qs '^dwc2$' "$MODULES_FILE" || echo "dwc2" >> "$MODULES_FILE"
-  grep -qs '^g_ether$' "$MODULES_FILE" || echo "g_ether" >> "$MODULES_FILE"
-}
-
 configure_networkmanager_unmanaged() {
   mkdir -p /etc/NetworkManager/conf.d
   backup "$NM_UNMANAGED_CONF"
 
   cat > "$NM_UNMANAGED_CONF" <<EOF
 [keyfile]
-unmanaged-devices=interface-name:${AP_IF};interface-name:${USB_IF}
+unmanaged-devices=interface-name:${AP_IF}
 EOF
 }
 
@@ -182,7 +157,6 @@ configure_dnsmasq() {
   mkdir -p /etc/dnsmasq.d
   backup "$DNSMASQ_MAIN"
   backup "$DNSMASQ_AP"
-  backup "$DNSMASQ_USB"
 
   cat > "$DNSMASQ_MAIN" <<EOF
 conf-dir=/etc/dnsmasq.d
@@ -199,14 +173,6 @@ bind-dynamic
 dhcp-range=set:apnet,${AP_DHCP_START},${AP_DHCP_END},${AP_DHCP_LEASE}
 dhcp-option=tag:apnet,option:router,${AP_IP%/*}
 dhcp-option=tag:apnet,option:dns-server,${AP_IP%/*}
-EOF
-
-  cat > "$DNSMASQ_USB" <<EOF
-interface=${USB_IF}
-bind-dynamic
-dhcp-range=set:usbnet,${USB_DHCP_START},${USB_DHCP_END},${USB_DHCP_LEASE}
-dhcp-option=tag:usbnet,option:router,${USB_IP%/*}
-dhcp-option=tag:usbnet,option:dns-server,${USB_IP%/*}
 EOF
 
   safe_enable "dnsmasq.service"
@@ -310,8 +276,6 @@ set -euo pipefail
 WIFI_UPLINK_IF="${WIFI_UPLINK_IF}"
 AP_IF="${AP_IF}"
 AP_IP="${AP_IP}"
-USB_IF="${USB_IF}"
-USB_IP="${USB_IP}"
 
 IW_BIN="\$(command -v iw)"
 IP_BIN="\$(command -v ip)"
@@ -325,11 +289,6 @@ fi
 if "\$IP_BIN" link show "\$AP_IF" >/dev/null 2>&1; then
   "\$IP_BIN" addr replace "\$AP_IP" dev "\$AP_IF"
   "\$IP_BIN" link set "\$AP_IF" up
-fi
-
-if "\$IP_BIN" link show "\$USB_IF" >/dev/null 2>&1; then
-  "\$IP_BIN" addr replace "\$USB_IP" dev "\$USB_IF"
-  "\$IP_BIN" link set "\$USB_IF" up
 fi
 EOF
   chmod 0755 "$AP0_HELPER"
@@ -364,12 +323,9 @@ configure_mode_manager() {
 set -euo pipefail
 
 AP_IF="${AP_IF}"
-USB_IF="${USB_IF}"
 WIFI_UPLINK_IF="${WIFI_UPLINK_IF}"
 AP_NET="${AP_NET}"
 AP_IP="${AP_IP}"
-USB_NET="${USB_NET}"
-USB_IP="${USB_IP}"
 HOSTAPD_CONF="${HOSTAPD_CONF}"
 AP_CHANNEL_FALLBACK="${AP_CHANNEL_FALLBACK}"
 
@@ -384,7 +340,6 @@ detect_eth_link() {
   for p in /sys/class/net/*; do
     i="\$(basename "\$p")"
     [[ "\$i" == "lo" ]] && continue
-    [[ "\$i" == "\$USB_IF" ]] && continue
     [[ "\$i" == "\$AP_IF" ]] && continue
     [[ "\$i" == "\$WIFI_UPLINK_IF" ]] && continue
     [[ -f "/sys/class/net/\$i/type" ]] || continue
@@ -468,12 +423,6 @@ enter_gateway_wifi() {
   ensure_chains
   flush_chains
 
-  if "\$IP_BIN" link show "\$USB_IF" >/dev/null 2>&1; then
-    iptables_ensure nat    NETSCOPE_POSTROUTING -s "\$USB_NET" -o "\$WIFI_UPLINK_IF" -j MASQUERADE
-    iptables_ensure filter NETSCOPE_FORWARD     -i "\$USB_IF" -o "\$WIFI_UPLINK_IF" -s "\$USB_NET" -j ACCEPT
-    iptables_ensure filter NETSCOPE_FORWARD     -i "\$WIFI_UPLINK_IF" -o "\$USB_IF" -d "\$USB_NET" -m state --state RELATED,ESTABLISHED -j ACCEPT
-  fi
-
   if "\$IP_BIN" link show "\$AP_IF" >/dev/null 2>&1; then
     iptables_ensure nat    NETSCOPE_POSTROUTING -s "\$AP_NET" -o "\$WIFI_UPLINK_IF" -j MASQUERADE
     iptables_ensure filter NETSCOPE_FORWARD     -i "\$AP_IF" -o "\$WIFI_UPLINK_IF" -s "\$AP_NET" -j ACCEPT
@@ -484,9 +433,6 @@ enter_gateway_wifi() {
   if [[ -f /run/netscope-captive.active ]] && [[ "\$(cat /run/netscope-captive.active 2>/dev/null)" == "active" ]]; then
     if "\$IP_BIN" link show "\$AP_IF" >/dev/null 2>&1; then
       iptables_ensure nat NETSCOPE_PREROUTING -i "\$AP_IF" -p tcp --dport 80 -j DNAT --to-destination "\${AP_IP%/*}:80"
-    fi
-    if "\$IP_BIN" link show "\$USB_IF" >/dev/null 2>&1; then
-      iptables_ensure nat NETSCOPE_PREROUTING -i "\$USB_IF" -p tcp --dport 80 -j DNAT --to-destination "\${USB_IP%/*}:80"
     fi
   fi
 
@@ -560,10 +506,7 @@ main() {
   step "Installation des paquets"
   apt_install
 
-  step "Configuration USB gadget au boot"
-  configure_usb_gadget_boot
-
-  step "Configuration NetworkManager (ap0/usb0 unmanaged)"
+  step "Configuration NetworkManager (ap0 unmanaged)"
   configure_networkmanager_unmanaged
 
   step "Configuration hostapd"

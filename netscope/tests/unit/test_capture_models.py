@@ -55,11 +55,11 @@ class TestCaptureConfig:
 
     def test_to_dict(self):
         """Test conversion to dictionary."""
-        config = CaptureConfig(duration=90, interface="usb0")
+        config = CaptureConfig(duration=90, interface="ap0")
         result = config.to_dict()
 
         assert result["duration_seconds"] == 90
-        assert result["interface"] == "usb0"
+        assert result["interface"] == "ap0"
         assert "bpf_filter" in result
 
 

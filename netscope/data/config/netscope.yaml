@@ -9,7 +9,7 @@ capture:
   max_duration: 600              # Duree max autorisee (10 min)
   headers_only: false            # Mode complet pour inspection paquets
   snap_length: 1500              # Bytes captures par paquet (1500 = MTU Ethernet)
-  interface: "auto"              # "auto" = detection automatique, ou "eth0", "usb0"
+  interface: "auto"              # "auto" = ap0 si actif, sinon eth0
   bpf_filter: "not port 22"      # Filtre BPF par defaut (exclut SSH)
 
 # =============================================================================
@@ -84,7 +84,6 @@ logging:
 network:
   web_host: "0.0.0.0"            # Interface ecoute Flask
   web_port: 80                   # Port web (80 = pas de :port dans URL)
-  usb_gadget_ip: "192.168.50.1"  # IP mode USB gadget
 
 # =============================================================================
 # EXPORT SETTINGS

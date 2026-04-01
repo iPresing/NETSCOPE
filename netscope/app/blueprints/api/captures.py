@@ -258,7 +258,7 @@ def get_capture_config():
             },
             "interface": {
                 "default": "auto",
-                "description": "Network interface (auto, eth0, usb0, wlan0)",
+                "description": "Network interface (auto, ap0, eth0)",
             },
             "bpf_filter": {
                 "default": DEFAULT_BPF_FILTER,

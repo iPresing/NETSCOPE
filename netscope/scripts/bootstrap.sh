@@ -238,5 +238,5 @@ if [[ ! "$reboot_ans" =~ ^[nN]$ ]]; then
     sleep 3
     reboot
 else
-    warn "Pense à redémarrer pour activer USB gadget et AP Wi-Fi."
+    warn "Pense à redémarrer pour activer le AP Wi-Fi."
 fi

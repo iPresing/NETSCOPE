@@ -1,7 +1,7 @@
 """Interface Detector Module for NETSCOPE.
 
 Detects and manages network interfaces for the application,
-supporting USB gadget, Ethernet, and WiFi connections.
+supporting Access Point (ap0), Ethernet, and WiFi connections.
 """
 
 from __future__ import annotations
@@ -16,11 +16,10 @@ import psutil
 logger = logging.getLogger(__name__)
 
 # Constants
-USB_GADGET_IP = "192.168.50.1"
-USB_GADGET_INTERFACE = "usb0"
+AP_INTERFACE = "ap0"
 ETHERNET_INTERFACE = "eth0"
 WIFI_INTERFACE = "wlan0"
-INTERFACE_PRIORITY = [ETHERNET_INTERFACE, USB_GADGET_INTERFACE, WIFI_INTERFACE]
+INTERFACE_PRIORITY = [AP_INTERFACE, ETHERNET_INTERFACE]
 
 # Interfaces to exclude from detection
 EXCLUDED_INTERFACES = {"lo", "localhost", "docker0", "br-", "veth"}
@@ -29,7 +28,7 @@ EXCLUDED_INTERFACES = {"lo", "localhost", "docker0", "br-", "veth"}
 class InterfaceType(Enum):
     """Network interface types supported by NETSCOPE."""
 
-    USB_GADGET = "usb_gadget"
+    ACCESS_POINT = "access_point"
     ETHERNET = "ethernet"
     WIFI = "wifi"
     UNKNOWN = "unknown"
@@ -40,7 +39,7 @@ class NetworkInterface:
     """Represents a network interface with its properties.
 
     Attributes:
-        name: Interface name (e.g., 'eth0', 'usb0', 'wlan0')
+        name: Interface name (e.g., 'ap0', 'eth0', 'wlan0')
         type: InterfaceType enum value
         ip_address: IPv4 address or None if not assigned
         is_up: Whether the interface is up
@@ -67,8 +66,8 @@ def _get_interface_type(name: str) -> InterfaceType:
     Returns:
         InterfaceType enum value
     """
-    if name == USB_GADGET_INTERFACE or name.startswith("usb"):
-        return InterfaceType.USB_GADGET
+    if name == AP_INTERFACE:
+        return InterfaceType.ACCESS_POINT
     elif name == ETHERNET_INTERFACE or name.startswith("eth") or name.startswith("enp"):
         return InterfaceType.ETHERNET
     elif name == WIFI_INTERFACE or name.startswith("wlan") or name.startswith("wlp"):
@@ -86,7 +85,7 @@ def _get_interface_description(interface_type: InterfaceType) -> str:
         Description string
     """
     descriptions = {
-        InterfaceType.USB_GADGET: "USB Ethernet Gadget",
+        InterfaceType.ACCESS_POINT: "Point d'acces WiFi",
         InterfaceType.ETHERNET: "Ethernet",
         InterfaceType.WIFI: "WiFi",
         InterfaceType.UNKNOWN: "Unknown Interface",
@@ -175,7 +174,7 @@ def get_recommended_interface(
 ) -> NetworkInterface | None:
     """Get the recommended interface based on priority.
 
-    Priority order: eth0 > usb0 > wlan0
+    Priority order: ap0 > eth0
     Only connected interfaces are considered.
 
     Args:

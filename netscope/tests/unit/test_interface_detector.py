@@ -13,8 +13,7 @@ from app.core.capture.interface_detector import (
     _get_interface_type,
     _get_interface_description,
     _is_excluded_interface,
-    USB_GADGET_IP,
-    USB_GADGET_INTERFACE,
+    AP_INTERFACE,
     ETHERNET_INTERFACE,
     WIFI_INTERFACE,
     INTERFACE_PRIORITY,
@@ -26,7 +25,7 @@ class TestInterfaceType:
 
     def test_interface_type_values(self):
         """Test InterfaceType enum has correct values."""
-        assert InterfaceType.USB_GADGET.value == "usb_gadget"
+        assert InterfaceType.ACCESS_POINT.value == "access_point"
         assert InterfaceType.ETHERNET.value == "ethernet"
         assert InterfaceType.WIFI.value == "wifi"
         assert InterfaceType.UNKNOWN.value == "unknown"
@@ -34,7 +33,7 @@ class TestInterfaceType:
     def test_interface_type_members(self):
         """Test all expected InterfaceType members exist."""
         members = [e.name for e in InterfaceType]
-        assert "USB_GADGET" in members
+        assert "ACCESS_POINT" in members
         assert "ETHERNET" in members
         assert "WIFI" in members
         assert "UNKNOWN" in members
@@ -80,34 +79,25 @@ class TestNetworkInterface:
 class TestConstants:
     """Tests for module constants."""
 
-    def test_usb_gadget_ip(self):
-        """Test USB gadget IP constant."""
-        assert USB_GADGET_IP == "192.168.50.1"
-
     def test_interface_names(self):
         """Test interface name constants."""
-        assert USB_GADGET_INTERFACE == "usb0"
+        assert AP_INTERFACE == "ap0"
         assert ETHERNET_INTERFACE == "eth0"
         assert WIFI_INTERFACE == "wlan0"
 
     def test_interface_priority(self):
-        """Test interface priority order (eth0 > usb0 > wlan0)."""
-        assert INTERFACE_PRIORITY == ["eth0", "usb0", "wlan0"]
-        assert INTERFACE_PRIORITY[0] == ETHERNET_INTERFACE
-        assert INTERFACE_PRIORITY[1] == USB_GADGET_INTERFACE
-        assert INTERFACE_PRIORITY[2] == WIFI_INTERFACE
+        """Test interface priority order (ap0 > eth0)."""
+        assert INTERFACE_PRIORITY == ["ap0", "eth0"]
+        assert INTERFACE_PRIORITY[0] == AP_INTERFACE
+        assert INTERFACE_PRIORITY[1] == ETHERNET_INTERFACE
 
 
 class TestGetInterfaceType:
     """Tests for _get_interface_type helper function."""
 
-    def test_usb0_returns_usb_gadget(self):
-        """Test usb0 is identified as USB_GADGET."""
-        assert _get_interface_type("usb0") == InterfaceType.USB_GADGET
-
-    def test_usb_prefix_returns_usb_gadget(self):
-        """Test interfaces starting with usb are USB_GADGET."""
-        assert _get_interface_type("usb1") == InterfaceType.USB_GADGET
+    def test_ap0_returns_access_point(self):
+        """Test ap0 is identified as ACCESS_POINT."""
+        assert _get_interface_type("ap0") == InterfaceType.ACCESS_POINT
 
     def test_eth0_returns_ethernet(self):
         """Test eth0 is identified as ETHERNET."""
@@ -137,14 +127,15 @@ class TestGetInterfaceType:
         """Test unknown interfaces return UNKNOWN."""
         assert _get_interface_type("bond0") == InterfaceType.UNKNOWN
         assert _get_interface_type("tun0") == InterfaceType.UNKNOWN
+        assert _get_interface_type("usb0") == InterfaceType.UNKNOWN
 
 
 class TestGetInterfaceDescription:
     """Tests for _get_interface_description helper function."""
 
-    def test_usb_gadget_description(self):
-        """Test USB_GADGET returns correct description."""
-        assert _get_interface_description(InterfaceType.USB_GADGET) == "USB Ethernet Gadget"
+    def test_access_point_description(self):
+        """Test ACCESS_POINT returns correct description."""
+        assert _get_interface_description(InterfaceType.ACCESS_POINT) == "Point d'acces WiFi"
 
     def test_ethernet_description(self):
         """Test ETHERNET returns correct description."""
@@ -186,9 +177,9 @@ class TestIsExcludedInterface:
         """Test eth0 is NOT excluded."""
         assert _is_excluded_interface("eth0") is False
 
-    def test_usb0_not_excluded(self):
-        """Test usb0 is NOT excluded."""
-        assert _is_excluded_interface("usb0") is False
+    def test_ap0_not_excluded(self):
+        """Test ap0 is NOT excluded."""
+        assert _is_excluded_interface("ap0") is False
 
     def test_wlan0_not_excluded(self):
         """Test wlan0 is NOT excluded."""
@@ -217,29 +208,28 @@ class TestDetectInterfaces:
 
         interfaces = detect_interfaces()
 
-        # Should detect eth0, not lo (loopback)
         interface_names = [i.name for i in interfaces]
         assert 'eth0' in interface_names
         assert 'lo' not in interface_names
 
     @patch('app.core.capture.interface_detector.psutil')
-    def test_detect_interfaces_with_usb0(self, mock_psutil):
-        """Test detection with usb0 interface (USB gadget)."""
+    def test_detect_interfaces_with_ap0(self, mock_psutil):
+        """Test detection with ap0 interface (Access Point)."""
         mock_psutil.net_if_addrs.return_value = {
-            'usb0': [
-                MagicMock(family=socket.AF_INET, address='192.168.50.1'),
+            'ap0': [
+                MagicMock(family=socket.AF_INET, address='192.168.88.1'),
             ],
         }
         mock_psutil.net_if_stats.return_value = {
-            'usb0': MagicMock(isup=True),
+            'ap0': MagicMock(isup=True),
         }
 
         interfaces = detect_interfaces()
 
         assert len(interfaces) == 1
-        assert interfaces[0].name == 'usb0'
-        assert interfaces[0].type == InterfaceType.USB_GADGET
-        assert interfaces[0].ip_address == '192.168.50.1'
+        assert interfaces[0].name == 'ap0'
+        assert interfaces[0].type == InterfaceType.ACCESS_POINT
+        assert interfaces[0].ip_address == '192.168.88.1'
 
     @patch('app.core.capture.interface_detector.psutil')
     def test_detect_interfaces_with_wlan0(self, mock_psutil):
@@ -287,18 +277,33 @@ class TestDetectInterfaces:
 class TestGetRecommendedInterface:
     """Tests for get_recommended_interface function."""
 
-    def test_recommended_interface_prefers_eth0(self):
-        """Test that eth0 is preferred over usb0 and wlan0."""
+    def test_recommended_interface_prefers_ap0(self):
+        """Test that ap0 is preferred over eth0."""
+        interfaces = [
+            NetworkInterface(
+                name="eth0", type=InterfaceType.ETHERNET,
+                ip_address="192.168.1.100", is_up=True, is_connected=True,
+                mac_address="cc:dd:ee:ff:aa:bb", description="Ethernet"
+            ),
+            NetworkInterface(
+                name="ap0", type=InterfaceType.ACCESS_POINT,
+                ip_address="192.168.88.1", is_up=True, is_connected=True,
+                mac_address="aa:bb:cc:dd:ee:ff", description="AP"
+            ),
+        ]
+
+        recommended = get_recommended_interface(interfaces)
+
+        assert recommended is not None
+        assert recommended.name == "ap0"
+
+    def test_recommended_interface_eth0_when_no_ap0(self):
+        """Test that eth0 is chosen when ap0 not available."""
         interfaces = [
             NetworkInterface(
                 name="wlan0", type=InterfaceType.WIFI,
                 ip_address="192.168.1.50", is_up=True, is_connected=True,
                 mac_address="aa:bb:cc:dd:ee:ff", description="WiFi"
-            ),
-            NetworkInterface(
-                name="usb0", type=InterfaceType.USB_GADGET,
-                ip_address="192.168.50.1", is_up=True, is_connected=True,
-                mac_address="bb:cc:dd:ee:ff:aa", description="USB"
             ),
             NetworkInterface(
                 name="eth0", type=InterfaceType.ETHERNET,
@@ -312,28 +317,8 @@ class TestGetRecommendedInterface:
         assert recommended is not None
         assert recommended.name == "eth0"
 
-    def test_recommended_interface_usb0_when_no_eth0(self):
-        """Test that usb0 is chosen when eth0 not available."""
-        interfaces = [
-            NetworkInterface(
-                name="wlan0", type=InterfaceType.WIFI,
-                ip_address="192.168.1.50", is_up=True, is_connected=True,
-                mac_address="aa:bb:cc:dd:ee:ff", description="WiFi"
-            ),
-            NetworkInterface(
-                name="usb0", type=InterfaceType.USB_GADGET,
-                ip_address="192.168.50.1", is_up=True, is_connected=True,
-                mac_address="bb:cc:dd:ee:ff:aa", description="USB"
-            ),
-        ]
-
-        recommended = get_recommended_interface(interfaces)
-
-        assert recommended is not None
-        assert recommended.name == "usb0"
-
-    def test_recommended_interface_wlan0_as_fallback(self):
-        """Test that wlan0 is chosen as last resort."""
+    def test_recommended_interface_fallback_first_connected(self):
+        """Test fallback to first connected interface."""
         interfaces = [
             NetworkInterface(
                 name="wlan0", type=InterfaceType.WIFI,
@@ -351,21 +336,21 @@ class TestGetRecommendedInterface:
         """Test that only connected interfaces are considered."""
         interfaces = [
             NetworkInterface(
-                name="eth0", type=InterfaceType.ETHERNET,
-                ip_address=None, is_up=True, is_connected=False,
-                mac_address="cc:dd:ee:ff:aa:bb", description="Ethernet"
+                name="ap0", type=InterfaceType.ACCESS_POINT,
+                ip_address=None, is_up=False, is_connected=False,
+                mac_address="aa:bb:cc:dd:ee:ff", description="AP"
             ),
             NetworkInterface(
-                name="usb0", type=InterfaceType.USB_GADGET,
-                ip_address="192.168.50.1", is_up=True, is_connected=True,
-                mac_address="bb:cc:dd:ee:ff:aa", description="USB"
+                name="eth0", type=InterfaceType.ETHERNET,
+                ip_address="192.168.1.100", is_up=True, is_connected=True,
+                mac_address="cc:dd:ee:ff:aa:bb", description="Ethernet"
             ),
         ]
 
         recommended = get_recommended_interface(interfaces)
 
         assert recommended is not None
-        assert recommended.name == "usb0"
+        assert recommended.name == "eth0"
 
     def test_recommended_interface_none_when_empty(self):
         """Test returns None when no interfaces available."""
