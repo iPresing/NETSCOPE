@@ -27,7 +27,7 @@ class TestDashboardRoutes:
         html = response.data.decode('utf-8')
         assert 'Dashboard' in html
         assert 'Anomalies' in html
-        assert 'Jobs' in html
+        assert 'Inspection' in html
         assert 'Admin' in html
 
     def test_anomalies_route_returns_200(self, client):
@@ -153,7 +153,7 @@ class TestNavigationConsistency:
             html = response.data.decode('utf-8')
             assert 'Dashboard' in html, f"Navigation missing on {route}"
             assert 'Anomalies' in html, f"Navigation missing on {route}"
-            assert 'Jobs' in html, f"Navigation missing on {route}"
+            assert 'Inspection' in html, f"Navigation missing on {route}"
             assert 'Admin' in html, f"Navigation missing on {route}"
 
     def test_active_page_indicator(self, client):

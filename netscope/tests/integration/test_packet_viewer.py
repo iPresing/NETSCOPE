@@ -67,13 +67,14 @@ class TestPacketsPage:
 class TestPacketsApiMissingParams:
     """Tests for GET /api/packets with missing parameters."""
 
-    def test_missing_params_returns_400(self, client):
-        """Should return 400 when no capture_id or anomaly_id."""
+    def test_missing_params_falls_back_to_latest(self, client):
+        """Should fallback to latest capture when no params (Story 4b.7 AC3)."""
         response = client.get('/api/packets')
-        assert response.status_code == 400
+        # Returns 200 if a capture exists, or 404 with NO_CAPTURE message
+        assert response.status_code in (200, 404)
         data = response.get_json()
-        assert data['success'] is False
-        assert data['error']['code'] == 'MISSING_PARAM'
+        if response.status_code == 404:
+            assert data['error']['code'] == 'NO_CAPTURE'
 
 
 class TestPacketsApiWithCapture:

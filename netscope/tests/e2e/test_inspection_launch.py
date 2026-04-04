@@ -20,14 +20,14 @@ class TestJobsPage:
     """Tests E2E pour la page /jobs."""
 
     def test_jobs_page_accessible(self, client):
-        """9.2: page /jobs accessible et affiche le formulaire."""
+        """9.2: page /jobs accessible et affiche le formulaire (refonte 4b.7)."""
         response = client.get('/jobs')
 
         assert response.status_code == 200
         html = response.data.decode('utf-8')
-        assert 'Jobs d\'Inspection' in html or 'Jobs d&#39;Inspection' in html
+        assert 'Inspection de Paquets' in html
         assert 'job-target-ip' in html
-        assert 'btn-create-job' in html
+        assert 'btn-inspect-packets' in html
 
     def test_create_job_and_list(self, client):
         """9.3: creation job via API et apparition dans la liste."""
@@ -126,13 +126,13 @@ class TestJobsPageDirection:
 class TestJobsPageQueue:
     """Tests E2E pour l'affichage queue (Story 4.3 - Task 8)."""
 
-    def test_jobs_page_shows_queue_capacity(self, client):
-        """Page /jobs affiche l'indicateur de capacite queue."""
+    def test_jobs_page_no_queue_capacity(self, client):
+        """Page /jobs ne contient plus l'indicateur queue (refonte 4b.7)."""
         response = client.get('/jobs')
 
         assert response.status_code == 200
         html = response.data.decode('utf-8')
-        assert 'queue-capacity' in html
+        assert 'queue-capacity' not in html
 
     def test_jobs_page_shows_queue_position(self, client):
         """Jobs en attente affichent leur position via l'API.
@@ -161,38 +161,35 @@ class TestJobsPageQueue:
         assert 1 in positions
         assert 2 in positions
 
-    def test_jobs_page_shows_slots_indicator(self, client):
-        """Page /jobs affiche l'indicateur de slots."""
+    def test_jobs_page_no_slots_indicator(self, client):
+        """Page /jobs ne contient plus l'indicateur de slots (refonte 4b.7)."""
         response = client.get('/jobs')
 
         assert response.status_code == 200
         html = response.data.decode('utf-8')
-        assert 'jobs-slots' in html
+        assert 'jobs-slots' not in html
 
 
 class TestJobsCancelE2E:
     """Tests E2E pour l'arret/annulation de jobs (Story 4.6 - Task 8.1)."""
 
-    def test_running_job_shows_stop_button(self, client):
-        """jobs.js contient le bouton Arreter pour les jobs RUNNING et la page l'inclut."""
-        page = client.get('/jobs')
-        assert page.status_code == 200
-        assert 'jobs.js' in page.data.decode('utf-8')
-
+    def test_jobs_js_no_stop_button(self, client):
+        """jobs.js ne contient plus de bouton Arreter (refonte 4b.7 - lecture seule)."""
         js_resp = client.get('/static/js/jobs.js')
         assert js_resp.status_code == 200
         js_content = js_resp.data.decode('utf-8')
-        assert 'stop-job-btn' in js_content
-        assert 'btn-danger' in js_content
+        assert 'stop-job-btn' not in js_content
+        assert 'cancelJob' not in js_content
 
-    def test_pending_job_shows_cancel_button(self, client):
-        """jobs.js contient le bouton Annuler pour les jobs PENDING et le cancel fonctionne via API."""
+    def test_jobs_js_no_cancel_button(self, client):
+        """jobs.js ne contient plus de bouton Annuler (refonte 4b.7 - lecture seule)."""
         js_resp = client.get('/static/js/jobs.js')
         assert js_resp.status_code == 200
         js_content = js_resp.data.decode('utf-8')
-        assert 'cancel-job-btn' in js_content
-        assert 'btn-outline' in js_content
+        assert 'cancel-job-btn' not in js_content
 
+    def test_cancel_api_still_works(self, client):
+        """API cancel fonctionne toujours meme si le frontend ne l'expose plus (AC7)."""
         from unittest.mock import patch, MagicMock
         with patch("app.core.inspection.job_queue.get_thread_manager") as mock_get_tm:
             tm = MagicMock()

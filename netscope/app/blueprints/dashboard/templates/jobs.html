@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
 
-{% block title %}Jobs Inspection - NETSCOPE{% endblock %}
+{% block title %}Inspection de Paquets - NETSCOPE{% endblock %}
 
 {% block content %}
 <div class="jobs-container">
     <section class="page-header">
-        <h2>Jobs d'Inspection</h2>
-        <p class="text-muted">Inspection approfondie avec Scapy</p>
+        <h2>Inspection de Paquets</h2>
+        <p class="text-muted">Explorer les paquets capturés avec des filtres</p>
     </section>
 
     <section class="jobs-actions card">
-        <h3>Nouvelle Inspection</h3>
+        <h3>Filtres d'Inspection</h3>
         <div class="form-row">
             <div class="form-group">
                 <label for="job-target-ip">Cible IP:</label>
@@ -37,29 +37,9 @@
                     <option value="ICMP">ICMP</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label for="job-duration">Duree (s):</label>
-                <input type="number" id="job-duration" class="form-control" value="30" min="5" max="120">
-            </div>
-            <button class="btn btn-primary" id="btn-create-job">
-                Lancer Inspection
+            <button class="btn btn-primary" id="btn-inspect-packets">
+                Voir les Paquets
             </button>
-        </div>
-    </section>
-
-    <section class="jobs-active card">
-        <h3>Jobs en Cours</h3>
-        <div id="jobs-slots"></div>
-        <div class="active-list" id="jobs-active-list">
-            <p class="text-muted text-center">Aucun job en cours d'execution</p>
-        </div>
-    </section>
-
-    <section class="jobs-queue card">
-        <h3>File d'Attente</h3>
-        <div id="queue-capacity"></div>
-        <div class="queue-list" id="jobs-queue-list">
-            <p class="text-muted text-center">Aucun job en attente</p>
         </div>
     </section>
 

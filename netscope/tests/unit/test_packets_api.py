@@ -1,4 +1,4 @@
-"""Unit tests for packet viewer API and helpers (Story 4.4)."""
+"""Unit tests for packet viewer API and helpers (Story 4.4 / 4b.7)."""
 
 import pytest
 import yaml
@@ -12,6 +12,10 @@ from app.core.capture.packet_parser import (
     find_pcap_by_capture_id,
     _extract_tcp_flags,
     SCAPY_AVAILABLE,
+)
+from app.blueprints.api.packets import (
+    _filter_by_port_protocol_direction,
+    _find_latest_pcap,
 )
 
 
@@ -375,3 +379,287 @@ class TestPerPageBounds:
         response = client.get('/api/packets?capture_id=cap_test&per_page=-5')
         data = response.get_json()
         assert data['result']['pagination']['per_page'] == 1
+
+
+# ============================================================
+# Story 4b.7 Tests — Port, Protocol, Direction filtering
+# ============================================================
+
+class TestFilterByPortProtocolDirection:
+    """Tests for _filter_by_port_protocol_direction() helper (Story 4b.7)."""
+
+    def _make_packet(self, ip_src="10.0.0.1", ip_dst="192.168.1.1",
+                     port_src=12345, port_dst=443, protocol="TCP"):
+        return PacketInfo(
+            timestamp=datetime(2026, 1, 15, 14, 30, 0),
+            ip_src=ip_src, ip_dst=ip_dst,
+            port_src=port_src, port_dst=port_dst,
+            protocol=protocol, length=100,
+        )
+
+    def test_filter_by_port_both(self):
+        """Port filter with default direction matches src or dst."""
+        packets = [
+            self._make_packet(port_src=443, port_dst=80),
+            self._make_packet(port_src=80, port_dst=443),
+            self._make_packet(port_src=80, port_dst=80),
+        ]
+        result = _filter_by_port_protocol_direction(packets, port=443)
+        assert len(result) == 2
+
+    def test_filter_by_port_src_only(self):
+        """Port filter with direction=src matches only source port."""
+        packets = [
+            self._make_packet(port_src=443, port_dst=80),
+            self._make_packet(port_src=80, port_dst=443),
+        ]
+        result = _filter_by_port_protocol_direction(packets, port=443, direction='src')
+        assert len(result) == 1
+        assert result[0].port_src == 443
+
+    def test_filter_by_port_dst_only(self):
+        """Port filter with direction=dst matches only destination port."""
+        packets = [
+            self._make_packet(port_src=443, port_dst=80),
+            self._make_packet(port_src=80, port_dst=443),
+        ]
+        result = _filter_by_port_protocol_direction(packets, port=443, direction='dst')
+        assert len(result) == 1
+        assert result[0].port_dst == 443
+
+    def test_filter_by_protocol(self):
+        """Protocol filter matches packet protocol."""
+        packets = [
+            self._make_packet(protocol="TCP"),
+            self._make_packet(protocol="UDP"),
+            self._make_packet(protocol="TCP"),
+        ]
+        result = _filter_by_port_protocol_direction(packets, protocol="TCP")
+        assert len(result) == 2
+
+    def test_filter_by_protocol_case_insensitive(self):
+        """Protocol filter is case-insensitive (compared uppercase)."""
+        packets = [self._make_packet(protocol="TCP")]
+        result = _filter_by_port_protocol_direction(packets, protocol="tcp")
+        assert len(result) == 1
+
+    def test_filter_by_direction_ip_src(self):
+        """Direction=src with filter_ip matches only ip_src."""
+        packets = [
+            self._make_packet(ip_src="10.0.0.1", ip_dst="192.168.1.1"),
+            self._make_packet(ip_src="192.168.1.1", ip_dst="10.0.0.1"),
+        ]
+        result = _filter_by_port_protocol_direction(
+            packets, direction='src', filter_ip='10.0.0.1')
+        assert len(result) == 1
+        assert result[0].ip_src == "10.0.0.1"
+
+    def test_filter_by_direction_ip_dst(self):
+        """Direction=dst with filter_ip matches only ip_dst."""
+        packets = [
+            self._make_packet(ip_src="10.0.0.1", ip_dst="192.168.1.1"),
+            self._make_packet(ip_src="192.168.1.1", ip_dst="10.0.0.1"),
+        ]
+        result = _filter_by_port_protocol_direction(
+            packets, direction='dst', filter_ip='192.168.1.1')
+        assert len(result) == 1
+        assert result[0].ip_dst == "192.168.1.1"
+
+    def test_combined_port_and_protocol(self):
+        """Combined port + protocol filter intersects correctly."""
+        packets = [
+            self._make_packet(port_dst=443, protocol="TCP"),
+            self._make_packet(port_dst=443, protocol="UDP"),
+            self._make_packet(port_dst=80, protocol="TCP"),
+        ]
+        result = _filter_by_port_protocol_direction(packets, port=443, protocol="TCP")
+        assert len(result) == 1
+        assert result[0].port_dst == 443 and result[0].protocol == "TCP"
+
+    def test_no_filters_returns_all(self):
+        """No filters returns all packets unchanged."""
+        packets = [self._make_packet(), self._make_packet()]
+        result = _filter_by_port_protocol_direction(packets)
+        assert len(result) == 2
+
+    def test_empty_list(self):
+        """Filtering empty list returns empty list."""
+        result = _filter_by_port_protocol_direction([], port=443, protocol="TCP")
+        assert result == []
+
+
+class TestFindLatestPcap:
+    """Tests for _find_latest_pcap() helper (Story 4b.7 AC3)."""
+
+    def test_returns_none_when_no_captures_dir(self, tmp_path):
+        """Returns None when captures directory doesn't exist."""
+        with patch('app.blueprints.api.packets.Path') as mock_path:
+            mock_path.return_value.exists.return_value = False
+            result = _find_latest_pcap()
+        assert result is None
+
+    def test_returns_none_when_no_pcap_files(self, tmp_path):
+        """Returns None when captures directory is empty."""
+        captures_dir = tmp_path / "captures"
+        captures_dir.mkdir()
+
+        with patch('app.blueprints.api.packets.Path') as mock_path:
+            mock_captures = MagicMock()
+            mock_captures.exists.return_value = True
+            mock_captures.glob.return_value = []
+            mock_path.return_value = mock_captures
+            result = _find_latest_pcap()
+        assert result is None
+
+    def test_returns_latest_pcap_by_mtime(self, tmp_path):
+        """Returns the most recent pcap file."""
+        import time
+        captures_dir = tmp_path / "captures"
+        captures_dir.mkdir()
+
+        old_pcap = captures_dir / "cap_old.pcap"
+        old_pcap.write_bytes(b"old")
+        time.sleep(0.05)
+        new_pcap = captures_dir / "cap_new.pcap"
+        new_pcap.write_bytes(b"new")
+
+        with patch('app.blueprints.api.packets.Path') as mock_path:
+            mock_path.return_value = captures_dir
+            capture_id, path = _find_latest_pcap()
+
+        assert capture_id == "cap_new"
+        assert path == new_pcap
+
+
+class TestPacketsApiNewParams:
+    """Integration tests for new API params (Story 4b.7)."""
+
+    def _make_mock_packets(self):
+        """Create a diverse set of mock packets for filtering tests."""
+        return [
+            PacketInfo(timestamp=datetime(2026, 1, 15, 14, 30, 0),
+                       ip_src="10.0.0.1", ip_dst="192.168.1.1",
+                       port_src=12345, port_dst=443, protocol="TCP", length=100),
+            PacketInfo(timestamp=datetime(2026, 1, 15, 14, 30, 1),
+                       ip_src="10.0.0.2", ip_dst="192.168.1.1",
+                       port_src=54321, port_dst=80, protocol="TCP", length=200),
+            PacketInfo(timestamp=datetime(2026, 1, 15, 14, 30, 2),
+                       ip_src="10.0.0.1", ip_dst="8.8.8.8",
+                       port_src=5353, port_dst=53, protocol="UDP", length=80),
+            PacketInfo(timestamp=datetime(2026, 1, 15, 14, 30, 3),
+                       ip_src="192.168.1.1", ip_dst="10.0.0.1",
+                       port_src=None, port_dst=None, protocol="ICMP", length=64),
+        ]
+
+    @patch('app.blueprints.api.packets.find_pcap_by_capture_id')
+    @patch('app.blueprints.api.packets._get_parsed_packets')
+    def test_filter_by_port_param(self, mock_parse, mock_find, client):
+        """API should filter packets by port parameter."""
+        mock_find.return_value = '/fake/path.pcap'
+        mock_parse.return_value = (self._make_mock_packets(), None)
+
+        response = client.get('/api/packets?capture_id=cap_test&port=443')
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['result']['filter_summary']['filter_port'] == 443
+        # Only the packet with port_dst=443 should match
+        assert data['result']['pagination']['total'] == 1
+
+    @patch('app.blueprints.api.packets.find_pcap_by_capture_id')
+    @patch('app.blueprints.api.packets._get_parsed_packets')
+    def test_filter_by_protocol_param(self, mock_parse, mock_find, client):
+        """API should filter packets by protocol parameter."""
+        mock_find.return_value = '/fake/path.pcap'
+        mock_parse.return_value = (self._make_mock_packets(), None)
+
+        response = client.get('/api/packets?capture_id=cap_test&protocol=UDP')
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['result']['pagination']['total'] == 1
+
+    @patch('app.blueprints.api.packets.find_pcap_by_capture_id')
+    @patch('app.blueprints.api.packets._get_parsed_packets')
+    def test_filter_by_direction_dst(self, mock_parse, mock_find, client):
+        """API should filter by direction=dst for IP."""
+        mock_find.return_value = '/fake/path.pcap'
+        mock_parse.return_value = (self._make_mock_packets(), None)
+
+        response = client.get('/api/packets?capture_id=cap_test&ip=192.168.1.1&direction=dst')
+        data = response.get_json()
+        assert data['success'] is True
+        # Only packets where ip_dst=192.168.1.1
+        assert data['result']['pagination']['total'] == 2
+
+    @patch('app.blueprints.api.packets.find_pcap_by_capture_id')
+    @patch('app.blueprints.api.packets._get_parsed_packets')
+    def test_combined_port_protocol_direction(self, mock_parse, mock_find, client):
+        """API should handle combined port + protocol + direction."""
+        mock_find.return_value = '/fake/path.pcap'
+        mock_parse.return_value = (self._make_mock_packets(), None)
+
+        response = client.get('/api/packets?capture_id=cap_test&port=443&protocol=TCP&direction=dst')
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['result']['pagination']['total'] == 1
+
+    def test_invalid_port_rejected(self, client):
+        """API should reject invalid port values."""
+        response = client.get('/api/packets?capture_id=cap_test&port=99999')
+        assert response.status_code == 400
+        assert response.get_json()['error']['code'] == 'INVALID_PARAM'
+
+    def test_invalid_port_string_rejected(self, client):
+        """API should reject non-numeric port values."""
+        response = client.get('/api/packets?capture_id=cap_test&port=abc')
+        assert response.status_code == 400
+
+    def test_invalid_protocol_rejected(self, client):
+        """API should reject invalid protocol values."""
+        response = client.get('/api/packets?capture_id=cap_test&protocol=INVALID')
+        assert response.status_code == 400
+        assert response.get_json()['error']['code'] == 'INVALID_PARAM'
+
+    def test_invalid_direction_rejected(self, client):
+        """API should reject invalid direction values."""
+        response = client.get('/api/packets?capture_id=cap_test&direction=up')
+        assert response.status_code == 400
+        assert response.get_json()['error']['code'] == 'INVALID_PARAM'
+
+    @patch('app.blueprints.api.packets._find_latest_pcap')
+    @patch('app.blueprints.api.packets._get_parsed_packets')
+    @patch('app.blueprints.api.packets._validate_capture_id')
+    @patch('app.blueprints.api.packets.find_pcap_by_capture_id')
+    def test_fallback_to_latest_capture(self, mock_find, mock_validate, mock_parse, mock_latest, client):
+        """API should use latest capture when no capture_id provided."""
+        mock_latest.return_value = ("cap_latest", Path("/fake/latest.pcap"))
+        mock_validate.return_value = True
+        mock_find.return_value = Path("/fake/latest.pcap")
+        mock_parse.return_value = ([], None)
+
+        response = client.get('/api/packets?ip=10.0.0.1')
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['result']['capture_id'] == 'cap_latest'
+
+    @patch('app.blueprints.api.packets._find_latest_pcap')
+    def test_no_capture_available_message(self, mock_latest, client):
+        """API should return explicit message when no captures exist (AC3)."""
+        mock_latest.return_value = None
+
+        response = client.get('/api/packets?ip=10.0.0.1')
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data['error']['code'] == 'NO_CAPTURE'
+        assert 'Aucune capture disponible' in data['error']['message']
+
+    @patch('app.blueprints.api.packets.find_pcap_by_capture_id')
+    @patch('app.blueprints.api.packets._get_parsed_packets')
+    def test_ip_alias_param(self, mock_parse, mock_find, client):
+        """API should accept 'ip' as alias for 'filter_ip'."""
+        mock_find.return_value = '/fake/path.pcap'
+        mock_parse.return_value = (self._make_mock_packets(), None)
+
+        response = client.get('/api/packets?capture_id=cap_test&ip=10.0.0.1')
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['result']['filter_summary']['filter_ip'] == '10.0.0.1'

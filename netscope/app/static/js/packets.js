@@ -25,7 +25,14 @@
     var anomalyId = null;
     var filterIp = null;
     var filterDomain = null;
+    var filterPort = null;
+    var filterProtocol = null;
+    var filterDirection = null;
+    var isManualFilter = false;
     var allPackets = []; // Current page packets for local filtering
+
+    // Manual filter banner element
+    var manualBannerEl = document.getElementById('manual-filter-banner');
 
     var escapeHtml = window.NetScopeUtils ? window.NetScopeUtils.escapeHtml : function(text) {
         if (!text) return '';
@@ -41,10 +48,24 @@
         var params = new URLSearchParams(window.location.search);
         anomalyId = params.get('anomaly_id');
         captureId = params.get('capture_id');
-        filterIp = params.get('filter_ip');
+        filterIp = params.get('filter_ip') || params.get('ip');
         filterDomain = params.get('filter_domain');
+        filterPort = params.get('port') ? parseInt(params.get('port'), 10) : null;
+        filterProtocol = params.get('protocol') || null;
+        filterDirection = params.get('direction') || null;
         var pageParam = params.get('page');
         if (pageParam) currentPage = parseInt(pageParam, 10) || 1;
+
+        // Manual filter context (from inspection form, not anomaly)
+        isManualFilter = !anomalyId && !!(filterIp || filterPort || filterProtocol || filterDirection);
+
+        // Pre-fill select filters from URL params
+        if (filterProtocol && protocolFilterEl) {
+            protocolFilterEl.value = filterProtocol;
+        }
+        if (filterDirection && directionFilterEl) {
+            directionFilterEl.value = filterDirection;
+        }
     }
 
     /**
@@ -54,8 +75,11 @@
         var url = '/api/packets?per_page=50&page=' + page;
         if (anomalyId) url += '&anomaly_id=' + encodeURIComponent(anomalyId);
         if (captureId) url += '&capture_id=' + encodeURIComponent(captureId);
-        if (filterIp) url += '&filter_ip=' + encodeURIComponent(filterIp);
+        if (filterIp) url += '&ip=' + encodeURIComponent(filterIp);
         if (filterDomain) url += '&filter_domain=' + encodeURIComponent(filterDomain);
+        if (filterPort) url += '&port=' + filterPort;
+        if (filterProtocol) url += '&protocol=' + encodeURIComponent(filterProtocol);
+        if (filterDirection) url += '&direction=' + encodeURIComponent(filterDirection);
         return url;
     }
 
@@ -83,9 +107,11 @@
                     totalPages = result.pagination.total_pages;
                     currentPage = result.pagination.page;
 
-                    // Show anomaly context banner
+                    // Show context banners (mutually exclusive)
                     if (result.anomaly_context) {
                         showAnomalyBanner(result.anomaly_context);
+                    } else if (isManualFilter) {
+                        showManualFilterBanner();
                     }
 
                     // Render
@@ -101,6 +127,24 @@
                 showError(msg);
                 console.error('[packets] Error:', error);
             });
+    }
+
+    /**
+     * Show manual filter banner (from inspection form)
+     */
+    function showManualFilterBanner() {
+        if (!manualBannerEl || !isManualFilter) return;
+        manualBannerEl.style.display = 'block';
+
+        var detailsEl = document.getElementById('manual-filter-details');
+        if (detailsEl) {
+            var badges = [];
+            if (filterIp) badges.push('<span class="badge badge-info">IP: ' + escapeHtml(filterIp) + '</span>');
+            if (filterPort) badges.push('<span class="badge badge-info">Port: ' + filterPort + '</span>');
+            if (filterProtocol) badges.push('<span class="badge badge-info">Protocole: ' + escapeHtml(filterProtocol) + '</span>');
+            if (filterDirection) badges.push('<span class="badge badge-info">Direction: ' + escapeHtml(filterDirection) + '</span>');
+            detailsEl.innerHTML = badges.join(' ');
+        }
     }
 
     /**
@@ -251,6 +295,14 @@
             });
         }
 
+        // Clear manual filters button (attached once, not on every loadPackets)
+        var clearBtn = document.getElementById('clear-manual-filters');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                window.location.href = '/packets';
+            });
+        }
+
         // Local filters re-render current data
         if (protocolFilterEl) {
             protocolFilterEl.addEventListener('change', function() {
@@ -271,8 +323,8 @@
         console.debug('[packets] Initializing packet viewer');
         getUrlParams();
 
-        if (!captureId && !anomalyId) {
-            showError('Aucun capture_id ou anomaly_id specifie');
+        if (!captureId && !anomalyId && !isManualFilter) {
+            showError('Aucun capture_id, anomaly_id ou filtre specifie');
             return;
         }
 
