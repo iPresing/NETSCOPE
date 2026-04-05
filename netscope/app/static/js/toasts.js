@@ -40,12 +40,29 @@
     }
 
     /**
+     * Remove a toast with fade-out animation.
+     * @param {HTMLElement} toast - Toast element to remove
+     */
+    function removeToast(toast) {
+        toast.classList.remove('toast-visible');
+        setTimeout(function() {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }
+
+    /**
      * Show a toast notification.
      * @param {string} message - Message to display
      * @param {string} type - Toast type: 'info', 'success', 'warning', 'error'
      * @param {number} duration - Display duration in ms
+     * @param {Object} [options] - Optional settings for clickable toasts
+     * @param {boolean} [options.clickable] - Make toast clickable
+     * @param {string} [options.href] - URL to navigate to on click
+     * @param {Function} [options.onClick] - Callback on click
      */
-    function show(message, type, duration) {
+    function show(message, type, duration, options) {
         type = type || 'info';
         duration = duration || config.defaultDuration;
 
@@ -60,6 +77,21 @@
         var toast = document.createElement('div');
         toast.className = 'toast toast-' + type;
         toast.setAttribute('role', 'alert');
+
+        // Clickable toast support (Story 4b.8)
+        // Note: autoRemoveTimer (var-hoisted) is accessible here at click time
+        if (options && options.clickable) {
+            toast.classList.add('toast-clickable');
+            toast.addEventListener('click', function() {
+                clearTimeout(autoRemoveTimer);
+                if (options.onClick) {
+                    options.onClick();
+                } else if (options.href) {
+                    window.location.href = options.href;
+                }
+                removeToast(toast);
+            });
+        }
 
         // Icon based on type
         var icons = {
@@ -80,13 +112,8 @@
         });
 
         // Auto-remove
-        setTimeout(function() {
-            toast.classList.remove('toast-visible');
-            setTimeout(function() {
-                if (toast.parentNode) {
-                    toast.parentNode.removeChild(toast);
-                }
-            }, 300);
+        var autoRemoveTimer = setTimeout(function() {
+            removeToast(toast);
         }, duration);
     }
 

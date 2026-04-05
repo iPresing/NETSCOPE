@@ -1697,6 +1697,14 @@ select.form-control {
     border-left-color: var(--danger-red);
 }
 
+.toast-clickable {
+    cursor: pointer;
+}
+
+.toast-clickable:hover {
+    filter: brightness(1.1);
+}
+
 /* =============================================================================
    Animations
    ============================================================================= */

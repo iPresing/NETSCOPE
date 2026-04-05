@@ -83,6 +83,8 @@
     let elapsedSeconds = 0;
     let statusPollInterval = null;
     let packetAnimationInterval = null;
+    let previousAnomalyCount = null; // Story 4b.8: anomaly detection
+    let previousByCriticality = null;
 
     // Packet animation frames
     const PACKET_FRAMES = ['....>', '...>', '..>', '.>', '>'];
@@ -104,6 +106,9 @@
         if (btnCloseRawData) {
             btnCloseRawData.addEventListener('click', hideRawDataSection);
         }
+
+        // Story 4b.8: Initialize anomaly count baseline
+        initAnomalyCount();
 
         // Check initial status
         checkCaptureStatus();
@@ -635,6 +640,8 @@
                         stopStatusPolling();
                         await loadLatestResult();
                         showCaptureComplete();
+                        // Story 4b.8: Check for new anomalies after capture completes
+                        await checkNewAnomalies();
                     }
                 }
             } catch (error) {
@@ -743,6 +750,90 @@
         });
 
         tbody.innerHTML = html;
+    }
+
+    /**
+     * Story 4b.8: Initialize anomaly count baseline.
+     * Fetches current anomaly total so we can detect new ones after capture.
+     */
+    async function initAnomalyCount() {
+        try {
+            const response = await fetch('/api/anomalies/summary');
+            const data = await response.json();
+            if (data.success && data.summary) {
+                previousAnomalyCount = data.summary.total;
+                previousByCriticality = data.summary.by_criticality;
+            }
+        } catch (error) {
+            console.error('Init anomaly count error:', error);
+        }
+    }
+
+    /**
+     * Story 4b.8: Check for new anomalies after capture completes.
+     * Compares current total with previousAnomalyCount; shows toast if delta > 0.
+     */
+    async function checkNewAnomalies() {
+        if (previousAnomalyCount === null) {
+            return; // First load, no baseline yet
+        }
+        try {
+            const response = await fetch('/api/anomalies/summary');
+            const data = await response.json();
+            if (data.success && data.summary) {
+                const delta = data.summary.total - previousAnomalyCount;
+                if (delta > 0) {
+                    const deltaByCriticality = {
+                        critical: (data.summary.by_criticality.critical || 0) - (previousByCriticality.critical || 0),
+                        warning: (data.summary.by_criticality.warning || 0) - (previousByCriticality.warning || 0),
+                        normal: (data.summary.by_criticality.normal || 0) - (previousByCriticality.normal || 0)
+                    };
+                    showAnomalyToast(delta, deltaByCriticality);
+                }
+                previousAnomalyCount = data.summary.total;
+                previousByCriticality = data.summary.by_criticality;
+            }
+        } catch (error) {
+            console.error('Check new anomalies error:', error);
+        }
+    }
+
+    /**
+     * Story 4b.8: Show toast notification for newly detected anomalies.
+     * @param {number} newCount - Number of new anomalies
+     * @param {Object} byCriticality - Breakdown: {critical, warning, normal}
+     */
+    function showAnomalyToast(newCount, byCriticality) {
+        // Build detail parts (only non-zero categories)
+        const parts = [];
+        if (byCriticality.critical > 0) {
+            parts.push(byCriticality.critical + ' critique' + (byCriticality.critical > 1 ? 's' : ''));
+        }
+        if (byCriticality.warning > 0) {
+            parts.push(byCriticality.warning + ' attention');
+        }
+        if (byCriticality.normal > 0) {
+            parts.push(byCriticality.normal + ' normal' + (byCriticality.normal > 1 ? 'aux' : ''));
+        }
+
+        const label = newCount > 1 ? ' anomalies détectées' : ' anomalie détectée';
+        let message = newCount + label;
+        if (parts.length > 0) {
+            message += ' : ' + parts.join(', ');
+        }
+
+        // escapeHtml is applied by NetScope.toast.show() internally (rule #3)
+        // AC1: warning=5s, info=3s (matches toasts.js config durations)
+        const hasCritical = byCriticality.critical > 0;
+        const toastType = hasCritical ? 'warning' : 'info';
+        const duration = hasCritical ? 5000 : 3000;
+
+        window.NetScope.toast.show(
+            message,
+            toastType,
+            duration,
+            { href: '/anomalies', clickable: true }
+        );
     }
 
     // Initialize when DOM is ready
