@@ -64,7 +64,11 @@
      */
     function show(message, type, duration, options) {
         type = type || 'info';
-        duration = duration || config.defaultDuration;
+        // Story 4b.8 fix-2 : duration === 0 means persistent (no auto-remove).
+        // We must check explicitly for undefined/null because 0 is falsy.
+        if (duration === undefined || duration === null) {
+            duration = config.defaultDuration;
+        }
 
         var container = getContainer();
 
@@ -111,10 +115,15 @@
             toast.classList.add('toast-visible');
         });
 
-        // Auto-remove
-        var autoRemoveTimer = setTimeout(function() {
-            removeToast(toast);
-        }, duration);
+        // Auto-remove (skipped when duration === 0 → persistent toast).
+        // var-hoisted so the click handler closure can clearTimeout() it
+        // even when no timer was scheduled (clearTimeout(undefined) is a no-op).
+        var autoRemoveTimer;
+        if (duration > 0) {
+            autoRemoveTimer = setTimeout(function() {
+                removeToast(toast);
+            }, duration);
+        }
     }
 
     /**

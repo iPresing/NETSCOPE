@@ -111,6 +111,59 @@ class TestToastClickableExtension:
         assert 'maxToasts: 5' in js
 
 
+class TestToastPersistentDuration:
+    """Test persistent toast support (duration=0) — fix-2 2026-04-07.
+
+    A duration of 0 means the toast does NOT auto-remove and persists until
+    the user clicks it (when clickable). Used by anomaly toasts on critical
+    detection so the user must explicitly acknowledge security alerts.
+    """
+
+    def test_show_treats_zero_duration_as_persistent(self, client):
+        """Test show() does not fall back to defaultDuration when duration is 0."""
+        response = client.get('/static/js/toasts.js')
+        js = response.data.decode('utf-8')
+
+        # Old buggy form: `duration = duration || config.defaultDuration;` would
+        # treat 0 as falsy. New form must check undefined/null explicitly.
+        assert 'duration === undefined || duration === null' in js
+        # And must NOT use the old || fallback for duration directly inside show()
+        fn_start = js.index('function show(message, type, duration, options)')
+        fn = js[fn_start:fn_start + 1500]
+        assert 'duration = duration || config.defaultDuration' not in fn
+
+    def test_auto_remove_skipped_when_duration_zero(self, client):
+        """Test setTimeout for auto-remove is gated by `duration > 0`."""
+        response = client.get('/static/js/toasts.js')
+        js = response.data.decode('utf-8')
+
+        # The auto-remove block must be inside an `if (duration > 0)` guard
+        assert 'if (duration > 0)' in js
+
+    def test_auto_remove_timer_var_still_hoisted_for_click_handler(self, client):
+        """Test autoRemoveTimer var is declared so the click handler closure works.
+
+        When duration=0, no setTimeout is scheduled, but the click handler still
+        calls clearTimeout(autoRemoveTimer). clearTimeout(undefined) is a no-op,
+        so the variable just needs to exist in scope.
+        """
+        response = client.get('/static/js/toasts.js')
+        js = response.data.decode('utf-8')
+
+        # var declaration must be present
+        assert 'var autoRemoveTimer' in js
+        # Click handler still references it
+        assert 'clearTimeout(autoRemoveTimer)' in js
+
+    def test_default_duration_unchanged_for_undefined(self, client):
+        """Test undefined duration still falls back to defaultDuration (3000ms)."""
+        response = client.get('/static/js/toasts.js')
+        js = response.data.decode('utf-8')
+
+        # The fallback assignment must still happen for undefined/null
+        assert 'duration = config.defaultDuration' in js
+
+
 class TestToastClickableCSS:
     """Test CSS styles for clickable toasts (Task 4)."""
 

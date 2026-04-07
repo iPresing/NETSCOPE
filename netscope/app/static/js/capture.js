@@ -184,10 +184,7 @@
             const data = await response.json();
 
             if (data.success) {
-                stopTimer();
-                stopStatusPolling();
-                await loadLatestResult();
-                showCaptureComplete();
+                await finalizeCaptureUI();
             } else {
                 showError(data.error.message || 'Erreur lors de l\'arrêt');
             }
@@ -197,6 +194,21 @@
         } finally {
             btnStop.disabled = false;
         }
+    }
+
+    /**
+     * Story 4b.8 fix: Centralized finalization of capture UI.
+     * Called both from natural completion (status polling) and manual stop.
+     * Order matters: stop timers, load result, update UI, then check anomalies
+     * (anomalies depend on backend having committed scoring).
+     */
+    async function finalizeCaptureUI() {
+        stopTimer();
+        stopStatusPolling();
+        await loadLatestResult();
+        showCaptureComplete();
+        // Story 4b.8: Check for new anomalies after capture completes
+        await checkNewAnomalies();
     }
 
     /**
@@ -636,12 +648,7 @@
 
                 if (data.success) {
                     if (data.status !== 'running') {
-                        stopTimer();
-                        stopStatusPolling();
-                        await loadLatestResult();
-                        showCaptureComplete();
-                        // Story 4b.8: Check for new anomalies after capture completes
-                        await checkNewAnomalies();
+                        await finalizeCaptureUI();
                     }
                 }
             } catch (error) {
@@ -823,10 +830,13 @@
         }
 
         // escapeHtml is applied by NetScope.toast.show() internally (rule #3)
-        // AC1: warning=5s, info=3s (matches toasts.js config durations)
+        // Story 4b.8 fix-2 : durée par criticité.
+        // - critical > 0 → persistent (duration=0) : alerte sécurité, doit être acquittée par clic.
+        // - sinon → 15000ms : laisse le temps à l'utilisateur de remarquer sans bloquer.
+        // Le toast est cliquable et redirige vers /anomalies, donc pas de friction.
         const hasCritical = byCriticality.critical > 0;
         const toastType = hasCritical ? 'warning' : 'info';
-        const duration = hasCritical ? 5000 : 3000;
+        const duration = hasCritical ? 0 : 15000;
 
         window.NetScope.toast.show(
             message,

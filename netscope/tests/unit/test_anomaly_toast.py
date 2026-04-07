@@ -60,19 +60,29 @@ class TestShowAnomalyToastFunction:
 
         assert "'info'" in js
 
-    def test_warning_duration_5000ms(self, client):
-        """Test warning toast uses 5000ms duration (AC1)."""
+    def test_critical_anomaly_toast_persistent(self, client):
+        """Test toast is persistent (duration=0) when critical > 0 (fix-2 2026-04-07).
+
+        Security alerts must require explicit user acknowledgment via click.
+        """
         response = client.get('/static/js/capture.js')
         js = response.data.decode('utf-8')
 
-        assert '5000' in js
+        fn_start = js.index('function showAnomalyToast(newCount, byCriticality)')
+        fn = js[fn_start:fn_start + 2000]
+        assert 'hasCritical ? 0 : 15000' in fn
 
-    def test_info_duration_3000ms(self, client):
-        """Test info toast uses 3000ms duration (AC1)."""
+    def test_non_critical_anomaly_duration_15s(self, client):
+        """Test non-critical anomaly toast uses 15000ms duration (fix-2 2026-04-07).
+
+        Long enough for the user to notice without blocking the UI.
+        """
         response = client.get('/static/js/capture.js')
         js = response.data.decode('utf-8')
 
-        assert '3000' in js
+        fn_start = js.index('function showAnomalyToast(newCount, byCriticality)')
+        fn = js[fn_start:fn_start + 2000]
+        assert '15000' in fn
 
     def test_clickable_with_anomalies_href(self, client):
         """Test toast is clickable with href='/anomalies' (AC7)."""

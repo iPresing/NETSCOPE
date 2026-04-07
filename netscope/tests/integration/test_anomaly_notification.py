@@ -3,6 +3,7 @@
 Tests the integration between capture polling, anomaly summary API,
 and toast notification system:
 - Polling callback triggers anomaly check (AC4)
+- Manual stop triggers anomaly check (AC1 — regression bug post-review)
 - No toast when 0 new anomalies (AC3)
 - No toast on first page load (AC4)
 - Existing toasts unaffected (AC6)
@@ -65,6 +66,99 @@ class TestCapturePollingIntegration:
         check_fn = js[check_fn_start:check_fn_start + 1500]
         # Update is outside the delta > 0 check
         assert 'previousAnomalyCount = data.summary.total' in check_fn
+
+
+class TestManualStopTriggersAnomalyCheck:
+    """Test manual stop button triggers checkNewAnomalies (AC1 — regression).
+
+    Bug post-review : when user clicks Stop manually, score updates but no toast
+    appears because stopCapture() killed the polling timer before its next tick
+    could call checkNewAnomalies(). Fix : extract finalizeCaptureUI() helper and
+    call it from BOTH startStatusPolling() and stopCapture().
+    """
+
+    def test_finalize_capture_ui_helper_exists(self, client):
+        """Test finalizeCaptureUI() helper is defined."""
+        response = client.get('/static/js/capture.js')
+        js = response.data.decode('utf-8')
+
+        assert 'async function finalizeCaptureUI()' in js
+
+    def test_finalize_capture_ui_calls_check_new_anomalies(self, client):
+        """Test finalizeCaptureUI() awaits checkNewAnomalies."""
+        response = client.get('/static/js/capture.js')
+        js = response.data.decode('utf-8')
+
+        helper_start = js.index('async function finalizeCaptureUI()')
+        helper = js[helper_start:helper_start + 600]
+        assert 'await checkNewAnomalies()' in helper
+        assert 'await loadLatestResult()' in helper
+        assert 'showCaptureComplete()' in helper
+        assert 'stopStatusPolling()' in helper
+        assert 'stopTimer()' in helper
+
+    def test_finalize_calls_check_after_load_result(self, client):
+        """Test order inside helper: loadLatestResult before checkNewAnomalies."""
+        response = client.get('/static/js/capture.js')
+        js = response.data.decode('utf-8')
+
+        helper_start = js.index('async function finalizeCaptureUI()')
+        helper = js[helper_start:helper_start + 600]
+        load_pos = helper.index('loadLatestResult')
+        check_pos = helper.index('checkNewAnomalies')
+        assert check_pos > load_pos, (
+            'checkNewAnomalies must be called after loadLatestResult so the '
+            'backend has committed scoring before we read /api/anomalies/summary'
+        )
+
+    def test_stop_capture_calls_finalize_ui(self, client):
+        """Test stopCapture() delegates to finalizeCaptureUI() instead of inlining."""
+        response = client.get('/static/js/capture.js')
+        js = response.data.decode('utf-8')
+
+        stop_start = js.index('async function stopCapture()')
+        stop_end = js.index('}', js.index('finally', stop_start))
+        stop_fn = js[stop_start:stop_end]
+        assert 'await finalizeCaptureUI()' in stop_fn, (
+            'stopCapture() must call finalizeCaptureUI() so manual stop also '
+            'triggers the anomaly toast (regression bug fix)'
+        )
+
+    def test_stop_capture_does_not_inline_finalization(self, client):
+        """Test stopCapture() no longer inlines finalization steps (no duplication)."""
+        response = client.get('/static/js/capture.js')
+        js = response.data.decode('utf-8')
+
+        stop_start = js.index('async function stopCapture()')
+        stop_end = js.index('}', js.index('finally', stop_start))
+        stop_fn = js[stop_start:stop_end]
+        # Inlined steps must NOT appear directly inside stopCapture body
+        # (they live in finalizeCaptureUI now)
+        assert 'stopTimer();' not in stop_fn
+        assert 'stopStatusPolling();' not in stop_fn
+        assert 'await loadLatestResult();' not in stop_fn
+
+    def test_status_polling_calls_finalize_ui(self, client):
+        """Test startStatusPolling() also delegates to finalizeCaptureUI()."""
+        response = client.get('/static/js/capture.js')
+        js = response.data.decode('utf-8')
+
+        poll_start = js.index('function startStatusPolling()')
+        poll_end = js.index('}, 2000)', poll_start)
+        poll_fn = js[poll_start:poll_end]
+        assert 'await finalizeCaptureUI()' in poll_fn
+
+    def test_no_duplicate_finalization_logic(self, client):
+        """Test finalization sequence appears in only one place (finalizeCaptureUI)."""
+        response = client.get('/static/js/capture.js')
+        js = response.data.decode('utf-8')
+
+        # 'await loadLatestResult()' should appear at most twice :
+        # once in finalizeCaptureUI and (legacy) maybe in checkCaptureStatus.
+        # It must NOT appear inside stopCapture nor inside startStatusPolling callback.
+        stop_start = js.index('async function stopCapture()')
+        stop_end = js.index('}', js.index('finally', stop_start))
+        assert 'loadLatestResult' not in js[stop_start:stop_end]
 
 
 class TestNoRegressionExistingToasts:
