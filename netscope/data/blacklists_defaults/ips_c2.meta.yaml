@@ -1,0 +1,16 @@
+# NETSCOPE - Métadonnées blacklist par défaut
+# Story 4b.9 — Enrichissement Blacklists Sources
+name: ips_c2
+category: ip
+description: >-
+  IPs identifiées comme serveurs Command & Control (C2) de botnets et RATs
+  connus (Emotet, Dridex, TrickBot, QakBot, Cobalt Strike, etc.).
+sources:
+  - name: Feodo Tracker
+    url: https://feodotracker.abuse.ch
+    license: CC0-1.0
+  - name: IPsum (C2 subset)
+    url: https://github.com/stamparm/ipsum
+    license: Unlicense
+last_updated: "2026-04-08T00:00:00+00:00"
+entries_count: 79

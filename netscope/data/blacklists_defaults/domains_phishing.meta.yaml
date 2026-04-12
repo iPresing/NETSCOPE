@@ -1,0 +1,17 @@
+# NETSCOPE - Métadonnées blacklist par défaut
+# Story 4b.9 — Enrichissement Blacklists Sources
+name: domains_phishing
+category: domain
+description: >-
+  Domaines utilisés pour des campagnes de phishing : typosquatting de marques
+  connues (banques, e-commerce, SSO, crypto), faux pages de login, kits de
+  phishing industriels.
+sources:
+  - name: Phishing Army
+    url: https://phishing.army
+    license: CC0-1.0
+  - name: Hagezi Phishing
+    url: https://github.com/hagezi/dns-blocklists
+    license: GPL-3.0
+last_updated: "2026-04-08T00:00:00+00:00"
+entries_count: 163

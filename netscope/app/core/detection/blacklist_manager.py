@@ -53,6 +53,9 @@ class BlacklistManager:
         self._default_domains: set[str] = set()
         self._default_terms: set[str] = set()
         self._loaded_files: list[str] = []
+        # Story 4b.9: mapping filename -> list of entries pour attribution
+        # de la source dans l'UI ("default · ips_malware")
+        self._entries_by_file: dict[str, list[str]] = {}
         self._base_path: Path | None = None
         logger.debug("BlacklistManager initialized")
 
@@ -72,6 +75,7 @@ class BlacklistManager:
         self._domains.clear()
         self._terms.clear()
         self._loaded_files.clear()
+        self._entries_by_file.clear()
 
         # 1. Charger defaults (starter pack) - OBLIGATOIRE
         defaults = config.get("defaults", {})
@@ -212,6 +216,9 @@ class BlacklistManager:
                         entries.add(line)
 
             self._loaded_files.append(str(path))
+            # Story 4b.9: conserver la liste des entrées par fichier pour
+            # permettre l'attribution de la source dans l'UI
+            self._entries_by_file[path.name] = sorted(entries)
             logger.info(
                 f"Loaded {path.name} (entries={len(entries)}, type={blacklist_type.value})"
             )
@@ -241,6 +248,17 @@ class BlacklistManager:
             "domains": sorted(self._domains),
             "terms": sorted(self._terms),
         }
+
+    def get_entries_by_file(self) -> dict[str, list[str]]:
+        """Retourne le mapping nom_de_fichier → liste triée d'entrées.
+
+        Story 4b.9 : utilisé par le front pour attribuer la provenance
+        (fichier source) à chaque entrée de la blacklist.
+
+        Returns:
+            Dict {filename.txt: [entry, ...]} — copie défensive.
+        """
+        return {k: list(v) for k, v in self._entries_by_file.items()}
 
     @property
     def ips(self) -> frozenset[str]:
@@ -294,6 +312,97 @@ class BlacklistManager:
             if term.lower() in text_lower:
                 found.append(term)
         return found
+
+    def get_defaults_metadata(self) -> list[dict]:
+        """Retourne les métadonnées des fichiers .meta.yaml du dossier defaults.
+
+        Parse chaque fichier `<nom>.meta.yaml` présent à côté des fichiers .txt
+        chargés par _load_defaults. Les fichiers absents ou mal formés
+        n'interrompent PAS le chargement : un warning est loggé et l'entrée
+        est omise du résultat (rétrocompatibilité story 4b.9 AC2).
+
+        Returns:
+            Liste de dicts avec les clés : name, category, description,
+            sources (list[{name,url,license}]), last_updated, entries_count,
+            file (nom du .txt associé).
+        """
+        import yaml
+
+        results: list[dict] = []
+
+        # Déterminer les noms de fichiers .txt loadés via defaults
+        defaults_files: list[Path] = []
+        for loaded in self._loaded_files:
+            path = Path(loaded)
+            if "blacklists_defaults" in path.parts and path.suffix == ".txt":
+                defaults_files.append(path)
+
+        for txt_path in defaults_files:
+            meta_path = txt_path.with_suffix(".meta.yaml")
+            file_name = txt_path.name
+
+            if not meta_path.exists():
+                logger.warning(
+                    f"No .meta.yaml for default blacklist (file={file_name})"
+                )
+                continue
+
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    data = yaml.safe_load(f)
+
+                if not isinstance(data, dict):
+                    logger.warning(
+                        f"Invalid .meta.yaml content (file={meta_path.name})"
+                    )
+                    continue
+
+                # Recomputer entries_count depuis le fichier .txt réel pour
+                # éviter les désynchronisations si le .txt est édité à la main
+                actual_count = self._count_txt_entries(txt_path)
+
+                meta: dict = {
+                    "name": str(data.get("name", txt_path.stem)),
+                    "category": str(data.get("category", "")),
+                    "description": str(data.get("description", "")),
+                    "sources": list(data.get("sources") or []),
+                    "last_updated": str(data.get("last_updated", "")),
+                    "entries_count": actual_count,
+                    "file": file_name,
+                }
+                results.append(meta)
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to parse .meta.yaml (file={meta_path.name}, "
+                    f"error={e})"
+                )
+
+        return results
+
+    def _count_txt_entries(self, txt_path: Path) -> int:
+        """Compte le nombre d'entrées valides dans un fichier .txt blacklist.
+
+        Ignore les lignes vides et les commentaires. Utilisé pour synchroniser
+        entries_count sans relire tout le dataset via load_blacklists.
+
+        Args:
+            txt_path: Chemin vers le fichier .txt
+
+        Returns:
+            Nombre de lignes non-commentaires et non-vides (0 si lecture impossible)
+        """
+        try:
+            count = 0
+            with open(txt_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.split("#", 1)[0].strip()
+                    if line:
+                        count += 1
+            return count
+        except OSError as e:
+            logger.warning(f"Cannot count entries in {txt_path.name}: {e}")
+            return 0
 
     def merge_user_entries(self, user_entries) -> None:
         """Fusionne les entrées utilisateur dans les sets en mémoire.
@@ -358,6 +467,7 @@ def reset_blacklist_manager() -> None:
         _blacklist_manager._default_domains.clear()
         _blacklist_manager._default_terms.clear()
         _blacklist_manager._loaded_files.clear()
+        _blacklist_manager._entries_by_file.clear()
     _blacklist_manager = None
     BlacklistManager._instance = None
 

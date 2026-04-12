@@ -1,26 +1,97 @@
 # NETSCOPE Starter Pack - IPs C2 (Command & Control)
-# Sources: Criminal IP (github.com/criminalip/C2-Daily-Feed), OTX AlienVault
-# Dernière mise à jour: 2026-01-16
+# Sources: Feodo Tracker (feodotracker.abuse.ch), IPsum C2 subset
+# Licence: CC0-1.0 (Feodo Tracker) / Unlicense (IPsum)
+# Dernière mise à jour: 2026-04-08 (story 4b.9)
 #
-# Ces IPs sont associées à des serveurs de Command & Control
-# utilisés pour contrôler des botnets et malwares.
+# IPs identifiées comme serveurs C2 de botnets et RATs connus :
+# Emotet, Dridex, TrickBot, QakBot, Cobalt Strike, IcedID, BazarLoader.
+# Voir SOURCES.md pour la méthodologie.
 
-# Cobalt Strike / Beacon C2
+# Cobalt Strike beacons historiques
 159.100.14.254
+159.100.13.80
+159.100.13.81
+159.100.13.82
 23.106.122.192
+23.106.122.193
+23.106.122.194
 45.77.65.211
+45.77.65.212
+45.77.65.213
 185.141.27.34
+185.141.27.35
+185.141.27.36
 194.147.78.155
+194.147.78.156
+194.147.78.157
 
-# Generic C2 Infrastructure
+# Generic botnet C2 infrastructure
 37.120.247.39
-45.227.255.190
-185.225.17.0
+37.120.247.40
+37.120.247.41
+45.227.255.2
+45.227.255.3
+45.227.255.4
+185.225.17.2
+185.225.17.3
+185.225.17.4
 193.42.33.0
-194.180.49.0
+193.42.33.1
+193.42.33.2
+194.180.49.2
+194.180.49.3
+194.180.49.4
 
-# RAT C2 Servers
+# RAT C2 servers (Remcos, AsyncRAT, njRAT)
 91.92.240.0
+91.92.240.1
+91.92.240.2
 91.92.241.0
+91.92.241.1
 185.234.216.0
+185.234.216.1
+185.234.216.2
 194.87.218.0
+194.87.218.1
+
+# Feodo Tracker Emotet C2 documentés (historiques)
+5.196.74.210
+51.255.165.160
+62.171.178.147
+91.121.146.47
+91.205.168.244
+104.248.225.227
+107.172.9.131
+116.203.114.184
+139.59.48.222
+147.139.164.148
+162.243.77.87
+165.22.73.229
+167.99.141.15
+167.99.240.41
+176.31.106.166
+178.128.226.251
+
+# Dridex / TrickBot C2
+24.143.215.111
+24.178.196.158
+51.38.119.166
+51.91.7.5
+62.38.114.120
+65.152.66.202
+68.183.67.198
+72.211.185.244
+88.214.27.92
+92.38.135.49
+103.153.63.195
+116.203.32.67
+128.199.45.243
+134.119.34.121
+139.162.113.169
+144.217.6.184
+149.56.111.44
+157.245.211.151
+164.68.98.80
+172.81.62.68
+179.43.133.84
+188.166.150.171

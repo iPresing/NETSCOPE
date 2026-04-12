@@ -1,0 +1,17 @@
+# NETSCOPE - Métadonnées blacklist par défaut
+# Story 4b.9 — Enrichissement Blacklists Sources
+name: terms_suspect
+category: term
+description: >-
+  Patterns et termes textuels détectables dans le trafic réseau et associés à
+  des comportements malveillants : reverse shells, web shells, exécution
+  PowerShell obfusquée, binaires LOLBAS, cryptomining, exfiltration de données.
+sources:
+  - name: MITRE ATT&CK
+    url: https://attack.mitre.org
+    license: Apache-2.0
+  - name: LOLBAS Project
+    url: https://lolbas-project.github.io
+    license: MIT
+last_updated: "2026-04-08T00:00:00+00:00"
+entries_count: 167

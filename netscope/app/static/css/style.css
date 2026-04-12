@@ -3270,3 +3270,105 @@ select.form-control {
         transform: none !important;
     }
 }
+
+/* =============================================================================
+   Blacklist Sources Panel — Story 4b.9
+   ============================================================================= */
+
+.bl-sources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.bl-source-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bl-source-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.bl-source-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.bl-source-count {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.bl-source-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.bl-source-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.badge-source {
+    background: rgba(100, 181, 246, 0.1);
+    color: #64b5f6;
+    border: 1px solid rgba(100, 181, 246, 0.25);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+a.badge-source:hover {
+    background: rgba(100, 181, 246, 0.18);
+    border-color: rgba(100, 181, 246, 0.4);
+}
+
+.badge-source .license {
+    font-weight: 400;
+    text-transform: none;
+    opacity: 0.75;
+    margin-left: 4px;
+}
+
+.bl-source-updated {
+    font-size: 0.7rem;
+    margin: 2px 0 0;
+}
+
+.badge-default {
+    background: rgba(148, 163, 184, 0.12);
+    color: rgba(226, 232, 240, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.badge-user {
+    background: rgba(52, 211, 153, 0.12);
+    color: var(--matrix-green);
+    border: 1px solid rgba(52, 211, 153, 0.2);
+}

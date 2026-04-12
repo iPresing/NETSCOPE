@@ -9,6 +9,20 @@
         <p class="text-muted">Gérer les éléments surveillés par la détection</p>
     </section>
 
+    <section class="whitelist-list card" id="bl-sources-panel">
+        <h3>
+            Sources des blacklists par défaut
+            (<span id="bl-sources-count">0</span>)
+        </h3>
+        <p class="text-muted">
+            Provenance et licences des entrées embarquées par défaut.
+            Voir
+            <code>data/blacklists_defaults/SOURCES.md</code>
+            pour la méthodologie complète.
+        </p>
+        <div id="bl-sources-grid" class="bl-sources-grid"></div>
+    </section>
+
     <section class="whitelist-add card">
         <h3>Ajouter un élément</h3>
         <form id="blacklist-add-form" class="config-form">

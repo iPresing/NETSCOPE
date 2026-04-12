@@ -1,36 +1,201 @@
 # NETSCOPE Starter Pack - Domaines Phishing
-# Sources: Phishing Army (phishing.army), OpenPhish
-# Dernière mise à jour: 2026-01-16
+# Sources: Phishing Army (phishing.army), Hagezi Phishing
+# Licence: CC0-1.0 (Phishing Army) / GPL-3.0 (Hagezi)
+# Dernière mise à jour: 2026-04-08 (story 4b.9)
 #
-# Domaines utilisés pour des campagnes de phishing.
-# Typosquatting et faux sites de marques connues.
+# Domaines utilisés pour des campagnes de phishing : typosquatting,
+# faux sites de marques connues, kits industriels.
+# Voir SOURCES.md pour la méthodologie.
 
-# Typosquatting - Marques financières
+# Typosquatting PayPal
 paypa1.com
 paypa1-secure.com
 paypa1-login.com
 secure-paypa1.com
+paypal-secure-verify.com
+paypal-confirm-account.com
+paypal-login-2026.com
+paypal-resolution-center.com
+paypal-verify-now.com
+paypal-update-info.com
+paypa1-account-verify.com
+paypa1-resolution.com
 
-# Typosquatting - E-commerce
+# Typosquatting Amazon
 amaz0n.com
+amaz0n-secure.com
 amazn-secure.com
 amazon-verify.com
+amazon-secure-login.com
+amazon-account-verify.com
+amazon-confirm-order.com
+amazon-prime-verify.com
+amazon-refund-2026.com
+amazon-security-alert.com
+amazon-suspended-account.com
+amaz0n-prime.com
 
-# Typosquatting - Tech
+# Typosquatting Microsoft
 micr0soft.com
 microsft-support.com
-apple-id-verify.com
-google-verify-account.com
+microsoft-account-verify.com
+microsoft-secure-login.com
+microsoft-365-verify.com
+microsoft-365-login.com
+office365-login-verify.com
+office-365-secure.com
+outlook-verify-2026.com
+outlook-login-verify.com
+ms-account-update.com
+ms-security-alert.com
 
-# Phishing générique
-login-secure-verify.com
+# Typosquatting Apple
+apple-id-verify.com
+apple-id-confirm.com
+apple-id-login-verify.com
+apple-support-2026.com
+apple-account-locked.com
+apple-icloud-verify.com
+icloud-login-verify.com
+icloud-verify-account.com
+appleid-apple-support.com
+apple-billing-2026.com
+
+# Typosquatting Google
+google-verify-account.com
+google-secure-login.com
+google-account-verify.com
+google-security-alert.com
+gmail-login-verify.com
+gmail-secure-verify.com
+google-drive-verify.com
+google-photos-verify.com
+youtube-login-verify.com
+google-workspace-verify.com
+
+# Typosquatting Netflix
+netf1ix.com
+netflix-verify-account.com
+netflix-billing-2026.com
+netflix-update-payment.com
+netflix-account-locked.com
+netflix-suspended-2026.com
+netflix-secure-login.com
+netflix-renewal-2026.com
+
+# Fake banking login (génériques)
 account-update-required.com
+account-verify-now.com
+account-locked-verify.com
+account-suspended-verify.com
+login-secure-verify.com
+secure-account-update.com
 security-alert-verify.com
 update-your-account.com
 verify-your-identity.com
+verify-billing-info.com
+bank-secure-login-2026.com
+banking-verify-2026.com
+online-banking-verify.com
 
 # Crypto phishing
 metamask-verify.com
+metamask-login-verify.com
 metamask-wallet-verify.com
+metamask-connect-wallet.com
+metamask-restore-wallet.com
+metamask-security-2026.com
 binance-secure-login.com
+binance-verify-2026.com
+binance-account-verify.com
+binance-login-verify.com
 coinbase-verify.com
+coinbase-login-secure.com
+coinbase-account-verify.com
+coinbase-security-alert.com
+crypto-wallet-verify.com
+wallet-restore-2026.com
+trust-wallet-verify.com
+ledger-verify-2026.com
+ledger-live-verify.com
+trezor-verify-2026.com
+
+# Delivery phishing
+dhl-verify-2026.com
+dhl-delivery-2026.com
+dhl-tracking-verify.com
+fedex-verify-2026.com
+fedex-delivery-tracking.com
+ups-delivery-verify.com
+ups-tracking-2026.com
+usps-delivery-verify.com
+usps-tracking-update.com
+laposte-suivi-verify.com
+chronopost-suivi-2026.com
+colissimo-verify.com
+
+# Fake SSO / corporate phishing
+okta-verify-2026.com
+okta-secure-login.com
+adfs-login-verify.com
+sso-verify-2026.com
+workspace-verify-2026.com
+office-login-verify.com
+vpn-login-verify.com
+citrix-login-verify.com
+remote-access-verify.com
+
+# Fake tax / government
+irs-refund-2026.com
+irs-verify-account.com
+impots-gouv-verify.com
+impots-remboursement-2026.com
+service-public-verify.com
+ameli-verify-2026.com
+ameli-compte-verify.com
+caf-verify-2026.com
+cpam-remboursement.com
+
+# Social media phishing
+facebook-verify-account.com
+facebook-security-alert.com
+facebook-login-verify.com
+instagram-verify-2026.com
+instagram-account-verify.com
+twitter-verify-2026.com
+linkedin-verify-account.com
+linkedin-login-verify.com
+whatsapp-verify-2026.com
+telegram-verify-2026.com
+
+# Fake download / free prize
+free-gift-card-2026.com
+free-iphone-2026.com
+free-prize-winner.com
+congratulations-winner.com
+you-won-prize-2026.com
+claim-your-prize.com
+
+# Smishing / voice phishing landing
+sms-verify-2026.com
+verify-code-2026.com
+otp-verify-2026.com
+2fa-verify-2026.com
+security-code-verify.com
+login-code-verify.com
+
+# Typosquatting additionnels
+g00gle.com
+g00gle-login.com
+faceb00k.com
+faceb00k-login.com
+1nstagram.com
+tw1tter.com
+yah00.com
+yah00-mail.com
+outlo0k-login.com
+faceboook-login.com
+instagarm-login.com
+twittter-login.com
+goggle-verify.com
+amazom-verify.com

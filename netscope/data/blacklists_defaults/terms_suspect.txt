@@ -1,54 +1,208 @@
 # NETSCOPE Starter Pack - Termes Suspects
-# Sources: Elastic Security Detection Rules, MITRE ATT&CK
-# Dernière mise à jour: 2026-01-16
+# Sources: MITRE ATT&CK (attack.mitre.org), LOLBAS Project (lolbas-project.github.io)
+# Licence: Apache-2.0 (MITRE) / MIT (LOLBAS)
+# Dernière mise à jour: 2026-04-08 (story 4b.9)
 #
-# Patterns et termes associés à des activités malveillantes
-# dans le trafic réseau (payload HTTP, DNS queries, etc.)
+# Patterns et termes observés dans le trafic réseau malveillant :
+# reverse shells, web shells, LOLBAS, obfuscation PowerShell, cryptomining,
+# exfiltration de données, outils d'intrusion classiques.
+# Voir SOURCES.md pour la méthodologie.
 
 # Reverse Shells - Bash
 /bin/bash -i
 bash -i >& /dev/tcp/
+bash -c 'bash -i >& /dev/tcp/
 /bin/sh -i
+sh -i >& /dev/tcp/
+0<&196;exec 196<>/dev/tcp/
 
-# Reverse Shells - Netcat
+# Reverse Shells - Netcat / Socat
 nc -e /bin/sh
 nc -e /bin/bash
-ncat -e
-netcat -e
+ncat -e /bin/sh
+ncat -e /bin/bash
+netcat -e /bin/sh
+mkfifo /tmp/pipe
+socat tcp-connect
+socat exec:'bash -li'
 
 # Reverse Shells - Python
 python -c 'import socket
 python3 -c 'import socket
 python -c "import socket
+python3 -c "import socket
+python -c 'import pty;pty.spawn
+python3 -c 'import pty;pty.spawn
+/usr/bin/python -c 'import socket
 
-# PowerShell Malicious
+# Reverse Shells - Perl
+perl -e 'use Socket
+perl -e 'use IO::Socket
+perl -MIO -e
+
+# Reverse Shells - Ruby / PHP / Java
+ruby -rsocket -e
+ruby -e 'require "socket"
+php -r '$sock=fsockopen
+php -r 'exec("/bin/bash
+java Runtime.getRuntime().exec
+
+# PowerShell - Obfuscation & Download
 powershell -enc
-powershell -e
-powershell IEX
+powershell -encodedcommand
+powershell -e JAB
 powershell -nop -w hidden
-powershell downloadstring
+powershell -noprofile -windowstyle hidden
 powershell -executionpolicy bypass
+powershell -ep bypass
+powershell IEX
+powershell Invoke-Expression
+powershell downloadstring
+powershell DownloadFile
+powershell Invoke-WebRequest
+powershell Invoke-RestMethod
+powershell New-Object Net.WebClient
+FromBase64String(
 
-# Web Shells
+# Web Shells connus
 c99shell
+c99.php
 r57shell
+r57.php
 b374k
+b374k.php
 weevely
 wso shell
+wso.php
+/cmd.php
+/shell.php
+/backdoor.php
+eval($_POST
+eval($_GET
+assert($_POST
+assert($_REQUEST
+system($_POST
+system($_GET
+passthru($_POST
+exec($_GET
+shell_exec($_POST
+create_function($_POST
 
-# C2 Beacons
+# C2 beacon paths (Cobalt Strike / Empire / Metasploit)
 /beacon/
 /gate.php
 /admin.php?cmd=
 /panel/gate.php
+/api/beacon
+/submit.php
+/admin/gate.php
+/cx.php
+/fwlink
+/pixel.gif?
+/jquery-3.3.1.slim.min.js
+/ptj
+Cookie: session=CobaltStrike
 
-# Cryptomining
+# LOLBAS Windows (binaires couramment détournés)
+rundll32.exe javascript:
+rundll32 url.dll
+mshta.exe javascript:
+mshta http://
+regsvr32 /s /u /i:http
+regsvr32.exe /s /n /u /i:
+certutil -urlcache -split -f
+certutil -decode
+certutil -encode
+bitsadmin /transfer
+bitsadmin /create
+bitsadmin.exe /transfer
+wmic process call create
+wmic /node:
+schtasks /create /sc
+schtasks /create /tn
+at.exe
+psexec.exe -accepteula
+psexec \\
+PsExec.exe -s
+net user /add
+net localgroup administrators /add
+
+# Cryptomining signatures
 stratum+tcp://
+stratum+ssl://
 xmrig
+xmrig.exe
+cpuminer
+ccminer
+t-rex miner
 cryptonight
+cryptonight-lite
+cryptonight-heavy
+randomx
 monero mining
+xmr-stak
+ethminer
+phoenixminer
 
-# Data Exfiltration
+# Data Exfiltration patterns
 base64 -d
-curl -X POST
+base64 --decode
+| base64 -d
+curl -X POST -d
+curl --data
 wget --post-data
+wget --post-file
+curl -F file=@
+curl -T
+python -m SimpleHTTPServer
+python3 -m http.server
+
+# DNS tunneling / exfil
+dnscat2
+iodine tunnel
+.dnscat.
+nslookup -q=txt
+dig @
+dns2tcp
+
+# Tools intrusion Mimikatz / Lsass
+mimikatz
+sekurlsa::logonpasswords
+sekurlsa::wdigest
+lsadump::sam
+kerberos::list
+privilege::debug
+procdump.exe -ma lsass
+procdump64.exe -ma
+rundll32.exe comsvcs.dll
+MiniDump lsass.dmp
+
+# SQL injection patterns
+' OR '1'='1
+" OR "1"="1
+UNION SELECT
+UNION ALL SELECT
+SELECT * FROM information_schema
+xp_cmdshell
+sp_executesql
+LOAD_FILE(
+INTO OUTFILE
+sleep(5)--
+
+# Common RCE test payloads
+${jndi:ldap://
+${jndi:rmi://
+${jndi:dns://
+__import__('os')
+subprocess.Popen(
+os.system(
+commands.getoutput(
+
+# Persistence suspects
+crontab -e
+/etc/cron.d/
+HKLM\Software\Microsoft\Windows\CurrentVersion\Run
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+schtasks /create
+Register-ScheduledTask
+systemd-run

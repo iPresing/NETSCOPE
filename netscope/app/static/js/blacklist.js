@@ -24,6 +24,15 @@
     var countEl = document.getElementById('bl-count');
     var emptyEl = document.getElementById('blacklist-empty');
     var tableEl = document.getElementById('blacklist-table');
+    // Story 4b.9: panneau Sources
+    var sourcesGrid = document.getElementById('bl-sources-grid');
+    var sourcesCountEl = document.getElementById('bl-sources-count');
+
+    // Story 4b.9: mapping valeur → nom fichier (ex: "ip:1.2.3.4" → "ips_malware.txt")
+    // Construit depuis la réponse /api/blacklists/active.by_file
+    var valueToFile = {};
+    // Mapping nom fichier → short label (ex: "ips_malware.txt" → "ips_malware")
+    var fileToShortName = {};
 
     // Use shared utilities from NetScopeUtils
     var escapeHtml = window.NetScopeUtils ? window.NetScopeUtils.escapeHtml : function(text) {
@@ -86,6 +95,32 @@
     }
 
     /**
+     * Build value-to-file index from /api/blacklists/active.by_file
+     * so that each default entry can display the file it came from
+     * (story 4b.9 AC4)
+     * @param {Object} byFile - Mapping {filename: [entries]}
+     */
+    function indexByFile(byFile) {
+        valueToFile = {};
+        if (!byFile || typeof byFile !== 'object') return;
+        Object.keys(byFile).forEach(function(filename) {
+            var entries = byFile[filename];
+            if (!Array.isArray(entries)) return;
+            // Inférer le type depuis le nom du fichier
+            var typeKey = 'term';
+            if (filename.indexOf('ips_') === 0 || filename.indexOf('ip_') === 0) {
+                typeKey = 'ip';
+            } else if (filename.indexOf('domains_') === 0 || filename.indexOf('domain_') === 0) {
+                typeKey = 'domain';
+            }
+            entries.forEach(function(entry) {
+                var key = typeKey + ':' + (typeKey === 'domain' ? entry.toLowerCase() : entry);
+                valueToFile[key] = filename;
+            });
+        });
+    }
+
+    /**
      * Load all blacklist entries (defaults + user) and render table
      */
     function loadBlacklistEntries() {
@@ -104,6 +139,11 @@
             var userData = results[1];
 
             var allEntries = [];
+
+            // Story 4b.9: indexer by_file avant le rendu pour attribution source
+            if (activeData.success && activeData.result) {
+                indexByFile(activeData.result.by_file);
+            }
 
             // Add default entries (from active lists)
             if (activeData.success && activeData.result) {
@@ -265,9 +305,18 @@
         entries.forEach(function(entry) {
             var typeLabel = TYPE_LABELS[entry.entry_type] || escapeHtml(entry.entry_type);
             var isUser = entry.source === 'user';
-            var sourceBadge = isUser
-                ? '<span class="badge badge-user">user</span>'
-                : '<span class="badge badge-default">default</span>';
+            var sourceBadge;
+            if (isUser) {
+                sourceBadge = '<span class="badge badge-user">user</span>';
+            } else {
+                // Story 4b.9: afficher le nom court du fichier si connu
+                var lookupKey = entry.entry_type + ':' + (entry.entry_type === 'domain' ? String(entry.value).toLowerCase() : entry.value);
+                var fileName = valueToFile[lookupKey];
+                var shortName = fileName ? (fileToShortName[fileName] || fileName.replace(/\.txt$/, '')) : '';
+                sourceBadge = shortName
+                    ? '<span class="badge badge-default">default · ' + escapeHtml(shortName) + '</span>'
+                    : '<span class="badge badge-default">default</span>';
+            }
             var dateStr = entry.created_at
                 ? new Date(entry.created_at).toLocaleString('fr-FR')
                 : '-';
@@ -317,6 +366,88 @@
     }
 
     /**
+     * Load and render the default sources panel (story 4b.9 AC4)
+     */
+    function loadSourcesPanel() {
+        if (!sourcesGrid) return;
+
+        fetch('/api/blacklists/sources')
+            .then(function(r) {
+                if (!r.ok) throw new Error('HTTP error ' + r.status);
+                return r.json();
+            })
+            .then(function(data) {
+                if (!data.success || !data.result) {
+                    sourcesGrid.innerHTML = '<p class="text-muted">' +
+                        'Aucune source par défaut disponible.</p>';
+                    return;
+                }
+                var metas = data.result.sources || [];
+                if (sourcesCountEl) {
+                    sourcesCountEl.textContent = metas.length;
+                }
+                // Indexer fileToShortName pour rendu table
+                metas.forEach(function(m) {
+                    if (m.file && m.name) {
+                        fileToShortName[m.file] = m.name;
+                    }
+                });
+
+                if (metas.length === 0) {
+                    sourcesGrid.innerHTML = '<p class="text-muted">' +
+                        'Aucune métadonnée .meta.yaml trouvée.</p>';
+                    return;
+                }
+
+                var html = '';
+                metas.forEach(function(meta) {
+                    var sources = Array.isArray(meta.sources) ? meta.sources : [];
+                    var sourceBadges = sources.map(function(s) {
+                        var name = escapeHtml(s.name || 'unknown');
+                        var license = escapeHtml(s.license || '');
+                        var url = s.url || '';
+                        if (url && /^https?:\/\//.test(url)) {
+                            return '<a class="badge badge-source" href="' +
+                                escapeHtml(url) + '" target="_blank" ' +
+                                'rel="noopener noreferrer" title="' + license + '">' +
+                                name + ' <span class="license">(' + license + ')</span></a>';
+                        }
+                        return '<span class="badge badge-source" title="' + license + '">' +
+                            name + ' <span class="license">(' + license + ')</span></span>';
+                    }).join(' ');
+
+                    var lastUpdated = meta.last_updated
+                        ? new Date(meta.last_updated).toLocaleDateString('fr-FR')
+                        : '-';
+
+                    html += '<div class="bl-source-card">' +
+                        '<div class="bl-source-header">' +
+                            '<span class="bl-source-name">' + escapeHtml(meta.name || meta.file || '') + '</span>' +
+                            '<span class="bl-source-count">' + escapeHtml(String(meta.entries_count || 0)) + ' entrées</span>' +
+                        '</div>' +
+                        '<p class="bl-source-desc">' + escapeHtml(meta.description || '') + '</p>' +
+                        '<div class="bl-source-badges">' + sourceBadges + '</div>' +
+                        '<p class="bl-source-updated text-muted">Mis à jour : ' +
+                            escapeHtml(lastUpdated) + '</p>' +
+                        '</div>';
+                });
+                sourcesGrid.innerHTML = html;
+
+                // Re-render table if already loaded so badges reflect fileToShortName
+                loadBlacklistEntries();
+            })
+            .catch(function(error) {
+                console.error('[blacklist] Error loading sources panel:', error);
+                if (sourcesGrid) {
+                    sourcesGrid.innerHTML = '<p class="text-muted">' +
+                        'Impossible de charger les sources par défaut.</p>';
+                }
+                // Fallback: charger la liste même si le panneau a échoué
+                loadBlacklistEntries();
+            });
+    }
+
+    /**
      * Update placeholder based on selected type
      */
     function updatePlaceholder() {
@@ -359,8 +490,9 @@
             });
         }
 
-        // Load entries
-        loadBlacklistEntries();
+        // Story 4b.9: charger le panneau sources (qui déclenche loadBlacklistEntries
+        // après pour que le mapping fileToShortName soit à jour)
+        loadSourcesPanel();
     }
 
     // Initialize when DOM is ready

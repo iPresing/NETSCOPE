@@ -73,6 +73,10 @@ def get_blacklist_stats():
 def get_active_blacklists():
     """Get active blacklist entries by type.
 
+    Story 4b.9 : la réponse inclut désormais `by_file` qui mappe chaque
+    fichier default (ex: `ips_malware.txt`) à sa liste d'entrées, permettant
+    au front d'attribuer la source à chaque entrée dans le tableau.
+
     Returns:
         JSON response with lists of active entries
 
@@ -82,7 +86,11 @@ def get_active_blacklists():
             "result": {
                 "ips": ["192.168.1.1", "10.0.0.1"],
                 "domains": ["malware.com", "phishing.com"],
-                "terms": ["/bin/bash -i", "nc -e"]
+                "terms": ["/bin/bash -i", "nc -e"],
+                "by_file": {
+                    "ips_malware.txt": ["185.220.100.240", ...],
+                    "ips_c2.txt": [...]
+                }
             }
         }
     """
@@ -91,6 +99,10 @@ def get_active_blacklists():
     try:
         manager = get_blacklist_manager()
         active_lists = manager.get_active_lists()
+        # TODO(perf): by_file duplique toutes les entrées (déjà dans ips/domains/terms).
+        # À 652 entrées c'est acceptable (~13 KB), mais si le dataset dépasse 1500+,
+        # envisager un endpoint dédié ou un index inversé {value: filename}.
+        active_lists["by_file"] = manager.get_entries_by_file()
 
         return jsonify({
             "success": True,
@@ -103,6 +115,60 @@ def get_active_blacklists():
             "success": False,
             "error": {
                 "code": "BLACKLIST_ACTIVE_ERROR",
+                "message": f"Erreur: {str(e)}",
+                "details": {},
+            },
+        }), 500
+
+
+@api_bp.route('/blacklists/sources', methods=['GET'])
+def get_blacklist_sources():
+    """Get metadata for default blacklist files (Story 4b.9).
+
+    Returns:
+        JSON response with sources metadata parsed from .meta.yaml files
+
+    Example Response:
+        {
+            "success": true,
+            "result": {
+                "sources": [
+                    {
+                        "name": "ips_malware",
+                        "category": "ip",
+                        "file": "ips_malware.txt",
+                        "description": "IPs malware...",
+                        "entries_count": 112,
+                        "last_updated": "2026-04-08T00:00:00+00:00",
+                        "sources": [
+                            {"name": "IPsum", "url": "...", "license": "Unlicense"}
+                        ]
+                    }
+                ],
+                "count": 5
+            }
+        }
+    """
+    logger.debug("GET /api/blacklists/sources called")
+
+    try:
+        manager = get_blacklist_manager()
+        metadata = manager.get_defaults_metadata()
+
+        return jsonify({
+            "success": True,
+            "result": {
+                "sources": metadata,
+                "count": len(metadata),
+            },
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error getting blacklist sources (error={str(e)})")
+        return jsonify({
+            "success": False,
+            "error": {
+                "code": "BLACKLIST_SOURCES_ERROR",
                 "message": f"Erreur: {str(e)}",
                 "details": {},
             },
