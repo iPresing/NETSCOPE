@@ -27,14 +27,17 @@
     --matrix-green: #34d399;
     --alert-amber: #fbbf24;
     --danger-red: #f87171;
+    --danger-red-hover: #ef4444;
     --warning-orange: #fb923c;
     --info-color: #60a5fa;
+    --source-blue: #64b5f6;
 
     /* Text Colors */
     --text-primary: #e2e4e9;
     --text-secondary: #8b8fa3;
     --text-muted: #565973;
     --text-highlight: #f0f1f4;
+    --text-on-accent: #fff;
 
     /* Subtle Shadows (replacing glow effects) */
     --glow-cyan: 0 0 12px rgba(99, 102, 241, 0.12);
@@ -76,11 +79,28 @@
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
     --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.45);
 
+    /* Surfaces (faint) */
+    --surface-faint: rgba(255, 255, 255, 0.02);
+    --surface-hover: rgba(255, 255, 255, 0.08);
+
+    /* Glass backgrounds */
+    --glass-dark-bg: rgba(20, 23, 32, 0.8);
+
+    /* Accent subtle backgrounds */
+    --accent-bg-subtle: var(--accent-bg-subtle);
+
+    /* Source-blue derived (badge-source) */
+    --source-blue-bg: rgba(100, 181, 246, 0.1);
+    --source-blue-border: rgba(100, 181, 246, 0.25);
+    --source-blue-bg-hover: rgba(100, 181, 246, 0.18);
+    --source-blue-border-hover: rgba(100, 181, 246, 0.4);
+
     /* Cinematic Overlays & Glassmorphism (Story 4.8) */
     --overlay-dark-opacity: 0.65;
     --accent-violet: #8238DC;
     --accent-pink: #F75CB7;
     --glass-blur: blur(12px);
+    --glass-blur-light: blur(8px);
 }
 
 /* =============================================================================
@@ -147,10 +167,10 @@ a:hover {
    Site Header
    ============================================================================= */
 .site-header {
-    background: rgba(20, 23, 32, 0.8);
+    background: var(--glass-dark-bg);
     border-bottom: 1px solid var(--border-subtle);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: var(--glass-blur-light);
+    -webkit-backdrop-filter: var(--glass-blur-light);
 }
 
 .header-top {
@@ -591,14 +611,14 @@ select.form-control {
 }
 
 .btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--surface-hover);
     border-color: var(--border-bright);
     color: var(--text-highlight);
 }
 
 .btn-primary {
     background: var(--neon-cyan);
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: var(--neon-cyan);
     font-weight: 600;
 }
@@ -606,20 +626,20 @@ select.form-control {
 .btn-primary:hover {
     background: var(--neon-cyan-dim);
     border-color: var(--neon-cyan-dim);
-    color: #fff;
+    color: var(--text-on-accent);
     box-shadow: var(--shadow-md);
 }
 
 .btn-danger {
     background: var(--danger-red);
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: var(--danger-red);
 }
 
 .btn-danger:hover {
-    background: #ef4444;
-    border-color: #ef4444;
-    color: #fff;
+    background: var(--danger-red-hover);
+    border-color: var(--danger-red-hover);
+    color: var(--text-on-accent);
 }
 
 .btn-outline {
@@ -631,7 +651,7 @@ select.form-control {
 .btn-outline:hover:not(:disabled) {
     border-color: var(--neon-cyan);
     color: var(--neon-cyan);
-    background: rgba(99, 102, 241, 0.08);
+    background: var(--accent-bg-subtle);
 }
 
 .btn-sm {
@@ -790,7 +810,7 @@ select.form-control {
 #btn-reload-blacklists:hover {
     border-color: var(--neon-cyan);
     color: var(--neon-cyan);
-    background: rgba(99, 102, 241, 0.08);
+    background: var(--accent-bg-subtle);
 }
 
 #btn-reload-blacklists.loading {
@@ -905,7 +925,7 @@ select.form-control {
 
 .status-card-link:hover {
     border-color: var(--neon-cyan);
-    background: rgba(99, 102, 241, 0.08);
+    background: var(--accent-bg-subtle);
     text-decoration: none;
 }
 
@@ -991,7 +1011,7 @@ select.form-control {
 }
 
 .data-table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--surface-faint);
 }
 
 .placeholder-row td {
@@ -1571,11 +1591,11 @@ select.form-control {
    Footer
    ============================================================================= */
 .site-footer {
-    background: rgba(20, 23, 32, 0.8);
+    background: var(--glass-dark-bg);
     border-top: 1px solid var(--border-subtle);
     padding: var(--space-md) var(--space-xl);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: var(--glass-blur-light);
+    -webkit-backdrop-filter: var(--glass-blur-light);
 }
 
 .footer-content {
@@ -1801,7 +1821,7 @@ select.form-control {
     height: 22px;
     padding: 0 var(--space-sm);
     background: var(--danger-red);
-    color: #fff;
+    color: var(--text-on-accent);
     font-family: var(--font-mono);
     font-size: 0.75rem;
     font-weight: 700;
@@ -2051,7 +2071,7 @@ select.form-control {
     font-weight: 600;
     padding: 3px 8px;
     border-radius: var(--radius-sm);
-    background: rgba(99, 102, 241, 0.08);
+    background: var(--accent-bg-subtle);
     color: var(--neon-cyan);
     border: 1px solid rgba(99, 102, 241, 0.15);
 }
@@ -2137,7 +2157,7 @@ select.form-control {
 .anomaly-item .btn-outline:hover:not(:disabled) {
     border-color: var(--neon-cyan);
     color: var(--neon-cyan);
-    background: rgba(99, 102, 241, 0.08);
+    background: var(--accent-bg-subtle);
 }
 
 .anomaly-item .btn-outline:disabled {
@@ -2159,8 +2179,8 @@ select.form-control {
     justify-content: center;
     align-items: center;
     z-index: 10000;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: var(--glass-blur-light);
+    -webkit-backdrop-filter: var(--glass-blur-light);
 }
 
 .essentials-modal-content {
@@ -2418,7 +2438,7 @@ select.form-control {
 }
 
 .packet-row.selected {
-    background: rgba(99, 102, 241, 0.08) !important;
+    background: var(--accent-bg-subtle) !important;
     border-left: 3px solid var(--neon-cyan);
 }
 
@@ -2680,7 +2700,7 @@ select.form-control {
 
 .sortable-header:hover {
     color: var(--neon-cyan);
-    background: rgba(99, 102, 241, 0.08);
+    background: var(--accent-bg-subtle);
 }
 
 .sort-indicator {
@@ -2710,7 +2730,7 @@ select.form-control {
 #reset-filters-btn:hover {
     border-color: var(--neon-cyan);
     color: var(--neon-cyan);
-    background: rgba(99, 102, 241, 0.08);
+    background: var(--accent-bg-subtle);
 }
 
 /* =============================================================================
@@ -2743,6 +2763,9 @@ select.form-control {
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .whitelist-table td {
@@ -2751,8 +2774,12 @@ select.form-control {
     color: var(--text-primary);
 }
 
+.whitelist-table tbody tr {
+    transition: var(--transition-fast);
+}
+
 .whitelist-table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--surface-faint);
 }
 
 /* =============================================================================
@@ -3283,8 +3310,8 @@ select.form-control {
 }
 
 .bl-source-card {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--surface-faint);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 14px 16px;
     display: flex;
@@ -3328,9 +3355,9 @@ select.form-control {
 }
 
 .badge-source {
-    background: rgba(100, 181, 246, 0.1);
-    color: #64b5f6;
-    border: 1px solid rgba(100, 181, 246, 0.25);
+    background: var(--source-blue-bg);
+    color: var(--source-blue);
+    border: 1px solid var(--source-blue-border);
     text-decoration: none;
     display: inline-flex;
     align-items: center;
@@ -3341,12 +3368,12 @@ select.form-control {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
 a.badge-source:hover {
-    background: rgba(100, 181, 246, 0.18);
-    border-color: rgba(100, 181, 246, 0.4);
+    background: var(--source-blue-bg-hover);
+    border-color: var(--source-blue-border-hover);
 }
 
 .badge-source .license {
@@ -3363,7 +3390,7 @@ a.badge-source:hover {
 
 .badge-default {
     background: rgba(148, 163, 184, 0.12);
-    color: rgba(226, 232, 240, 0.9);
+    color: var(--text-primary);
     border: 1px solid rgba(148, 163, 184, 0.22);
 }
 
