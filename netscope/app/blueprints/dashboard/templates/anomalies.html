@@ -5,8 +5,23 @@
 {% block content %}
 <div class="anomalies-container">
     <section class="page-header">
-        <h2>Liste des Anomalies</h2>
-        <p class="text-muted">Anomalies detectees lors des captures reseau</p>
+        <div class="page-header-row">
+            <div>
+                <h2>Liste des Anomalies</h2>
+                <p class="text-muted">Anomalies detectees lors des captures reseau</p>
+            </div>
+            <div class="page-header-actions">
+                <button type="button"
+                        id="export-csv-btn"
+                        class="btn btn-outline"
+                        disabled
+                        aria-disabled="true"
+                        title="Lancez une capture pour activer l'export">
+                    <span class="btn-icon" aria-hidden="true">⬇️</span>
+                    <span>Export CSV</span>
+                </button>
+            </div>
+        </div>
     </section>
 
     <section class="anomalies-filters card">

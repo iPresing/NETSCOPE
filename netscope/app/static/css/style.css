@@ -1035,6 +1035,20 @@ select.form-control {
     margin-bottom: 0;
 }
 
+.page-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+}
+
+.page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
 /* =============================================================================
    Filter Row
    ============================================================================= */

@@ -23,11 +23,16 @@
     var typeFilterEl = document.getElementById('type-filter');
     var searchFilterEl = document.getElementById('search-filter');
     var filterCountEl = document.getElementById('filter-count');
+    var exportCsvBtnEl = document.getElementById('export-csv-btn');
 
     // State variables for filtering and sorting (Story 2.8)
     var allAnomalies = [];
     var currentSortField = 'score';
     var currentSortDirection = 'desc';
+
+    // Story 5.1 — export CSV state
+    var currentCaptureId = null;
+    var currentAnomalyCount = 0;
 
     // Criticality configuration
     var CRITICALITY_CONFIG = {
@@ -302,10 +307,18 @@
                     console.info('[anomalies] Rendered ' + total + ' anomalies (critical=' +
                         (byCrit.critical || 0) + ', warning=' + (byCrit.warning || 0) +
                         ', normal=' + (byCrit.normal || 0) + ')');
+
+                    // Story 5.1 — maintenir l'état du bouton Export CSV
+                    currentCaptureId = data.result.capture_id || null;
+                    currentAnomalyCount = total;
+                    updateExportButtonState();
                 } else {
                     allAnomalies = [];
                     showEmptyState();
                     updateFilterCount(0, 0);
+                    currentCaptureId = null;
+                    currentAnomalyCount = 0;
+                    updateExportButtonState();
                 }
             })
             .catch(function(error) {
@@ -313,7 +326,71 @@
                 allAnomalies = [];
                 showEmptyState();
                 updateFilterCount(0, 0);
+                currentCaptureId = null;
+                currentAnomalyCount = 0;
+                updateExportButtonState();
             });
+    }
+
+    /**
+     * Story 5.1 — Met à jour l'état du bouton Export CSV (disabled/tooltip).
+     * AC7 : désactivé tant qu'aucune capture n'est chargée.
+     */
+    function updateExportButtonState() {
+        if (!exportCsvBtnEl) return;
+        var hasCapture = !!currentCaptureId;
+        exportCsvBtnEl.disabled = !hasCapture;
+        exportCsvBtnEl.setAttribute('aria-disabled', hasCapture ? 'false' : 'true');
+        if (hasCapture) {
+            exportCsvBtnEl.title = currentAnomalyCount > 0
+                ? 'Exporter ' + currentAnomalyCount + ' anomalie(s) au format CSV'
+                : 'Exporter le fichier CSV (header seul — aucune anomalie)';
+        } else {
+            exportCsvBtnEl.title = "Lancez une capture pour activer l'export";
+        }
+    }
+
+    /**
+     * Story 5.1 — Déclenche le téléchargement du CSV via navigation directe.
+     * On évite fetch+Blob pour préserver le streaming HTTP (cible Pi Zero).
+     */
+    function triggerCsvDownload() {
+        if (!currentCaptureId) {
+            return;
+        }
+        var toast = (window.NetScope && window.NetScope.toast) || null;
+
+        if (currentAnomalyCount === 0 && toast) {
+            toast.info('Aucune anomalie à exporter');
+            return;
+        }
+
+        if (toast) {
+            toast.info('Export CSV lancé — téléchargement en cours');
+        }
+
+        exportCsvBtnEl.disabled = true;
+
+        var url = '/api/exports/csv?capture_id=' + encodeURIComponent(currentCaptureId);
+        var link = document.createElement('a');
+        link.href = url;
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setTimeout(function() {
+            exportCsvBtnEl.disabled = false;
+        }, 3000);
+    }
+
+    function attachExportHandler() {
+        if (!exportCsvBtnEl) return;
+        exportCsvBtnEl.addEventListener('click', function(event) {
+            event.preventDefault();
+            if (exportCsvBtnEl.disabled) return;
+            triggerCsvDownload();
+        });
     }
 
     /**
@@ -629,6 +706,8 @@
     function init() {
         console.debug('[anomalies] Initializing anomalies page module');
         setupFilterListeners();
+        attachExportHandler();
+        updateExportButtonState();
         loadAnomalies();
     }
 
