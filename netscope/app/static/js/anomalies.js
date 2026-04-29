@@ -24,6 +24,7 @@
     var searchFilterEl = document.getElementById('search-filter');
     var filterCountEl = document.getElementById('filter-count');
     var exportCsvBtnEl = document.getElementById('export-csv-btn');
+    var exportJsonBtnEl = document.getElementById('export-json-btn');
 
     // State variables for filtering and sorting (Story 2.8)
     var allAnomalies = [];
@@ -337,17 +338,23 @@
      * AC7 : désactivé tant qu'aucune capture n'est chargée.
      */
     function updateExportButtonState() {
-        if (!exportCsvBtnEl) return;
         var hasCapture = !!currentCaptureId;
-        exportCsvBtnEl.disabled = !hasCapture;
-        exportCsvBtnEl.setAttribute('aria-disabled', hasCapture ? 'false' : 'true');
-        if (hasCapture) {
-            exportCsvBtnEl.title = currentAnomalyCount > 0
-                ? 'Exporter ' + currentAnomalyCount + ' anomalie(s) au format CSV'
-                : 'Exporter le fichier CSV (header seul — aucune anomalie)';
-        } else {
-            exportCsvBtnEl.title = "Lancez une capture pour activer l'export";
-        }
+        var buttons = [
+            { el: exportCsvBtnEl, format: 'CSV' },
+            { el: exportJsonBtnEl, format: 'JSON' }
+        ];
+        buttons.forEach(function(btn) {
+            if (!btn.el) return;
+            btn.el.disabled = !hasCapture;
+            btn.el.setAttribute('aria-disabled', hasCapture ? 'false' : 'true');
+            if (hasCapture) {
+                btn.el.title = currentAnomalyCount > 0
+                    ? 'Exporter ' + currentAnomalyCount + ' anomalie(s) au format ' + btn.format
+                    : 'Exporter le fichier ' + btn.format + ' (aucune anomalie)';
+            } else {
+                btn.el.title = "Lancez une capture pour activer l'export";
+            }
+        });
     }
 
     /**
@@ -370,6 +377,7 @@
         }
 
         exportCsvBtnEl.disabled = true;
+        exportCsvBtnEl.setAttribute('aria-disabled', 'true');
 
         var url = '/api/exports/csv?capture_id=' + encodeURIComponent(currentCaptureId);
         var link = document.createElement('a');
@@ -381,16 +389,60 @@
 
         setTimeout(function() {
             exportCsvBtnEl.disabled = false;
+            exportCsvBtnEl.setAttribute('aria-disabled', 'false');
+        }, 3000);
+    }
+
+    /**
+     * Story 5.2 — Déclenche le téléchargement du JSON via navigation directe.
+     */
+    function triggerJsonDownload() {
+        if (!currentCaptureId) {
+            return;
+        }
+        var toast = (window.NetScope && window.NetScope.toast) || null;
+
+        if (currentAnomalyCount === 0 && toast) {
+            toast.info('Aucune anomalie à exporter');
+            return;
+        }
+
+        if (toast) {
+            toast.info('Export JSON lancé — téléchargement en cours');
+        }
+
+        exportJsonBtnEl.disabled = true;
+        exportJsonBtnEl.setAttribute('aria-disabled', 'true');
+
+        var url = '/api/exports/json?capture_id=' + encodeURIComponent(currentCaptureId);
+        var link = document.createElement('a');
+        link.href = url;
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setTimeout(function() {
+            exportJsonBtnEl.disabled = false;
+            exportJsonBtnEl.setAttribute('aria-disabled', 'false');
         }, 3000);
     }
 
     function attachExportHandler() {
-        if (!exportCsvBtnEl) return;
-        exportCsvBtnEl.addEventListener('click', function(event) {
-            event.preventDefault();
-            if (exportCsvBtnEl.disabled) return;
-            triggerCsvDownload();
-        });
+        if (exportCsvBtnEl) {
+            exportCsvBtnEl.addEventListener('click', function(event) {
+                event.preventDefault();
+                if (exportCsvBtnEl.disabled) return;
+                triggerCsvDownload();
+            });
+        }
+        if (exportJsonBtnEl) {
+            exportJsonBtnEl.addEventListener('click', function(event) {
+                event.preventDefault();
+                if (exportJsonBtnEl.disabled) return;
+                triggerJsonDownload();
+            });
+        }
     }
 
     /**

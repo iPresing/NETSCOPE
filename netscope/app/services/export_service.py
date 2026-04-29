@@ -1,10 +1,10 @@
-"""Service d'export CSV pour les anomalies détectées.
+"""Service d'export des anomalies détectées (CSV et JSON).
 
 Story 5.1: Export CSV (FR45, FR47, NFR8, NFR46).
+Story 5.2: Export JSON (FR46, FR47, NFR8, NFR47).
 
-Produit un flux CSV RFC 4180 + UTF-8 avec BOM, compatible Excel / Google Sheets
-/ LibreOffice. Le générateur `generate_anomalies_csv` streame ligne par ligne
-pour éviter toute accumulation en mémoire (cible RAM Raspberry Pi Zero).
+CSV : flux RFC 4180 + UTF-8 avec BOM, streaming ligne par ligne.
+JSON : document complet RFC 8259, UTF-8 sans BOM, indenté 2 espaces.
 
 Lessons Learned Epic 1-4 appliquées :
 - Module-level logger (pas current_app.logger)
@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import logging
-from typing import Iterator
+from datetime import datetime, timezone
+from typing import Any, Iterator
 
 from app.models.anomaly import Anomaly, AnomalyCollection, MatchType
 
@@ -135,6 +137,102 @@ def _resolve_reason(anomaly: Anomaly) -> str:
     return anomaly.match.context or ""
 
 
+class JsonExporter:
+    """Générateur de document JSON pour `AnomalyCollection`.
+
+    Produit un document JSON complet (pas de streaming) conforme RFC 8259,
+    UTF-8 sans BOM, indenté 2 espaces. Structure : `metadata` + `anomalies`.
+
+    Implémentation stateless — les conversions se font à la sérialisation,
+    rien n'est caché sur la collection passée en paramètre.
+    """
+
+    EXPORT_FORMAT = "netscope-anomalies-export"
+    EXPORT_VERSION = "1.0"
+
+    def generate_anomalies_json(self, collection: AnomalyCollection | None) -> str:
+        """Produit le document JSON complet des anomalies.
+
+        Args:
+            collection: Collection à exporter. `None` ou vide → anomalies vides.
+
+        Returns:
+            Chaîne JSON UTF-8, indentée 2 espaces, sans BOM.
+        """
+        now = datetime.now(timezone.utc)
+
+        capture_id = collection.capture_id if collection else None
+        analyzed_at_dt = collection.analyzed_at if collection else None
+        if analyzed_at_dt is not None and analyzed_at_dt.tzinfo is None:
+            analyzed_at_dt = analyzed_at_dt.replace(tzinfo=timezone.utc)
+        analyzed_at = analyzed_at_dt.isoformat() if analyzed_at_dt else None
+        anomaly_count = collection.total if collection else 0
+        by_crit = collection.by_criticality if collection else {"critical": 0, "warning": 0, "normal": 0}
+
+        anomalies_list: list[dict[str, Any]] = []
+        if collection and collection.total > 0:
+            for anomaly in collection.get_sorted():
+                anomalies_list.append(self._anomaly_to_export_dict(anomaly))
+
+        data = {
+            "metadata": {
+                "format": self.EXPORT_FORMAT,
+                "version": self.EXPORT_VERSION,
+                "exported_at": now.isoformat(),
+                "capture_id": capture_id,
+                "analyzed_at": analyzed_at,
+                "anomaly_count": anomaly_count,
+                "by_criticality": by_crit,
+            },
+            "anomalies": anomalies_list,
+        }
+
+        return json.dumps(data, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def _anomaly_to_export_dict(anomaly: Anomaly) -> dict[str, Any]:
+        """Convertit une `Anomaly` en dict d'export JSON enrichi (FR47)."""
+        packet_info = anomaly.packet_info or {}
+        match = anomaly.match
+
+        port_src_raw = packet_info.get("port_src")
+        port_dst_raw = packet_info.get("port_dst")
+        try:
+            port_src = int(port_src_raw) if port_src_raw is not None else None
+        except (ValueError, TypeError):
+            port_src = None
+        try:
+            port_dst = int(port_dst_raw) if port_dst_raw is not None else None
+        except (ValueError, TypeError):
+            port_dst = None
+
+        human_ctx = None
+        if anomaly.human_context is not None:
+            human_ctx = {
+                "short_message": anomaly.human_context.short_message,
+                "explanation": anomaly.human_context.explanation,
+                "action_hint": anomaly.human_context.action_hint,
+            }
+
+        return {
+            "id": anomaly.id,
+            "timestamp": packet_info.get("timestamp"),
+            "ip_src": packet_info.get("ip_src"),
+            "ip_dst": packet_info.get("ip_dst"),
+            "port_src": port_src,
+            "port_dst": port_dst,
+            "protocol": packet_info.get("protocol"),
+            "score": anomaly.score,
+            "criticality": anomaly.criticality_level.value,
+            "blacklist_match": match.match_type in BLACKLIST_MATCH_TYPES,
+            "match_type": match.match_type.value,
+            "matched_value": match.matched_value,
+            "source_file": match.source_file,
+            "reason": _resolve_reason(anomaly),
+            "human_context": human_ctx,
+        }
+
+
 _csv_exporter: CsvExporter | None = None
 
 
@@ -150,3 +248,20 @@ def reset_csv_exporter() -> None:
     """Réinitialise le singleton (réservé aux tests)."""
     global _csv_exporter
     _csv_exporter = None
+
+
+_json_exporter: JsonExporter | None = None
+
+
+def get_json_exporter() -> JsonExporter:
+    """Renvoie l'instance singleton de `JsonExporter`."""
+    global _json_exporter
+    if _json_exporter is None:
+        _json_exporter = JsonExporter()
+    return _json_exporter
+
+
+def reset_json_exporter() -> None:
+    """Réinitialise le singleton (réservé aux tests)."""
+    global _json_exporter
+    _json_exporter = None
