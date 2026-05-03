@@ -1,35 +1,42 @@
-# Export CSV — Story 5.1
+# Export CSV — Stories 5.1 & 5.3
 
-Première fonctionnalité d'Epic 5 (Export, Reporting & Administration).
-Permet d'exporter les anomalies détectées lors de la dernière capture (ou d'une
-capture ciblée par `capture_id`) au format CSV, pour analyse dans Excel,
-Google Sheets, LibreOffice Calc ou tout outil BI.
+Fonctionnalité d'Epic 5 (Export, Reporting & Administration).
+Permet d'exporter les anomalies détectées ou tous les paquets d'une capture
+au format CSV, pour analyse dans Excel, Google Sheets, LibreOffice Calc ou
+tout outil BI.
 
 ## Parcours utilisateur
 
 1. Lancer une capture depuis le Dashboard.
 2. Ouvrir la page **Anomalies**.
-3. Cliquer sur le bouton **Export CSV** dans la toolbar.
-4. Le navigateur télécharge un fichier nommé
-   `netscope-anomalies-{capture_id}-{YYYYMMDD-HHmmss}.csv`.
+3. Choisir le mode d'export via le sélecteur :
+   - **Anomalies uniquement** (défaut) — seules les anomalies détectées.
+   - **Toutes les données** — tous les paquets du pcap, enrichis avec les anomalies.
+4. Cliquer sur le bouton **Export CSV** dans la toolbar.
+5. Le navigateur télécharge un fichier nommé :
+   - `netscope-anomalies-{capture_id}-{YYYYMMDD-HHmmss}.csv` (mode anomalies)
+   - `netscope-all-data-{capture_id}-{YYYYMMDD-HHmmss}.csv` (mode toutes données)
 
-Le bouton est désactivé (grisé) tant qu'aucune capture n'a été réalisée.
+Le sélecteur et les boutons sont désactivés (grisés) tant qu'aucune capture
+n'a été réalisée.
 
 ## Endpoint API
 
 `GET /api/exports/csv`
 
-| Query Param  | Type | Défaut           | Description                              |
-|--------------|------|------------------|------------------------------------------|
-| `capture_id` | str  | dernière capture | ID de capture ciblé (optionnel).         |
+| Query Param      | Type | Défaut           | Description                              |
+|------------------|------|------------------|------------------------------------------|
+| `capture_id`     | str  | dernière capture | ID de capture ciblé (optionnel).         |
+| `anomalies_only` | str  | `"true"`         | `"true"` = anomalies seules, `"false"` = tous les paquets. |
 
 ### Réponses
 
 - `200 OK` — `Content-Type: text/csv; charset=utf-8`, `Content-Disposition:
   attachment; filename="…csv"`, corps streamé ligne par ligne (BOM UTF-8 puis
-  header puis lignes d'anomalies).
+  header puis lignes d'anomalies ou paquets).
 - `404 Not Found` — JSON `{code: "CAPTURE_NOT_FOUND"}` si `capture_id` fourni
-  mais inconnu.
+  mais inconnu, ou `{code: "PCAP_NOT_FOUND"}` si mode all-data et fichier pcap
+  introuvable.
 
 ## Format CSV produit
 
@@ -60,8 +67,16 @@ Le bouton est désactivé (grisé) tant qu'aucune capture n'a été réalisée.
 - Objectif `<10s` de génération serveur pour ≤10 000 entrées (NFR8).
 - Durée mesurée et loggée (`duration_ms`, format clé=valeur, Règle #9).
 
-## Scope explicite
+## Mode « Toutes les donn��es » (Story 5.3)
 
-- **5.1 (cette story)** : export des anomalies uniquement.
-- **5.2 (backlog)** : même pattern appliqué au format JSON.
-- **5.3 (backlog)** : toggle « anomalies / toutes les données capturées ».
+En mode `anomalies_only=false`, le service parse le fichier pcap complet
+et produit une ligne par paquet. Les paquets correspondant à une anomalie
+sont enrichis avec score, blacklist match et raison. Les paquets normaux
+ont `Score=0`, `Blacklist match=non`, `Raison/Contexte=""`.
+
+### Exemples d'URL
+
+```
+GET /api/exports/csv?capture_id=cap_001&anomalies_only=true
+GET /api/exports/csv?capture_id=cap_001&anomalies_only=false
+```

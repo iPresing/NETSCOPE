@@ -11,6 +11,14 @@
                 <p class="text-muted">Anomalies detectees lors des captures reseau</p>
             </div>
             <div class="page-header-actions">
+                <select id="export-mode"
+                        class="form-control"
+                        disabled
+                        aria-disabled="true"
+                        title="Lancez une capture pour activer le sélecteur">
+                    <option value="anomalies_only" selected>Anomalies uniquement</option>
+                    <option value="all">Toutes les données</option>
+                </select>
                 <button type="button"
                         id="export-csv-btn"
                         class="btn btn-outline"

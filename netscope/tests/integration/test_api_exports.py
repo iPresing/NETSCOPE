@@ -13,6 +13,12 @@ Story 5.2 — JSON :
 - Contenu JSON parsable, structure `metadata` + `anomalies`
 - 404 si `capture_id` invalide
 - Capture sans anomalies → 200 avec `anomalies: []`
+
+Story 5.3 — anomalies_only param :
+- anomalies_only=true → comportement identique (régression)
+- anomalies_only=false → all-data content + filename all-data
+- anomalies_only=false + pcap introuvable → 404
+- export_mode dans metadata JSON
 """
 
 from __future__ import annotations
@@ -34,11 +40,19 @@ from app.models.anomaly import (
     MatchType,
 )
 
+from app.models.capture import PacketInfo
+
 FILENAME_PATTERN_CSV = re.compile(
     r'^netscope-anomalies-(?P<cap>[A-Za-z0-9_\-]+)-\d{8}-\d{6}\.csv$'
 )
 FILENAME_PATTERN_JSON = re.compile(
     r'^netscope-anomalies-(?P<cap>[A-Za-z0-9_\-]+)-\d{8}-\d{6}\.json$'
+)
+FILENAME_PATTERN_ALL_DATA_CSV = re.compile(
+    r'^netscope-all-data-(?P<cap>[A-Za-z0-9_\-]+)-\d{8}-\d{6}\.csv$'
+)
+FILENAME_PATTERN_ALL_DATA_JSON = re.compile(
+    r'^netscope-all-data-(?P<cap>[A-Za-z0-9_\-]+)-\d{8}-\d{6}\.json$'
 )
 
 
@@ -377,3 +391,224 @@ class TestExportsJsonErrorCases:
         data = response.get_json()
         assert data["success"] is False
         assert data["error"]["code"] == "CAPTURE_NOT_FOUND"
+
+
+def _mock_packets():
+    """Quelques PacketInfo pour tests all-data."""
+    return [
+        PacketInfo(
+            timestamp=datetime(2026, 5, 3, 12, 0, 0),
+            ip_src="192.168.1.10", ip_dst="10.0.0.1",
+            port_src=54321, port_dst=80, protocol="TCP", length=100,
+        ),
+        PacketInfo(
+            timestamp=datetime(2026, 5, 3, 12, 0, 1),
+            ip_src="192.168.1.10", ip_dst="1.2.3.10",
+            port_src=54322, port_dst=443, protocol="TCP", length=200,
+        ),
+    ]
+
+
+class TestExportsCsvAnomaliesOnlyRegression:
+    """Story 5.3 — anomalies_only=true doit être identique au comportement existant."""
+
+    def test_anomalies_only_true_same_as_default(self, client):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_reg", count=2))
+
+        resp_default = client.get("/api/exports/csv?capture_id=cap_reg")
+        body_default = resp_default.data.decode("utf-8")
+        resp_default.close()
+
+        resp_explicit = client.get("/api/exports/csv?capture_id=cap_reg&anomalies_only=true")
+        body_explicit = resp_explicit.data.decode("utf-8")
+        resp_explicit.close()
+
+        assert resp_default.status_code == 200
+        assert resp_explicit.status_code == 200
+        assert body_default == body_explicit
+
+
+class TestExportsCsvAllData:
+    """Story 5.3 — anomalies_only=false pour CSV."""
+
+    def test_all_data_returns_200_with_all_packets(self, client, monkeypatch):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_all", count=1))
+
+        monkeypatch.setattr(
+            "app.blueprints.api.exports.find_pcap_by_capture_id",
+            lambda cid: "fake.pcap",
+        )
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (_mock_packets(), None),
+        )
+
+        response = client.get("/api/exports/csv?capture_id=cap_all&anomalies_only=false")
+
+        assert response.status_code == 200
+        body = response.data.decode("utf-8")
+        rows = list(csv.reader(io.StringIO(body[1:])))
+        assert len(rows) == 3  # header + 2 packets
+
+    def test_all_data_filename_contains_all_data(self, client, monkeypatch):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_fn", count=1))
+
+        monkeypatch.setattr(
+            "app.blueprints.api.exports.find_pcap_by_capture_id",
+            lambda cid: "fake.pcap",
+        )
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (_mock_packets(), None),
+        )
+
+        response = client.get("/api/exports/csv?capture_id=cap_fn&anomalies_only=false")
+        disposition = response.headers.get("Content-Disposition", "")
+        match = re.search(r'filename="([^"]+)"', disposition)
+        assert match is not None
+        assert FILENAME_PATTERN_ALL_DATA_CSV.match(match.group(1))
+
+    def test_all_data_pcap_not_found_returns_404(self, client, monkeypatch):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_nopcap", count=1))
+
+        monkeypatch.setattr(
+            "app.blueprints.api.exports.find_pcap_by_capture_id",
+            lambda cid: None,
+        )
+
+        response = client.get("/api/exports/csv?capture_id=cap_nopcap&anomalies_only=false")
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data["error"]["code"] == "PCAP_NOT_FOUND"
+
+    def test_x_anomaly_count_correct_in_all_data_mode(self, client, monkeypatch):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_xac", count=3))
+
+        monkeypatch.setattr(
+            "app.blueprints.api.exports.find_pcap_by_capture_id",
+            lambda cid: "fake.pcap",
+        )
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (_mock_packets(), None),
+        )
+
+        response = client.get("/api/exports/csv?capture_id=cap_xac&anomalies_only=false")
+        assert response.headers.get("X-Anomaly-Count") == "3"
+
+
+class TestExportsJsonAnomaliesOnlyRegression:
+    """Story 5.3 — anomalies_only=true JSON identique au défaut."""
+
+    def test_anomalies_only_true_same_as_default(self, client):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_jreg", count=2))
+
+        resp_default = client.get("/api/exports/json?capture_id=cap_jreg")
+        resp_explicit = client.get("/api/exports/json?capture_id=cap_jreg&anomalies_only=true")
+
+        data_default = json.loads(resp_default.data)
+        data_explicit = json.loads(resp_explicit.data)
+        assert data_default["anomalies"] == data_explicit["anomalies"]
+        assert data_default["metadata"]["anomaly_count"] == data_explicit["metadata"]["anomaly_count"]
+
+
+class TestExportsJsonAnomaliesOnlyExportMode:
+    """Story 5.3 — export_mode présent en mode anomalies-only."""
+
+    def test_anomalies_only_has_export_mode_in_metadata(self, client):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_jmode_ao", count=1))
+
+        response = client.get("/api/exports/json?capture_id=cap_jmode_ao&anomalies_only=true")
+        data = json.loads(response.data)
+        assert data["metadata"]["export_mode"] == "anomalies_only"
+
+    def test_default_mode_has_export_mode_anomalies_only(self, client):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_jmode_def", count=1))
+
+        response = client.get("/api/exports/json?capture_id=cap_jmode_def")
+        data = json.loads(response.data)
+        assert data["metadata"]["export_mode"] == "anomalies_only"
+
+
+class TestExportsJsonAllData:
+    """Story 5.3 — anomalies_only=false pour JSON."""
+
+    def test_all_data_returns_200_with_packets_structure(self, client, monkeypatch):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_jall", count=1))
+
+        monkeypatch.setattr(
+            "app.blueprints.api.exports.find_pcap_by_capture_id",
+            lambda cid: "fake.pcap",
+        )
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (_mock_packets(), None),
+        )
+
+        response = client.get("/api/exports/json?capture_id=cap_jall&anomalies_only=false")
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert "packets" in data
+        assert data["metadata"]["export_mode"] == "all"
+        assert data["metadata"]["total_packets"] == 2
+        assert len(data["packets"]) == 2
+
+    def test_all_data_filename_contains_all_data(self, client, monkeypatch):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_jfn", count=1))
+
+        monkeypatch.setattr(
+            "app.blueprints.api.exports.find_pcap_by_capture_id",
+            lambda cid: "fake.pcap",
+        )
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (_mock_packets(), None),
+        )
+
+        response = client.get("/api/exports/json?capture_id=cap_jfn&anomalies_only=false")
+        disposition = response.headers.get("Content-Disposition", "")
+        match = re.search(r'filename="([^"]+)"', disposition)
+        assert match is not None
+        assert FILENAME_PATTERN_ALL_DATA_JSON.match(match.group(1))
+
+    def test_all_data_pcap_not_found_returns_404(self, client, monkeypatch):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_jnopcap", count=1))
+
+        monkeypatch.setattr(
+            "app.blueprints.api.exports.find_pcap_by_capture_id",
+            lambda cid: None,
+        )
+
+        response = client.get("/api/exports/json?capture_id=cap_jnopcap&anomalies_only=false")
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data["error"]["code"] == "PCAP_NOT_FOUND"
+
+    def test_export_mode_in_metadata(self, client, monkeypatch):
+        store = get_anomaly_store()
+        store.store(_make_collection("cap_jmode", count=1))
+
+        monkeypatch.setattr(
+            "app.blueprints.api.exports.find_pcap_by_capture_id",
+            lambda cid: "fake.pcap",
+        )
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (_mock_packets(), None),
+        )
+
+        response = client.get("/api/exports/json?capture_id=cap_jmode&anomalies_only=false")
+        data = json.loads(response.data)
+        assert data["metadata"]["export_mode"] == "all"

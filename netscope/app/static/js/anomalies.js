@@ -23,6 +23,7 @@
     var typeFilterEl = document.getElementById('type-filter');
     var searchFilterEl = document.getElementById('search-filter');
     var filterCountEl = document.getElementById('filter-count');
+    var exportModeEl = document.getElementById('export-mode');
     var exportCsvBtnEl = document.getElementById('export-csv-btn');
     var exportJsonBtnEl = document.getElementById('export-json-btn');
 
@@ -339,6 +340,15 @@
      */
     function updateExportButtonState() {
         var hasCapture = !!currentCaptureId;
+
+        if (exportModeEl) {
+            exportModeEl.disabled = !hasCapture;
+            exportModeEl.setAttribute('aria-disabled', hasCapture ? 'false' : 'true');
+            exportModeEl.title = hasCapture
+                ? "Choisir le mode d’export"
+                : ‘Lancez une capture pour activer le sélecteur’;
+        }
+
         var buttons = [
             { el: exportCsvBtnEl, format: 'CSV' },
             { el: exportJsonBtnEl, format: 'JSON' }
@@ -362,24 +372,28 @@
      * On évite fetch+Blob pour préserver le streaming HTTP (cible Pi Zero).
      */
     function triggerCsvDownload() {
-        if (!currentCaptureId) {
+        if (!currentCaptureId || !exportCsvBtnEl) {
             return;
         }
         var toast = (window.NetScope && window.NetScope.toast) || null;
+        var mode = exportModeEl ? exportModeEl.value : 'anomalies_only';
+        var anomaliesOnly = mode === 'anomalies_only';
 
-        if (currentAnomalyCount === 0 && toast) {
+        if (anomaliesOnly && currentAnomalyCount === 0 && toast) {
             toast.info('Aucune anomalie à exporter');
             return;
         }
 
+        var modeLabel = anomaliesOnly ? 'anomalies' : 'toutes données';
         if (toast) {
-            toast.info('Export CSV lancé — téléchargement en cours');
+            toast.info('Export CSV (' + modeLabel + ') — téléchargement en cours');
         }
 
         exportCsvBtnEl.disabled = true;
         exportCsvBtnEl.setAttribute('aria-disabled', 'true');
 
-        var url = '/api/exports/csv?capture_id=' + encodeURIComponent(currentCaptureId);
+        var url = '/api/exports/csv?capture_id=' + encodeURIComponent(currentCaptureId) +
+            '&anomalies_only=' + anomaliesOnly;
         var link = document.createElement('a');
         link.href = url;
         link.rel = 'noopener';
@@ -397,24 +411,28 @@
      * Story 5.2 — Déclenche le téléchargement du JSON via navigation directe.
      */
     function triggerJsonDownload() {
-        if (!currentCaptureId) {
+        if (!currentCaptureId || !exportJsonBtnEl) {
             return;
         }
         var toast = (window.NetScope && window.NetScope.toast) || null;
+        var mode = exportModeEl ? exportModeEl.value : 'anomalies_only';
+        var anomaliesOnly = mode === 'anomalies_only';
 
-        if (currentAnomalyCount === 0 && toast) {
+        if (anomaliesOnly && currentAnomalyCount === 0 && toast) {
             toast.info('Aucune anomalie à exporter');
             return;
         }
 
+        var modeLabel = anomaliesOnly ? 'anomalies' : 'toutes données';
         if (toast) {
-            toast.info('Export JSON lancé — téléchargement en cours');
+            toast.info('Export JSON (' + modeLabel + ') — téléchargement en cours');
         }
 
         exportJsonBtnEl.disabled = true;
         exportJsonBtnEl.setAttribute('aria-disabled', 'true');
 
-        var url = '/api/exports/json?capture_id=' + encodeURIComponent(currentCaptureId);
+        var url = '/api/exports/json?capture_id=' + encodeURIComponent(currentCaptureId) +
+            '&anomalies_only=' + anomaliesOnly;
         var link = document.createElement('a');
         link.href = url;
         link.rel = 'noopener';

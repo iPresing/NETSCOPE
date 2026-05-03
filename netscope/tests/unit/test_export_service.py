@@ -18,6 +18,13 @@ Story 5.2 — JsonExporter :
 - Collection vide → anomalies: [] (AC6)
 - UTF-8 sans BOM (AC3)
 - snake_case pour toutes les clés (AC3)
+
+Story 5.3 — All-data export :
+- generate_all_data_csv : header + lignes normales (score=0) + lignes anomalies
+- generate_all_data_json : structure valide, metadata.total_packets, paquets enrichis
+- Matching packet↔anomaly : IP, domain, term, no match
+- Cas pcap vide → CSV header seul, JSON packets=[]
+- Cas 0 anomalies → tous les paquets avec score=0
 """
 
 from __future__ import annotations
@@ -37,11 +44,14 @@ from app.models.anomaly import (
     CriticalityLevel,
     MatchType,
 )
+from app.models.capture import PacketInfo
 from app.services.export_service import (
     CSV_HEADERS,
     UTF8_BOM,
     CsvExporter,
     JsonExporter,
+    _build_anomaly_index,
+    _match_packet_to_anomaly,
     get_csv_exporter,
     get_json_exporter,
     reset_csv_exporter,
@@ -349,6 +359,7 @@ class TestJsonExporterStructure:
         assert meta["exported_at"] is not None
         assert meta["capture_id"] == "cap_test_001"
         assert meta["analyzed_at"] is not None
+        assert meta["export_mode"] == "anomalies_only"
         assert meta["anomaly_count"] == 1
         assert meta["by_criticality"] == {"critical": 1, "warning": 0, "normal": 0}
 
@@ -619,6 +630,286 @@ class TestJsonExporterReason:
 
         data = json.loads(exporter.generate_anomalies_json(collection))
         assert data["anomalies"][0]["reason"] == "Contexte brut fallback"
+
+
+def _build_packet(
+    *,
+    ip_src: str = "192.168.1.10",
+    ip_dst: str = "10.0.0.1",
+    port_src: int | None = 54321,
+    port_dst: int | None = 80,
+    protocol: str = "TCP",
+    dns_queries: list[str] | None = None,
+    payload_preview: str | None = None,
+) -> PacketInfo:
+    """Construit un PacketInfo minimal pour les tests all-data."""
+    return PacketInfo(
+        timestamp=datetime(2026, 5, 3, 12, 0, 0),
+        ip_src=ip_src,
+        ip_dst=ip_dst,
+        port_src=port_src,
+        port_dst=port_dst,
+        protocol=protocol,
+        length=100,
+        dns_queries=dns_queries or [],
+        payload_preview=payload_preview,
+    )
+
+
+class TestMatchPacketToAnomaly:
+    """Story 5.3 — matching packet ↔ anomaly."""
+
+    def test_match_by_ip_src(self):
+        anomaly = _build_anomaly(match_type=MatchType.IP, matched_value="192.168.1.10")
+        ip_idx, domain_idx, term_anoms = _build_anomaly_index([anomaly])
+        packet = _build_packet(ip_src="192.168.1.10")
+
+        result = _match_packet_to_anomaly(packet, ip_idx, domain_idx, term_anoms)
+        assert result is anomaly
+
+    def test_match_by_ip_dst(self):
+        anomaly = _build_anomaly(match_type=MatchType.IP, matched_value="1.2.3.4")
+        ip_idx, domain_idx, term_anoms = _build_anomaly_index([anomaly])
+        packet = _build_packet(ip_dst="1.2.3.4")
+
+        result = _match_packet_to_anomaly(packet, ip_idx, domain_idx, term_anoms)
+        assert result is anomaly
+
+    def test_match_by_domain(self):
+        anomaly = _build_anomaly(match_type=MatchType.DOMAIN, matched_value="evil.example.com")
+        ip_idx, domain_idx, term_anoms = _build_anomaly_index([anomaly])
+        packet = _build_packet(dns_queries=["evil.example.com"])
+
+        result = _match_packet_to_anomaly(packet, ip_idx, domain_idx, term_anoms)
+        assert result is anomaly
+
+    def test_match_by_term(self):
+        anomaly = _build_anomaly(
+            match_type=MatchType.TERM,
+            matched_value="malware",
+            criticality=CriticalityLevel.WARNING,
+            score=65,
+        )
+        ip_idx, domain_idx, term_anoms = _build_anomaly_index([anomaly])
+        packet = _build_packet(payload_preview="GET /download/malware.exe HTTP/1.1")
+
+        result = _match_packet_to_anomaly(packet, ip_idx, domain_idx, term_anoms)
+        assert result is anomaly
+
+    def test_match_by_term_case_insensitive(self):
+        anomaly = _build_anomaly(
+            match_type=MatchType.TERM,
+            matched_value="malware",
+            criticality=CriticalityLevel.WARNING,
+            score=65,
+        )
+        ip_idx, domain_idx, term_anoms = _build_anomaly_index([anomaly])
+        packet = _build_packet(payload_preview="GET /download/MALWARE.exe HTTP/1.1")
+
+        result = _match_packet_to_anomaly(packet, ip_idx, domain_idx, term_anoms)
+        assert result is anomaly
+
+    def test_no_match_returns_none(self):
+        anomaly = _build_anomaly(match_type=MatchType.IP, matched_value="99.99.99.99")
+        ip_idx, domain_idx, term_anoms = _build_anomaly_index([anomaly])
+        packet = _build_packet(ip_src="10.0.0.1", ip_dst="10.0.0.2")
+
+        result = _match_packet_to_anomaly(packet, ip_idx, domain_idx, term_anoms)
+        assert result is None
+
+    def test_ip_priority_over_domain(self):
+        ip_anomaly = _build_anomaly(match_type=MatchType.IP, matched_value="192.168.1.10", score=85)
+        domain_anomaly = _build_anomaly(match_type=MatchType.DOMAIN, matched_value="test.com", score=80)
+        ip_idx, domain_idx, term_anoms = _build_anomaly_index([ip_anomaly, domain_anomaly])
+        packet = _build_packet(ip_src="192.168.1.10", dns_queries=["test.com"])
+
+        result = _match_packet_to_anomaly(packet, ip_idx, domain_idx, term_anoms)
+        assert result is ip_anomaly
+
+
+class TestAllDataCsv:
+    """Story 5.3 — generate_all_data_csv."""
+
+    def test_header_plus_normal_plus_anomaly_rows(self, tmp_path, monkeypatch):
+        packets = [
+            _build_packet(ip_src="10.0.0.1", ip_dst="10.0.0.2"),
+            _build_packet(ip_src="192.168.1.10", ip_dst="1.2.3.4"),
+        ]
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (packets, None),
+        )
+
+        anomaly = _build_anomaly(match_type=MatchType.IP, matched_value="1.2.3.4")
+        collection = AnomalyCollection(anomalies=[anomaly], capture_id="cap_test")
+
+        exporter = CsvExporter()
+        output = "".join(exporter.generate_all_data_csv(tmp_path / "fake.pcap", collection))
+
+        assert output.startswith(UTF8_BOM)
+        rows = list(csv.reader(io.StringIO(output[len(UTF8_BOM):])))
+        assert rows[0] == CSV_HEADERS
+        assert len(rows) == 3  # header + 2 packets
+
+        # Normal packet: score=0, blacklist=non, reason=""
+        assert rows[1][6] == "0"
+        assert rows[1][7] == "non"
+        assert rows[1][8] == ""
+
+        # Anomaly packet: score>0, blacklist=oui
+        assert int(rows[2][6]) > 0
+        assert rows[2][7] == "oui"
+
+    def test_empty_pcap_returns_header_only(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: ([], None),
+        )
+
+        exporter = CsvExporter()
+        output = "".join(exporter.generate_all_data_csv(tmp_path / "empty.pcap", None))
+
+        rows = list(csv.reader(io.StringIO(output[len(UTF8_BOM):])))
+        assert len(rows) == 1  # header seul
+
+    def test_no_anomalies_all_score_zero(self, tmp_path, monkeypatch):
+        packets = [_build_packet(), _build_packet(ip_src="10.0.0.5")]
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (packets, None),
+        )
+
+        exporter = CsvExporter()
+        output = "".join(exporter.generate_all_data_csv(tmp_path / "f.pcap", None))
+
+        rows = list(csv.reader(io.StringIO(output[len(UTF8_BOM):])))
+        for row in rows[1:]:
+            assert row[6] == "0"
+            assert row[7] == "non"
+            assert row[8] == ""
+
+    def test_streaming_yields_per_packet(self, tmp_path, monkeypatch):
+        packets = [_build_packet() for _ in range(5)]
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (packets, None),
+        )
+
+        exporter = CsvExporter()
+        chunks = list(exporter.generate_all_data_csv(tmp_path / "f.pcap", None))
+        assert len(chunks) == 6  # BOM+header + 5 packets
+
+
+class TestAllDataJson:
+    """Story 5.3 — generate_all_data_json."""
+
+    def test_valid_structure_with_metadata(self, tmp_path, monkeypatch):
+        packets = [
+            _build_packet(ip_src="10.0.0.1", ip_dst="10.0.0.2"),
+            _build_packet(ip_src="192.168.1.10", ip_dst="1.2.3.4"),
+        ]
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (packets, None),
+        )
+
+        anomaly = _build_anomaly(match_type=MatchType.IP, matched_value="1.2.3.4")
+        collection = AnomalyCollection(anomalies=[anomaly], capture_id="cap_test")
+
+        exporter = JsonExporter()
+        result = exporter.generate_all_data_json(tmp_path / "fake.pcap", collection)
+        data = json.loads(result)
+
+        assert data["metadata"]["export_mode"] == "all"
+        assert data["metadata"]["total_packets"] == 2
+        assert data["metadata"]["anomaly_count"] == 1
+        assert data["metadata"]["capture_id"] == "cap_test"
+        assert len(data["packets"]) == 2
+
+    def test_normal_packet_fields(self, tmp_path, monkeypatch):
+        packets = [_build_packet(ip_src="10.0.0.1", ip_dst="10.0.0.2")]
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (packets, None),
+        )
+
+        exporter = JsonExporter()
+        data = json.loads(exporter.generate_all_data_json(tmp_path / "f.pcap", None))
+        pkt = data["packets"][0]
+
+        assert pkt["score"] == 0
+        assert pkt["blacklist_match"] is False
+        assert pkt["reason"] == ""
+        assert pkt["ip_src"] == "10.0.0.1"
+        assert pkt["protocol"] == "TCP"
+
+    def test_enriched_anomaly_packet(self, tmp_path, monkeypatch):
+        packets = [_build_packet(ip_dst="1.2.3.4")]
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (packets, None),
+        )
+
+        anomaly = _build_anomaly(match_type=MatchType.IP, matched_value="1.2.3.4", score=85)
+        collection = AnomalyCollection(anomalies=[anomaly], capture_id="c")
+
+        exporter = JsonExporter()
+        data = json.loads(exporter.generate_all_data_json(tmp_path / "f.pcap", collection))
+        pkt = data["packets"][0]
+
+        assert pkt["score"] == 85
+        assert pkt["blacklist_match"] is True
+        assert pkt["reason"] != ""
+
+    def test_empty_pcap_returns_empty_packets(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: ([], None),
+        )
+
+        exporter = JsonExporter()
+        data = json.loads(exporter.generate_all_data_json(tmp_path / "e.pcap", None))
+
+        assert data["packets"] == []
+        assert data["metadata"]["total_packets"] == 0
+        assert data["metadata"]["anomaly_count"] == 0
+
+    def test_no_anomalies_all_score_zero(self, tmp_path, monkeypatch):
+        packets = [_build_packet(), _build_packet(ip_src="10.0.0.5")]
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (packets, None),
+        )
+
+        exporter = JsonExporter()
+        data = json.loads(exporter.generate_all_data_json(tmp_path / "f.pcap", None))
+
+        for pkt in data["packets"]:
+            assert pkt["score"] == 0
+            assert pkt["blacklist_match"] is False
+
+    def test_no_bom_in_output(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: ([], None),
+        )
+
+        exporter = JsonExporter()
+        result = exporter.generate_all_data_json(tmp_path / "e.pcap", None)
+        assert not result.startswith("﻿")
+
+    def test_ports_none_become_json_null(self, tmp_path, monkeypatch):
+        packets = [_build_packet(port_src=None, port_dst=None, protocol="ICMP")]
+        monkeypatch.setattr(
+            "app.core.capture.packet_parser.parse_capture_file",
+            lambda path: (packets, None),
+        )
+
+        exporter = JsonExporter()
+        data = json.loads(exporter.generate_all_data_json(tmp_path / "f.pcap", None))
+        pkt = data["packets"][0]
+        assert pkt["port_src"] is None
+        assert pkt["port_dst"] is None
 
 
 @pytest.fixture(autouse=True)

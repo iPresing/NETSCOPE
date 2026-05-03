@@ -8,22 +8,31 @@ GET /api/exports/json
 
 ### Paramètres
 
-| Paramètre    | Type   | Requis | Description                                |
-|--------------|--------|--------|--------------------------------------------|
-| `capture_id` | string | Non    | ID de la capture. Défaut : dernière capture |
+| Paramètre        | Type   | Requis | Description                                            |
+|------------------|--------|--------|--------------------------------------------------------|
+| `capture_id`     | string | Non    | ID de la capture. Défaut : dernière capture             |
+| `anomalies_only` | string | Non    | `"true"` (défaut) = anomalies seules, `"false"` = tous les paquets |
 
 ### Réponses
 
-| Code | Description                        |
-|------|------------------------------------|
-| 200  | Fichier JSON téléchargé            |
-| 404  | `capture_id` fourni mais introuvable |
+| Code | Description                                                    |
+|------|----------------------------------------------------------------|
+| 200  | Fichier JSON téléchargé                                        |
+| 404  | `capture_id` introuvable, ou pcap introuvable en mode all-data |
 
 ### Headers de réponse
 
 - `Content-Type: application/json; charset=utf-8`
-- `Content-Disposition: attachment; filename="netscope-anomalies-{capture_id}-{YYYYMMDD-HHmmss}.json"`
+- `Content-Disposition: attachment; filename="netscope-{label}-{capture_id}-{YYYYMMDD-HHmmss}.json"`
+  - `label` = `anomalies` (mode défaut) ou `all-data` (mode toutes données)
 - `X-Anomaly-Count: <int>`
+
+### Exemples d'URL
+
+```
+GET /api/exports/json?capture_id=cap_001&anomalies_only=true
+GET /api/exports/json?capture_id=cap_001&anomalies_only=false
+```
 
 ## Structure JSON
 
@@ -117,6 +126,51 @@ data.anomalies.forEach(a => console.log(`${a.ip_src} -> ${a.ip_dst} (score: ${a.
 # Lister les anomalies critiques
 jq '.anomalies[] | select(.criticality == "critical") | {ip_src, ip_dst, score}' export.json
 ```
+
+## Mode « Toutes les données » (Story 5.3)
+
+En mode `anomalies_only=false`, la structure change :
+
+```json
+{
+  "metadata": {
+    "format": "netscope-anomalies-export",
+    "version": "1.0",
+    "exported_at": "2026-05-03T12:00:00+00:00",
+    "capture_id": "capture_20260503_120000",
+    "export_mode": "all",
+    "total_packets": 150,
+    "anomaly_count": 3
+  },
+  "packets": [
+    {
+      "timestamp": "2026-05-03T12:00:01+00:00",
+      "ip_src": "192.168.1.10",
+      "ip_dst": "10.0.0.1",
+      "port_src": 54321,
+      "port_dst": 80,
+      "protocol": "TCP",
+      "score": 0,
+      "blacklist_match": false,
+      "reason": ""
+    },
+    {
+      "timestamp": "2026-05-03T12:00:02+00:00",
+      "ip_src": "192.168.1.10",
+      "ip_dst": "45.33.32.156",
+      "port_src": 54322,
+      "port_dst": 4444,
+      "protocol": "TCP",
+      "score": 85,
+      "blacklist_match": true,
+      "reason": "IP blacklistee - activite malware connue"
+    }
+  ]
+}
+```
+
+Les paquets normaux ont `score=0`, `blacklist_match=false`, `reason=""`.
+Les paquets correspondant à une anomalie sont enrichis.
 
 ## Conformite
 

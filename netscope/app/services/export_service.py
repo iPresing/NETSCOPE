@@ -21,9 +21,11 @@ import io
 import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Iterator
 
 from app.models.anomaly import Anomaly, AnomalyCollection, MatchType
+from app.models.capture import PacketInfo
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,61 @@ class CsvExporter:
     Implémentation stateless — les conversions se font à la sérialisation,
     rien n'est caché sur la collection passée en paramètre.
     """
+
+    def generate_all_data_csv(
+        self,
+        pcap_path: Path,
+        collection: AnomalyCollection | None,
+    ) -> Iterator[str]:
+        """Streame le CSV de tous les paquets d'un pcap, enrichis avec les anomalies.
+
+        Args:
+            pcap_path: Chemin vers le fichier pcap à parser.
+            collection: Collection d'anomalies pour enrichissement. None → tous score=0.
+
+        Yields:
+            Chaînes UTF-8 : BOM, header, puis une ligne par paquet (CRLF).
+        """
+        from app.core.capture.packet_parser import parse_capture_file
+
+        yield UTF8_BOM + self._format_row(CSV_HEADERS)
+
+        packets, _ = parse_capture_file(pcap_path)
+
+        anomalies = collection.anomalies if collection else []
+        ip_idx, domain_idx, term_anoms = _build_anomaly_index(anomalies)
+
+        for packet in packets:
+            matched = _match_packet_to_anomaly(packet, ip_idx, domain_idx, term_anoms)
+            row = self._packet_to_row(packet, matched)
+            yield self._format_row(row)
+
+    @staticmethod
+    def _packet_to_row(packet: PacketInfo, anomaly: Anomaly | None) -> list[str]:
+        """Convertit un PacketInfo + anomalie optionnelle en cellules CSV."""
+        port_src = "" if packet.port_src is None else str(packet.port_src)
+        port_dst = "" if packet.port_dst is None else str(packet.port_dst)
+
+        if anomaly:
+            score = str(anomaly.score)
+            blacklist_match = "oui" if anomaly.match.match_type in BLACKLIST_MATCH_TYPES else "non"
+            reason = _resolve_reason(anomaly)
+        else:
+            score = "0"
+            blacklist_match = "non"
+            reason = ""
+
+        return [
+            packet.timestamp.isoformat(),
+            packet.ip_src,
+            packet.ip_dst,
+            port_src,
+            port_dst,
+            packet.protocol,
+            score,
+            blacklist_match,
+            reason,
+        ]
 
     def generate_anomalies_csv(self, collection: AnomalyCollection | None) -> Iterator[str]:
         """Streame le CSV des anomalies, ligne par ligne.
@@ -120,6 +177,60 @@ class CsvExporter:
         ]
 
 
+def _build_anomaly_index(
+    anomalies: list[Anomaly],
+) -> tuple[dict[str, Anomaly], dict[str, Anomaly], list[Anomaly]]:
+    """Construit des index pour le cross-référencement paquet ↔ anomalie.
+
+    Returns:
+        (ip_index, domain_index, term_anomalies) — lookup O(1) pour IP/domain,
+        liste pour terms (substring match nécessaire).
+    """
+    ip_index: dict[str, Anomaly] = {}
+    domain_index: dict[str, Anomaly] = {}
+    term_anomalies: list[Anomaly] = []
+
+    for anomaly in anomalies:
+        mt = anomaly.match.match_type
+        val = anomaly.match.matched_value
+        if mt is MatchType.IP:
+            ip_index.setdefault(val, anomaly)
+        elif mt is MatchType.DOMAIN:
+            domain_index.setdefault(val, anomaly)
+        elif mt is MatchType.TERM:
+            term_anomalies.append(anomaly)
+
+    return ip_index, domain_index, term_anomalies
+
+
+def _match_packet_to_anomaly(
+    packet: PacketInfo,
+    ip_index: dict[str, Anomaly],
+    domain_index: dict[str, Anomaly],
+    term_anomalies: list[Anomaly],
+) -> Anomaly | None:
+    """Trouve l'anomalie correspondant à un paquet, ou None.
+
+    Priorité : IP → Domain → Term.
+    """
+    hit = ip_index.get(packet.ip_src) or ip_index.get(packet.ip_dst)
+    if hit:
+        return hit
+
+    for query in packet.dns_queries:
+        hit = domain_index.get(query)
+        if hit:
+            return hit
+
+    if packet.payload_preview:
+        payload_lower = packet.payload_preview.lower()
+        for anomaly in term_anomalies:
+            if anomaly.match.matched_value.lower() in payload_lower:
+                return anomaly
+
+    return None
+
+
 def _resolve_reason(anomaly: Anomaly) -> str:
     """Priorité au contexte humain accessible (Story 2.5), sinon contexte brut.
 
@@ -149,6 +260,79 @@ class JsonExporter:
 
     EXPORT_FORMAT = "netscope-anomalies-export"
     EXPORT_VERSION = "1.0"
+
+    def generate_all_data_json(
+        self,
+        pcap_path: Path,
+        collection: AnomalyCollection | None,
+    ) -> str:
+        """Produit le JSON complet de tous les paquets d'un pcap, enrichis anomalies.
+
+        Args:
+            pcap_path: Chemin vers le fichier pcap à parser.
+            collection: Collection d'anomalies pour enrichissement. None → tous score=0.
+
+        Returns:
+            Chaîne JSON UTF-8 indentée 2 espaces, sans BOM.
+        """
+        from app.core.capture.packet_parser import parse_capture_file
+
+        now = datetime.now(timezone.utc)
+
+        packets, _ = parse_capture_file(pcap_path)
+
+        anomalies = collection.anomalies if collection else []
+        ip_idx, domain_idx, term_anoms = _build_anomaly_index(anomalies)
+
+        anomaly_count = 0
+        packets_list: list[dict[str, Any]] = []
+
+        for packet in packets:
+            matched = _match_packet_to_anomaly(packet, ip_idx, domain_idx, term_anoms)
+            if matched:
+                anomaly_count += 1
+            packets_list.append(self._packet_to_export_dict(packet, matched))
+
+        capture_id = collection.capture_id if collection else None
+
+        data = {
+            "metadata": {
+                "format": self.EXPORT_FORMAT,
+                "version": self.EXPORT_VERSION,
+                "exported_at": now.isoformat(),
+                "capture_id": capture_id,
+                "export_mode": "all",
+                "total_packets": len(packets),
+                "anomaly_count": anomaly_count,
+            },
+            "packets": packets_list,
+        }
+
+        return json.dumps(data, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def _packet_to_export_dict(packet: PacketInfo, anomaly: Anomaly | None) -> dict[str, Any]:
+        """Convertit un PacketInfo + anomalie optionnelle en dict d'export JSON."""
+        if anomaly:
+            score = anomaly.score
+            blacklist_match = anomaly.match.match_type in BLACKLIST_MATCH_TYPES
+            reason = _resolve_reason(anomaly)
+        else:
+            score = 0
+            blacklist_match = False
+            reason = ""
+
+        return {
+            "timestamp": packet.timestamp.isoformat(),
+            "ip_src": packet.ip_src,
+            "ip_dst": packet.ip_dst,
+            "port_src": packet.port_src,
+            "port_dst": packet.port_dst,
+            "protocol": packet.protocol,
+            "score": score,
+            "blacklist_match": blacklist_match,
+            "reason": reason,
+        }
 
     def generate_anomalies_json(self, collection: AnomalyCollection | None) -> str:
         """Produit le document JSON complet des anomalies.
@@ -180,6 +364,7 @@ class JsonExporter:
                 "version": self.EXPORT_VERSION,
                 "exported_at": now.isoformat(),
                 "capture_id": capture_id,
+                "export_mode": "anomalies_only",
                 "analyzed_at": analyzed_at,
                 "anomaly_count": anomaly_count,
                 "by_criticality": by_crit,
