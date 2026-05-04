@@ -70,11 +70,13 @@ class TestUpdatePageIntegration:
 
     def test_update_has_version_display(self, client):
         """Update page still shows version information."""
+        from app.services.version_service import get_version_service
+        expected_version = get_version_service().get_version()
         response = client.get('/admin/update')
         soup = BeautifulSoup(response.data, 'html.parser')
         version = soup.find(class_='version-value')
         assert version is not None
-        assert 'v0.1.0' in version.get_text()
+        assert f'v{expected_version}' in version.get_text()
 
     def test_update_has_history_table(self, client):
         """Update page still has update history table."""

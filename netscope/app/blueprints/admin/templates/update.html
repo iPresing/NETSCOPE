@@ -14,11 +14,19 @@
         <div class="version-info">
             <div class="version-number">
                 <span class="version-label">Version installée:</span>
-                <span class="version-value">v0.1.0</span>
+                <span class="version-value">v{{ netscope_version }}</span>
             </div>
             <div class="version-date">
                 <span class="version-label">Date d'installation:</span>
-                <span class="version-value">--</span>
+                <span class="version-value">{{ system_info.install_date if system_info else 'N/A' }}</span>
+            </div>
+            <div class="version-model">
+                <span class="version-label">Modèle:</span>
+                <span class="version-value">{{ system_info.pi_model if system_info else hardware_model }}</span>
+            </div>
+            <div class="version-uptime">
+                <span class="version-label">Uptime:</span>
+                <span class="version-value">{{ system_info.uptime_formatted if system_info else 'N/A' }}</span>
             </div>
         </div>
     </section>
@@ -41,8 +49,8 @@
             </thead>
             <tbody>
                 <tr>
-                    <td>v0.1.0</td>
-                    <td>--</td>
+                    <td>v{{ netscope_version }}</td>
+                    <td>{{ system_info.install_date if system_info else '--' }}</td>
                     <td><span class="badge badge-success">Actuelle</span></td>
                     <td>Installation initiale</td>
                 </tr>

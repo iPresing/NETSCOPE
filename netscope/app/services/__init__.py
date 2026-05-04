@@ -44,6 +44,13 @@ from .blacklist_user_manager import (
     get_blacklist_user_manager,
     reset_blacklist_user_manager,
 )
+from .version_service import (
+    VersionService,
+    SystemInfo,
+    SystemInfoKey,
+    get_version_service,
+    reset_version_service,
+)
 
 __all__ = [
     # Hardware detection
@@ -82,4 +89,10 @@ __all__ = [
     "BlacklistUserManager",
     "get_blacklist_user_manager",
     "reset_blacklist_user_manager",
+    # Version service (Story 5.4)
+    "VersionService",
+    "SystemInfo",
+    "SystemInfoKey",
+    "get_version_service",
+    "reset_version_service",
 ]

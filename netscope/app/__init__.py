@@ -398,6 +398,16 @@ def _register_context_processors(app):
         }
 
     @app.context_processor
+    def inject_version_info():
+        """Inject NETSCOPE version into all templates."""
+        try:
+            from app.services.version_service import get_version_service
+            service = get_version_service()
+            return {'netscope_version': service.get_version()}
+        except Exception:
+            return {'netscope_version': '0.0.0'}
+
+    @app.context_processor
     def inject_blacklist_info():
         """Inject blacklist statistics into all templates.
 

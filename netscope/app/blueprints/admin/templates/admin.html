@@ -14,7 +14,19 @@
         <div class="info-grid">
             <div class="info-item">
                 <span class="info-label">Version:</span>
-                <span class="info-value">NETSCOPE v0.1.0</span>
+                <span class="info-value version-value">NETSCOPE v{{ netscope_version }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Modèle:</span>
+                <span class="info-value">{{ system_info.pi_model if system_info else hardware_model }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Date d'installation:</span>
+                <span class="info-value">{{ system_info.install_date if system_info else 'N/A' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Uptime:</span>
+                <span class="info-value">{{ system_info.uptime_formatted if system_info else 'N/A' }}</span>
             </div>
             <div class="info-item">
                 <span class="info-label">Interface Réseau:</span>
