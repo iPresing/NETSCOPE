@@ -107,11 +107,13 @@ class TestUpdatePageRemovedElements:
         response = client.get('/admin/update')
         assert response.status_code == 200
 
-    def test_github_check_button_removed(self, client):
-        """AC2: Button 'Vérifier sur GitHub' is not present."""
+    def test_update_check_button_functional(self, client):
+        """AC2: Button 'Vérifier mises à jour' is present and functional (Story 5.5)."""
         response = client.get('/admin/update')
         soup = BeautifulSoup(response.data, 'html.parser')
-        assert soup.find(id='check-update-btn') is None
+        btn = soup.find(id='btn-check-update')
+        assert btn is not None
+        assert btn.get('disabled') is None
 
     def test_settings_checkboxes_removed(self, client):
         """AC2: Disabled parameter checkboxes are not present."""

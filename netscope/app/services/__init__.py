@@ -51,6 +51,13 @@ from .version_service import (
     get_version_service,
     reset_version_service,
 )
+from .update_service import (
+    UpdateService,
+    UpdateCheckResult,
+    UpdateErrorCode,
+    get_update_service,
+    reset_update_service,
+)
 
 __all__ = [
     # Hardware detection
@@ -95,4 +102,10 @@ __all__ = [
     "SystemInfoKey",
     "get_version_service",
     "reset_version_service",
+    # Update service (Story 5.5)
+    "UpdateService",
+    "UpdateCheckResult",
+    "UpdateErrorCode",
+    "get_update_service",
+    "reset_update_service",
 ]

@@ -32,8 +32,50 @@
     </section>
 
     <section class="check-update card">
-        <h3>Mises à Jour</h3>
-        <p class="text-muted">Le module de vérification et d'installation des mises à jour sera disponible dans une version future.</p>
+        <h3>Vérifier les Mises à Jour</h3>
+        <div class="update-check-actions">
+            <button id="btn-check-update" class="btn btn-primary">
+                Vérifier mises à jour
+            </button>
+            <noscript>
+                <form method="post" action="{{ url_for('admin.update_check') }}" style="display:inline">
+                    <button type="submit" class="btn btn-primary">Vérifier (sans JS)</button>
+                </form>
+            </noscript>
+            <span id="update-spinner" class="spinner hidden"></span>
+        </div>
+        {% if update_result %}
+        <div class="update-result">
+            {% if update_result.error %}
+            <div class="alert alert-danger">
+                <strong>Erreur :</strong> {{ update_result.error }}
+            </div>
+            {% elif update_result.update_available %}
+            <div class="alert alert-info">
+                <strong>Nouvelle version disponible !</strong><br>
+                <span class="text-muted">Version actuelle :</span> v{{ update_result.current_version }}
+                &rarr; <strong>v{{ update_result.latest_version }}</strong><br>
+                {% if update_result.published_at %}
+                <span class="text-muted">Publiée le :</span> {{ update_result.published_at }}<br>
+                {% endif %}
+                {% if update_result.changelog %}
+                <details><summary>Notes de version</summary><pre class="changelog-content">{{ update_result.changelog }}</pre></details>
+                {% endif %}
+                {% if update_result.release_url and update_result.release_url.startswith('https://') %}
+                <a href="{{ update_result.release_url }}" target="_blank" rel="noopener" class="btn btn-sm">Voir sur GitHub</a>
+                {% endif %}
+                <button class="btn btn-sm" disabled title="Disponible dans une version future">Mettre à jour</button>
+            </div>
+            {% else %}
+            <div class="alert alert-success">
+                <span class="badge badge-success">&#10003;</span>
+                Vous êtes à jour (v{{ update_result.current_version }})
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        <div id="update-result" class="update-result hidden">
+        </div>
     </section>
 
     <section class="update-history card">
@@ -67,4 +109,87 @@
         <a href="{{ url_for('admin.admin_index') }}" class="btn">← Retour à l'administration</a>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('btn-check-update');
+    const spinner = document.getElementById('update-spinner');
+    const resultDiv = document.getElementById('update-result');
+
+    if (!btn) return;
+
+    btn.addEventListener('click', async function() {
+        btn.disabled = true;
+        spinner.classList.remove('hidden');
+        resultDiv.classList.add('hidden');
+        resultDiv.textContent = '';
+
+        try {
+            const response = await fetch('/api/update/check');
+            const data = await response.json();
+            renderUpdateResult(data);
+        } catch (err) {
+            resultDiv.innerHTML = '<div class="alert alert-danger">Erreur de communication avec le serveur.</div>';
+        } finally {
+            btn.disabled = false;
+            spinner.classList.add('hidden');
+            resultDiv.classList.remove('hidden');
+        }
+    });
+
+    function renderUpdateResult(data) {
+        if (data.error) {
+            resultDiv.innerHTML =
+                '<div class="alert alert-danger">' +
+                '<strong>Erreur :</strong> ' + escapeHtml(data.error) +
+                '</div>';
+            return;
+        }
+
+        if (data.update_available) {
+            let html = '<div class="alert alert-info">';
+            html += '<strong>Nouvelle version disponible !</strong><br>';
+            html += '<span class="text-muted">Version actuelle :</span> v' + escapeHtml(data.current_version);
+            html += ' &rarr; <strong>v' + escapeHtml(data.latest_version) + '</strong><br>';
+            if (data.published_at) {
+                html += '<span class="text-muted">Publiée le :</span> ' + escapeHtml(formatDate(data.published_at)) + '<br>';
+            }
+            if (data.changelog) {
+                html += '<details><summary>Notes de version</summary><pre class="changelog-content">' + escapeHtml(data.changelog) + '</pre></details>';
+            }
+            if (data.release_url && data.release_url.startsWith('https://')) {
+                html += '<a href="' + escapeHtml(data.release_url) + '" target="_blank" rel="noopener" class="btn btn-sm">Voir sur GitHub</a> ';
+            }
+            html += '<button class="btn btn-sm" disabled title="Disponible dans une version future">Mettre à jour</button>';
+            html += '</div>';
+            resultDiv.innerHTML = html;
+        } else {
+            resultDiv.innerHTML =
+                '<div class="alert alert-success">' +
+                '<span class="badge badge-success">&#10003;</span> ' +
+                'Vous êtes à jour (v' + escapeHtml(data.current_version) + ')' +
+                '</div>';
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatDate(isoDate) {
+        try {
+            return new Date(isoDate).toLocaleDateString('fr-FR', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+        } catch (e) {
+            return isoDate;
+        }
+    }
+});
+</script>
 {% endblock %}

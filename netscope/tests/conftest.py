@@ -16,6 +16,7 @@ from app.services.resource_monitor import reset_resource_monitor
 from app.services.graceful_degradation import reset_degradation_manager
 from app.blueprints.captive.captive_manager import reset_captive_manager
 from app.services.version_service import reset_version_service
+from app.services.update_service import reset_update_service
 
 
 @pytest.fixture
@@ -31,6 +32,7 @@ def app():
     reset_degradation_manager()
     reset_captive_manager()
     reset_version_service()
+    reset_update_service()
     app = create_app('testing')
     yield app
     reset_whitelist_manager()
@@ -39,6 +41,7 @@ def app():
     reset_degradation_manager()
     reset_captive_manager()
     reset_version_service()
+    reset_update_service()
 
 
 @pytest.fixture
