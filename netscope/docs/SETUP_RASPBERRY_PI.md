@@ -63,7 +63,15 @@
 
 ---
 
-## 4. Installation des dépendances système
+## SECTION INSTALLATION AUTOMATIQUE 
+Pour installer automatiquement les dépendances et le système 
+```bash
+curl -sSL https://raw.githubusercontent.com/iPresing/NETSCOPE/main/netscope/scripts/bootstrap.sh | sudo bash
+```
+
+## SECTION INSTALLATION MANUELLE 
+Pour installer manuellement les dépendances et le système  
+## 1. Installation des dépendances système
 
 ```bash
 sudo apt update && sudo apt upgrade -y
@@ -74,7 +82,7 @@ sudo apt install -y python3 python3-pip python3-venv git tcpdump
 
 ---
 
-## 5. Cloner le projet NETSCOPE
+## 2. Cloner le projet NETSCOPE
 
 ```bash
 cd ~
@@ -84,7 +92,7 @@ cd NETSCOPE/netscope
 
 ---
 
-## 6. Créer l'environnement virtuel Python
+## 3. Créer l'environnement virtuel Python
 
 ```bash
 python3 -m venv venv
@@ -95,7 +103,7 @@ pip install -r requirements.txt
 
 ---
 
-## 7. Configurer l'environnement
+## 4. Configurer l'environnement
 
 ```bash
 cp .env.example .env
@@ -118,7 +126,7 @@ NETSCOPE_CONFIG_PATH=data/config/netscope.yaml
 
 ---
 
-## 8. (Optionnel) Déployer le réseau probe
+## 5. (Optionnel) Déployer le réseau probe
 
 Si vous souhaitez configurer le mode AP (point d'accès Wi-Fi) :
 
@@ -138,7 +146,7 @@ sudo reboot
 
 ---
 
-## 9. Lancer NETSCOPE en mode debug
+## 6. Lancer NETSCOPE en mode debug
 
 ```bash
 cd ~/netscope/netscope
@@ -159,7 +167,7 @@ L'application démarre sur **`http://<IP_DU_PI>:5000`**.
 
 ---
 
-## 10. Vérifier que tout fonctionne
+## Vérifier que tout fonctionne
 
 1. Ouvrir l'URL dans un navigateur
 2. Le **dashboard** doit s'afficher avec le health score
