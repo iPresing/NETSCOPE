@@ -64,7 +64,7 @@
                 {% if update_result.release_url and update_result.release_url.startswith('https://') %}
                 <a href="{{ update_result.release_url }}" target="_blank" rel="noopener" class="btn btn-sm">Voir sur GitHub</a>
                 {% endif %}
-                <button class="btn btn-sm" disabled title="Disponible dans une version future">Mettre à jour</button>
+                <button id="btn-apply-update-static" class="btn btn-sm btn-primary" onclick="triggerUpdate()">Mettre à jour maintenant</button>
             </div>
             {% else %}
             <div class="alert alert-success">
@@ -75,6 +75,20 @@
         </div>
         {% endif %}
         <div id="update-result" class="update-result hidden">
+        </div>
+    </section>
+
+    <section id="update-progress-section" class="card hidden">
+        <h3>Progression de la Mise à Jour</h3>
+        <div class="progress-container">
+            <div class="progress-bar" id="update-progress-bar" style="width: 0%">
+                <span id="update-progress-label">0%</span>
+            </div>
+        </div>
+        <p id="update-step-label" class="text-muted"></p>
+        <div id="update-error-display" class="alert alert-danger hidden"></div>
+        <div id="update-done-display" class="alert alert-success hidden">
+            Mise à jour terminée avec succès !
         </div>
     </section>
 
@@ -162,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.release_url && data.release_url.startsWith('https://')) {
                 html += '<a href="' + escapeHtml(data.release_url) + '" target="_blank" rel="noopener" class="btn btn-sm">Voir sur GitHub</a> ';
             }
-            html += '<button class="btn btn-sm" disabled title="Disponible dans une version future">Mettre à jour</button>';
+            html += '<button id="btn-apply-update" class="btn btn-sm btn-primary" onclick="triggerUpdate()">Mettre à jour maintenant</button>';
             html += '</div>';
             resultDiv.innerHTML = html;
         } else {
@@ -189,6 +203,85 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) {
             return isoDate;
         }
+    }
+
+    window.triggerUpdate = async function() {
+        if (!confirm('Êtes-vous sûr de vouloir lancer la mise à jour ?')) {
+            return;
+        }
+
+        var applyBtns = document.querySelectorAll('[id^="btn-apply-update"]');
+        applyBtns.forEach(function(b) { b.disabled = true; });
+
+        var progressSection = document.getElementById('update-progress-section');
+        var progressBar = document.getElementById('update-progress-bar');
+        var progressLabel = document.getElementById('update-progress-label');
+        var stepLabel = document.getElementById('update-step-label');
+        var errorDisplay = document.getElementById('update-error-display');
+        var doneDisplay = document.getElementById('update-done-display');
+
+        progressSection.classList.remove('hidden');
+        errorDisplay.classList.add('hidden');
+        doneDisplay.classList.add('hidden');
+        progressBar.style.width = '0%';
+        progressLabel.textContent = '0%';
+        stepLabel.textContent = 'Démarrage...';
+
+        try {
+            var response = await fetch('/api/update/apply', { method: 'POST' });
+            var data = await response.json();
+            if (!data.started) {
+                errorDisplay.textContent = data.message;
+                errorDisplay.classList.remove('hidden');
+                applyBtns.forEach(function(b) { b.disabled = false; });
+                return;
+            }
+            pollUpdateStatus();
+        } catch (err) {
+            errorDisplay.textContent = 'Erreur de communication avec le serveur.';
+            errorDisplay.classList.remove('hidden');
+            applyBtns.forEach(function(b) { b.disabled = false; });
+        }
+    };
+
+    function pollUpdateStatus() {
+        var interval = setInterval(async function() {
+            try {
+                var response = await fetch('/api/update/status');
+                var data = await response.json();
+
+                var progressBar = document.getElementById('update-progress-bar');
+                var progressLabel = document.getElementById('update-progress-label');
+                var stepLabel = document.getElementById('update-step-label');
+                var errorDisplay = document.getElementById('update-error-display');
+                var doneDisplay = document.getElementById('update-done-display');
+
+                progressBar.style.width = data.progress_percent + '%';
+                progressLabel.textContent = data.progress_percent + '%';
+                stepLabel.textContent = data.current_step || '';
+
+                if (data.state === 'done') {
+                    clearInterval(interval);
+                    progressBar.style.width = '100%';
+                    progressLabel.textContent = '100%';
+                    doneDisplay.classList.remove('hidden');
+                    stepLabel.textContent = 'Mise à jour terminée';
+                }
+
+                if (data.state === 'error') {
+                    clearInterval(interval);
+                    errorDisplay.textContent = data.error || 'Erreur inconnue';
+                    errorDisplay.classList.remove('hidden');
+                    var applyBtns = document.querySelectorAll('[id^="btn-apply-update"]');
+                    applyBtns.forEach(function(b) { b.disabled = false; });
+                }
+            } catch (err) {
+                clearInterval(interval);
+                var errorDisplay = document.getElementById('update-error-display');
+                errorDisplay.textContent = 'Connexion perdue pendant la mise à jour.';
+                errorDisplay.classList.remove('hidden');
+            }
+        }, 2000);
     }
 });
 </script>

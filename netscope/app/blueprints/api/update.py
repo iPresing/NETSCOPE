@@ -1,8 +1,8 @@
-"""API endpoint for update checking (Story 5.5)."""
+"""API endpoints for update checking and OTA update (Stories 5.5, 5.6)."""
 
 import logging
 
-from flask import jsonify
+from flask import jsonify, request
 
 from . import api_bp
 
@@ -22,3 +22,34 @@ def check_update():
     service = get_update_service()
     result = service.check_for_update()
     return jsonify(result.to_dict()), 200
+
+
+@api_bp.route('/update/status')
+def update_status():
+    """Get current update process status.
+
+    Returns:
+        JSON with state, progress_percent, current_step, error, error_code
+    """
+    from app.services.update_service import get_update_service
+
+    service = get_update_service()
+    status = service.get_update_status()
+    return jsonify(status.to_dict()), 200
+
+
+@api_bp.route('/update/apply', methods=['POST'])
+def apply_update():
+    """Trigger OTA update process.
+
+    Returns:
+        JSON with started status or error if already running
+    """
+    from app.services.update_service import get_update_service
+
+    logger.info('POST /api/update/apply called (ip=%s)', request.remote_addr)
+    service = get_update_service()
+    started = service.start_update()
+    if started:
+        return jsonify({"started": True, "message": "Mise à jour démarrée."}), 202
+    return jsonify({"started": False, "message": "Une mise à jour est déjà en cours."}), 409
