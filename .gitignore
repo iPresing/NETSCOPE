@@ -104,5 +104,5 @@ data/exports/
 # Runtime Data (user-generated, not in VCS)
 # -------------------------------------------
 data/whitelist/whitelist.json
-data/update_history.json
+**/update_history.json
 
