@@ -28,7 +28,7 @@ class OtaUpdater:
     ):
         self._install_dir = install_dir
         self._pre_update_callback = pre_update_callback or (lambda: True)
-        self._post_update_callback = post_update_callback or (lambda: True)
+        self.post_update_callback = post_update_callback or (lambda: True)
 
     def apply_update(self, archive_path: str, install_dir: Optional[str] = None) -> bool:
         target = install_dir or self._install_dir
@@ -122,6 +122,44 @@ class OtaUpdater:
 
         logger.info("Backup créée : %s (%d octets)", backup_dir, install_size)
         return BackupResult(True, backup_path=backup_dir, size_bytes=install_size)
+
+    def restore_from_backup(self, install_dir: str, backup_path: str) -> bool:
+        """Restore installation from backup directory."""
+        if not os.path.isabs(backup_path):
+            logger.error("[admin.ota_update] backup_path doit être absolu : %s", backup_path)
+            return False
+        if not os.path.isdir(backup_path):
+            logger.error("[admin.ota_update] Backup inexistant : %s", backup_path)
+            return False
+        if not os.path.isabs(install_dir):
+            logger.error("[admin.ota_update] install_dir doit être absolu : %s", install_dir)
+            return False
+
+        quarantine_path = install_dir + ".quarantine"
+        try:
+            if os.path.exists(quarantine_path):
+                shutil.rmtree(quarantine_path)
+            if os.path.exists(install_dir):
+                os.rename(install_dir, quarantine_path)
+            shutil.copytree(backup_path, install_dir)
+            if os.path.exists(quarantine_path):
+                shutil.rmtree(quarantine_path, ignore_errors=True)
+            logger.info(
+                "[admin.ota_update] Restauration réussie depuis %s vers %s",
+                backup_path, install_dir,
+            )
+            return True
+        except OSError as e:
+            if not os.path.exists(install_dir) and os.path.exists(quarantine_path):
+                try:
+                    os.rename(quarantine_path, install_dir)
+                    logger.warning("[admin.ota_update] Copytree échoué, install_dir restauré depuis quarantine")
+                except OSError:
+                    logger.critical("[admin.ota_update] Impossible de restaurer install_dir depuis quarantine")
+            logger.error(
+                "[admin.ota_update] Échec restauration depuis backup : %s", e,
+            )
+            return False
 
     def restart_service(self) -> bool:
         import platform

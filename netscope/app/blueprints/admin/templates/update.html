@@ -264,12 +264,40 @@ document.addEventListener('DOMContentLoaded', function() {
                     stepLabel.textContent = data.current_step || 'Création backup...';
                 }
 
+                if (data.state === 'health_checking') {
+                    stepLabel.textContent = data.current_step || 'Vérification santé post-update...';
+                }
+
+                if (data.state === 'rolling_back') {
+                    stepLabel.textContent = data.current_step || 'Restauration version précédente...';
+                }
+
                 if (data.state === 'done') {
                     clearInterval(interval);
                     progressBar.style.width = '100%';
                     progressLabel.textContent = '100%';
                     doneDisplay.classList.remove('hidden');
-                    stepLabel.textContent = 'Mise à jour terminée';
+                    stepLabel.textContent = 'Mise à jour réussie';
+                }
+
+                if (data.state === 'rolled_back') {
+                    clearInterval(interval);
+                    progressBar.style.width = '100%';
+                    progressLabel.textContent = '100%';
+                    errorDisplay.textContent = 'Update échouée, version précédente restaurée';
+                    errorDisplay.classList.remove('hidden');
+                    var applyBtns = document.querySelectorAll('[id^="btn-apply-update"]');
+                    applyBtns.forEach(function(b) { b.disabled = false; });
+                }
+
+                if (data.state === 'rollback_failed') {
+                    clearInterval(interval);
+                    progressBar.style.width = '100%';
+                    progressLabel.textContent = '100%';
+                    errorDisplay.textContent = data.error || 'Échec du rollback. Intervention manuelle requise.';
+                    errorDisplay.classList.remove('hidden');
+                    var applyBtns = document.querySelectorAll('[id^="btn-apply-update"]');
+                    applyBtns.forEach(function(b) { b.disabled = false; });
                 }
 
                 if (data.state === 'error') {

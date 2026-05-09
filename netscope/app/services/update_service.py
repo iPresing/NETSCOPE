@@ -26,6 +26,8 @@ DOWNLOAD_CHUNK_SIZE = 8192
 MIN_DISK_SPACE_MB = 100
 USER_AGENT = "NETSCOPE-Updater/0.1.0"
 ALLOWED_DOWNLOAD_HOSTS = ("https://api.github.com/", "https://github.com/")
+HEALTH_CHECK_POLL_INTERVAL = 2
+DEFAULT_HEALTH_CHECK_TIMEOUT = 30
 
 
 class UpdateErrorCode(Enum):
@@ -38,6 +40,8 @@ class UpdateErrorCode(Enum):
     DISK_SPACE_ERROR = "DISK_SPACE_ERROR"
     INTEGRITY_ERROR = "INTEGRITY_ERROR"
     BACKUP_FAILED = "BACKUP_FAILED"
+    ROLLBACK_FAILED = "ROLLBACK_FAILED"
+    HEALTH_CHECK_FAILED = "HEALTH_CHECK_FAILED"
 
 
 @dataclass
@@ -75,7 +79,11 @@ class UpdateState(Enum):
     DOWNLOADING = "downloading"
     EXTRACTING = "extracting"
     RESTARTING = "restarting"
+    HEALTH_CHECKING = "health_checking"
     DONE = "done"
+    ROLLING_BACK = "rolling_back"
+    ROLLED_BACK = "rolled_back"
+    ROLLBACK_FAILED = "rollback_failed"
     ERROR = "error"
 
 
@@ -296,11 +304,13 @@ class UpdateService:
             from app.blueprints.admin.ota_update import OtaUpdater
 
             config = self._load_update_config()
+            full_config = self._load_full_config()
             install_dir = config.get("install_dir", os.path.dirname(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             ))
 
             backup_enabled = config.get("backup_before_update", True)
+            backup_path = None
             if backup_enabled:
                 backup_path = config.get(
                     "backup_path", install_dir + ".backup"
@@ -380,14 +390,66 @@ class UpdateService:
 
             updater.restart_service()
 
-            if not updater._post_update_callback():
+            if not updater.post_update_callback():
                 logger.warning("Hook post-update a échoué")
 
+            rollback_on_failure = config.get("rollback_on_failure", True)
+            health_timeout = config.get("health_check_timeout", DEFAULT_HEALTH_CHECK_TIMEOUT)
+
             self._update_status = UpdateStatus(
-                state=UpdateState.DONE,
-                progress_percent=100,
-                current_step="Mise à jour terminée",
+                state=UpdateState.HEALTH_CHECKING,
+                progress_percent=92,
+                current_step="Vérification santé post-update...",
             )
+
+            network_port = full_config.get("network", {}).get("web_port", 80)
+            health_url = f"http://127.0.0.1:{network_port}/api/health"
+            health_ok = self._health_check(health_url, health_timeout)
+
+            if health_ok:
+                self._update_status = UpdateStatus(
+                    state=UpdateState.DONE,
+                    progress_percent=100,
+                    current_step="Mise à jour réussie",
+                )
+            elif rollback_on_failure:
+                logger.error(
+                    "[admin.ota_update] Health check échoué après %ds, "
+                    "démarrage rollback (backup_path=%s)",
+                    health_timeout, backup_path if backup_enabled else "N/A",
+                )
+                if not backup_enabled or not backup_path:
+                    self._update_status = UpdateStatus(
+                        state=UpdateState.ROLLBACK_FAILED,
+                        error="Rollback impossible : aucun backup disponible.",
+                        error_code=UpdateErrorCode.ROLLBACK_FAILED,
+                    )
+                else:
+                    self._update_status = UpdateStatus(
+                        state=UpdateState.ROLLING_BACK,
+                        progress_percent=95,
+                        current_step="Restauration version précédente...",
+                    )
+                    restore_ok = updater.restore_from_backup(install_dir, backup_path)
+                    if restore_ok:
+                        updater.restart_service()
+                        self._update_status = UpdateStatus(
+                            state=UpdateState.ROLLED_BACK,
+                            progress_percent=100,
+                            current_step="Update échouée, version précédente restaurée",
+                        )
+                    else:
+                        self._update_status = UpdateStatus(
+                            state=UpdateState.ROLLBACK_FAILED,
+                            error="Échec du rollback. Intervention manuelle requise.",
+                            error_code=UpdateErrorCode.ROLLBACK_FAILED,
+                        )
+            else:
+                self._update_status = UpdateStatus(
+                    state=UpdateState.ERROR,
+                    error="Health check échoué. Rollback désactivé.",
+                    error_code=UpdateErrorCode.HEALTH_CHECK_FAILED,
+                )
         except Exception as e:
             logger.error("Erreur inattendue pendant la mise à jour : %s", e)
             self._update_status = UpdateStatus(
@@ -487,17 +549,36 @@ class UpdateService:
                 error_code=UpdateErrorCode.DISK_SPACE_ERROR,
             )
 
+    def _health_check(self, url: str, timeout_seconds: int) -> bool:
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            try:
+                resp = requests.get(url, timeout=5, headers={"User-Agent": USER_AGENT})
+                if resp.status_code == 200:
+                    return True
+            except (requests.ConnectionError, requests.Timeout):
+                pass
+            remaining = deadline - time.monotonic()
+            if remaining > HEALTH_CHECK_POLL_INTERVAL:
+                time.sleep(HEALTH_CHECK_POLL_INTERVAL)
+            else:
+                break
+        return False
+
     @staticmethod
-    def _load_update_config() -> dict:
+    def _load_full_config() -> dict:
         import yaml
         from pathlib import Path
 
         config_path = Path(__file__).parent.parent.parent / 'data' / 'config' / 'netscope.yaml'
         if config_path.exists():
             with open(config_path, 'r', encoding='utf-8') as f:
-                config_data = yaml.safe_load(f) or {}
-            return config_data.get('update', {})
+                return yaml.safe_load(f) or {}
         return {}
+
+    @staticmethod
+    def _load_update_config() -> dict:
+        return UpdateService._load_full_config().get('update', {})
 
     @staticmethod
     def _cleanup_temp(path: str) -> None:

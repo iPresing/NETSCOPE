@@ -106,7 +106,7 @@ __all__ = [
     "SystemInfoKey",
     "get_version_service",
     "reset_version_service",
-    # Update service (Story 5.5, 5.6, 5.7)
+    # Update service (Story 5.5, 5.6, 5.7, 5.8)
     "UpdateService",
     "UpdateCheckResult",
     "UpdateErrorCode",

@@ -102,6 +102,8 @@ update:
   auto_check: false              # Check auto au demarrage
   backup_before_update: true     # Backup avant mise à jour
   backup_path: "/opt/netscope.backup"  # Repertoire backup
+  rollback_on_failure: true      # Rollback auto si health check echoue
+  health_check_timeout: 30       # Timeout health check en secondes
 
 # =============================================================================
 # APPLICATION INFO
