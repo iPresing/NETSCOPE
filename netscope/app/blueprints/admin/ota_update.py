@@ -90,12 +90,14 @@ class OtaUpdater:
         if archive_path.endswith('.tar.gz') or archive_path.endswith('.tgz'):
             with tarfile.open(archive_path, 'r:gz') as tf:
                 for member in tf.getmembers():
+                    if member.issym() or member.islnk():
+                        raise ValueError(f"Symlink/hardlink non autorisé : {member.name}")
                     resolved = os.path.realpath(
                         os.path.join(target_dir, member.name)
                     )
                     if not resolved.startswith(os.path.realpath(target_dir)):
                         raise ValueError(f"Path traversal detected: {member.name}")
-                tf.extractall(target_dir)
+                    tf.extract(member, target_dir)
         elif archive_path.endswith('.zip'):
             with zipfile.ZipFile(archive_path, 'r') as zf:
                 for info in zf.infolist():
@@ -104,7 +106,7 @@ class OtaUpdater:
                     )
                     if not resolved.startswith(os.path.realpath(target_dir)):
                         raise ValueError(f"Path traversal detected: {info.filename}")
-                zf.extractall(target_dir)
+                    zf.extract(info, target_dir)
         else:
             raise ValueError(f"Format d'archive non supporté : {archive_path}")
 
@@ -133,7 +135,9 @@ class OtaUpdater:
         try:
             os.rename(source, target)
         except OSError:
-            shutil.copytree(source, target)
-
-        if os.path.exists(backup_path):
-            shutil.rmtree(backup_path, ignore_errors=True)
+            try:
+                shutil.copytree(source, target)
+            except OSError:
+                if os.path.exists(backup_path) and not os.path.exists(target):
+                    os.rename(backup_path, target)
+                raise

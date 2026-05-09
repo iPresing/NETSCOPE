@@ -309,6 +309,26 @@ class TestStartUpdate:
         assert "URL" in service.get_update_status().error
 
 
+    @patch.object(UpdateService, 'check_for_update')
+    def test_run_update_rejects_unauthorized_url(self, mock_check, service):
+        from app.services.update_service import UpdateCheckResult
+        mock_check.return_value = UpdateCheckResult(
+            update_available=True,
+            current_version="0.1.0",
+            latest_version="0.2.0",
+            tarball_url="https://evil.com/malware.tar.gz",
+        )
+
+        service._update_lock.acquire()
+        try:
+            service._run_update()
+        finally:
+            pass
+
+        assert service.get_update_status().state == UpdateState.ERROR
+        assert "non autorisée" in service.get_update_status().error
+
+
 class TestGetUpdateStatus:
     def test_initial_status_idle(self, service):
         status = service.get_update_status()
@@ -364,6 +384,24 @@ class TestOtaUpdaterExtraction:
             info = tarfile.TarInfo(name="../../../etc/passwd")
             info.size = 4
             tf.addfile(info, BytesIO(b"evil"))
+
+        install_dir = os.path.join(tmp_dir, "install")
+        os.makedirs(install_dir)
+        updater = OtaUpdater(install_dir=install_dir)
+        result = updater.apply_update(archive_path, install_dir)
+
+        assert result is False
+
+    def test_apply_update_symlink_attack_tar(self, tmp_dir):
+        from app.blueprints.admin.ota_update import OtaUpdater
+        import tarfile
+
+        archive_path = os.path.join(tmp_dir, "symlink.tar.gz")
+        with tarfile.open(archive_path, 'w:gz') as tf:
+            info = tarfile.TarInfo(name="evil_link")
+            info.type = tarfile.SYMTYPE
+            info.linkname = "/etc"
+            tf.addfile(info)
 
         install_dir = os.path.join(tmp_dir, "install")
         os.makedirs(install_dir)

@@ -25,6 +25,7 @@ DOWNLOAD_TIMEOUT = 300
 DOWNLOAD_CHUNK_SIZE = 8192
 MIN_DISK_SPACE_MB = 100
 USER_AGENT = "NETSCOPE-Updater/0.1.0"
+ALLOWED_DOWNLOAD_HOSTS = ("https://api.github.com/", "https://github.com/")
 
 
 class UpdateErrorCode(Enum):
@@ -232,7 +233,14 @@ class UpdateService:
         return "Limite de requêtes GitHub atteinte. Réessayez plus tard."
 
     def get_update_status(self) -> UpdateStatus:
-        return self._update_status
+        status = self._update_status
+        return UpdateStatus(
+            state=status.state,
+            progress_percent=status.progress_percent,
+            current_step=status.current_step,
+            error=status.error,
+            error_code=status.error_code,
+        )
 
     def start_update(self) -> bool:
         if not self._update_lock.acquire(blocking=False):
@@ -261,6 +269,14 @@ class UpdateService:
                 self._update_status = UpdateStatus(
                     state=UpdateState.ERROR,
                     error="URL de téléchargement non disponible.",
+                    error_code=UpdateErrorCode.DOWNLOAD_ERROR,
+                )
+                return
+
+            if not any(tarball_url.startswith(host) for host in ALLOWED_DOWNLOAD_HOSTS):
+                self._update_status = UpdateStatus(
+                    state=UpdateState.ERROR,
+                    error="URL de téléchargement non autorisée.",
                     error_code=UpdateErrorCode.DOWNLOAD_ERROR,
                 )
                 return
@@ -323,6 +339,13 @@ class UpdateService:
                 state=UpdateState.DONE,
                 progress_percent=100,
                 current_step="Mise à jour terminée",
+            )
+        except Exception as e:
+            logger.error("Erreur inattendue pendant la mise à jour : %s", e)
+            self._update_status = UpdateStatus(
+                state=UpdateState.ERROR,
+                error=f"Erreur inattendue : {e}",
+                error_code=UpdateErrorCode.DOWNLOAD_ERROR,
             )
         finally:
             self._update_lock.release()
@@ -449,16 +472,7 @@ def get_update_service() -> UpdateService:
     """Get or create the UpdateService singleton."""
     global _instance
     if _instance is None:
-        import yaml
-        from pathlib import Path
-
-        config_path = Path(__file__).parent.parent.parent / 'data' / 'config' / 'netscope.yaml'
-        update_config = {}
-        if config_path.exists():
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_data = yaml.safe_load(f) or {}
-            update_config = config_data.get('update', {})
-
+        update_config = UpdateService._load_update_config()
         github_repo = update_config.get('github_repo', 'iPresing/NETSCOPE')
         check_url = update_config.get(
             'check_url',
