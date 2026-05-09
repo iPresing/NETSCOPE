@@ -58,6 +58,7 @@ from .update_service import (
     UpdateState,
     UpdateStatus,
     DownloadResult,
+    BackupResult,
     get_update_service,
     reset_update_service,
 )
@@ -105,13 +106,14 @@ __all__ = [
     "SystemInfoKey",
     "get_version_service",
     "reset_version_service",
-    # Update service (Story 5.5, 5.6)
+    # Update service (Story 5.5, 5.6, 5.7)
     "UpdateService",
     "UpdateCheckResult",
     "UpdateErrorCode",
     "UpdateState",
     "UpdateStatus",
     "DownloadResult",
+    "BackupResult",
     "get_update_service",
     "reset_update_service",
 ]

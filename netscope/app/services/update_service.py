@@ -37,6 +37,7 @@ class UpdateErrorCode(Enum):
     DOWNLOAD_ERROR = "DOWNLOAD_ERROR"
     DISK_SPACE_ERROR = "DISK_SPACE_ERROR"
     INTEGRITY_ERROR = "INTEGRITY_ERROR"
+    BACKUP_FAILED = "BACKUP_FAILED"
 
 
 @dataclass
@@ -70,6 +71,7 @@ class UpdateCheckResult:
 class UpdateState(Enum):
     """States for the OTA update process."""
     IDLE = "idle"
+    BACKING_UP = "backing_up"
     DOWNLOADING = "downloading"
     EXTRACTING = "extracting"
     RESTARTING = "restarting"
@@ -106,6 +108,16 @@ class DownloadResult:
     file_size: int = 0
     error: Optional[str] = None
     error_code: Optional[UpdateErrorCode] = None
+
+
+@dataclass
+class BackupResult:
+    """Result of a backup operation."""
+    success: bool
+    backup_path: str = ""
+    size_bytes: int = 0
+    error: Optional[str] = None
+    error_code: Optional[str] = None
 
 
 def parse_version(v: str) -> tuple:
@@ -281,6 +293,48 @@ class UpdateService:
                 )
                 return
 
+            from app.blueprints.admin.ota_update import OtaUpdater
+
+            config = self._load_update_config()
+            install_dir = config.get("install_dir", os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ))
+
+            backup_enabled = config.get("backup_before_update", True)
+            if backup_enabled:
+                backup_path = config.get(
+                    "backup_path", install_dir + ".backup"
+                )
+                if not os.path.isabs(backup_path):
+                    self._update_status = UpdateStatus(
+                        state=UpdateState.ERROR,
+                        error="backup_path doit être un chemin absolu.",
+                        error_code=UpdateErrorCode.BACKUP_FAILED,
+                    )
+                    return
+
+                self._update_status = UpdateStatus(
+                    state=UpdateState.BACKING_UP,
+                    progress_percent=0,
+                    current_step="Création backup version actuelle...",
+                )
+                backup_updater = OtaUpdater(install_dir=install_dir)
+                backup_result = backup_updater.create_backup(
+                    install_dir, backup_path
+                )
+                if not backup_result.success:
+                    self._update_status = UpdateStatus(
+                        state=UpdateState.ERROR,
+                        error=backup_result.error,
+                        error_code=UpdateErrorCode.BACKUP_FAILED,
+                    )
+                    return
+                self._update_status = UpdateStatus(
+                    state=UpdateState.BACKING_UP,
+                    progress_percent=100,
+                    current_step="Backup créée",
+                )
+
             self._update_status = UpdateStatus(
                 state=UpdateState.DOWNLOADING,
                 current_step="Téléchargement en cours...",
@@ -305,12 +359,6 @@ class UpdateService:
                 current_step="Extraction et application...",
             )
 
-            from app.blueprints.admin.ota_update import OtaUpdater
-
-            config = self._load_update_config()
-            install_dir = config.get("install_dir", os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            ))
             updater = OtaUpdater(install_dir=install_dir)
 
             if not updater.apply_update(result.file_path):

@@ -3127,8 +3127,8 @@ select.form-control {
     }
 
     body {
-        background: #fff;
-        color: #000;
+        background: white;
+        color: black;
     }
 }
 

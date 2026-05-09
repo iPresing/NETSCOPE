@@ -260,6 +260,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 progressLabel.textContent = data.progress_percent + '%';
                 stepLabel.textContent = data.current_step || '';
 
+                if (data.state === 'backing_up') {
+                    stepLabel.textContent = data.current_step || 'Création backup...';
+                }
+
                 if (data.state === 'done') {
                     clearInterval(interval);
                     progressBar.style.width = '100%';

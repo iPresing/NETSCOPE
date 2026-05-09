@@ -100,7 +100,8 @@ update:
   github_repo: "iPresing/NETSCOPE"
   check_url: "https://api.github.com/repos/{repo}/releases/latest"
   auto_check: false              # Check auto au demarrage
-  backup_before_update: true     # Backup avant mise a jour
+  backup_before_update: true     # Backup avant mise à jour
+  backup_path: "/opt/netscope.backup"  # Repertoire backup
 
 # =============================================================================
 # APPLICATION INFO

@@ -1,12 +1,16 @@
-"""OTA updater for extracting and applying updates (Story 5.6)."""
+"""OTA updater for extracting and applying updates."""
 
+import json
 import logging
 import os
 import shutil
 import tarfile
 import tempfile
 import zipfile
+from datetime import datetime, timezone
 from typing import Callable, Optional
+
+from app.services.update_service import BackupResult
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +59,69 @@ class OtaUpdater:
             return False
         finally:
             shutil.rmtree(staging_dir, ignore_errors=True)
+
+    def create_backup(self, install_dir: str, backup_dir: str) -> BackupResult:
+        """Create a full backup of the installation directory before update."""
+        if not os.path.isdir(install_dir):
+            return BackupResult(
+                False, error="Install dir not found",
+                error_code="INSTALL_NOT_FOUND",
+            )
+
+        install_size = sum(
+            os.path.getsize(os.path.join(dp, f))
+            for dp, _, filenames in os.walk(install_dir)
+            for f in filenames
+        )
+
+        parent = os.path.dirname(backup_dir) or "/"
+        try:
+            disk = shutil.disk_usage(parent)
+        except OSError as e:
+            return BackupResult(
+                False, error=f"Impossible de vérifier l'espace disque : {e}",
+                error_code="DISK_CHECK_FAILED",
+            )
+
+        if disk.free < install_size * 2:
+            return BackupResult(
+                False,
+                error=f"Espace insuffisant : {disk.free} libre, {install_size * 2} requis",
+                error_code="INSUFFICIENT_DISK_SPACE",
+            )
+
+        if os.path.exists(backup_dir):
+            shutil.rmtree(backup_dir)
+
+        try:
+            shutil.copytree(install_dir, backup_dir)
+        except OSError as e:
+            if os.path.exists(backup_dir):
+                shutil.rmtree(backup_dir, ignore_errors=True)
+            return BackupResult(
+                False, error=str(e), error_code="BACKUP_COPY_FAILED",
+            )
+
+        from app.services.version_service import get_version_service
+        info = {
+            "version": get_version_service().get_version(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "size_bytes": install_size,
+            "source_dir": install_dir,
+        }
+        info_path = os.path.join(backup_dir, "backup-info.json")
+        try:
+            with open(info_path, "w", encoding="utf-8") as f:
+                json.dump(info, f, indent=2)
+        except OSError as e:
+            shutil.rmtree(backup_dir, ignore_errors=True)
+            return BackupResult(
+                False, error=f"Échec écriture backup-info.json : {e}",
+                error_code="BACKUP_INFO_FAILED",
+            )
+
+        logger.info("Backup créée : %s (%d octets)", backup_dir, install_size)
+        return BackupResult(True, backup_path=backup_dir, size_bytes=install_size)
 
     def restart_service(self) -> bool:
         import platform
