@@ -4,6 +4,7 @@ Provides version comparison and update availability detection
 via the GitHub Releases API.
 """
 
+import json
 import logging
 import os
 import shutil
@@ -11,6 +12,7 @@ import tempfile
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -28,6 +30,7 @@ USER_AGENT = "NETSCOPE-Updater/0.1.0"
 ALLOWED_DOWNLOAD_HOSTS = ("https://api.github.com/", "https://github.com/")
 HEALTH_CHECK_POLL_INTERVAL = 2
 DEFAULT_HEALTH_CHECK_TIMEOUT = 30
+MAX_HISTORY_ENTRIES = 20
 
 
 class UpdateErrorCode(Enum):
@@ -95,6 +98,10 @@ class UpdateStatus:
     current_step: str = ""
     error: Optional[str] = None
     error_code: Optional[UpdateErrorCode] = None
+    target_version: Optional[str] = None
+    from_version: Optional[str] = None
+    started_at: Optional[str] = None
+    duration_seconds: Optional[int] = None
 
     def to_dict(self) -> dict:
         result = {
@@ -102,6 +109,17 @@ class UpdateStatus:
             "progress_percent": self.progress_percent,
             "current_step": self.current_step,
         }
+        if self.target_version:
+            result["target_version"] = self.target_version
+        if self.from_version:
+            result["from_version"] = self.from_version
+        if self.started_at:
+            result["started_at"] = self.started_at
+            if self.duration_seconds is not None:
+                result["duration_seconds"] = self.duration_seconds
+            else:
+                started = datetime.fromisoformat(self.started_at.replace('Z', '+00:00'))
+                result["duration_seconds"] = int((datetime.now(timezone.utc) - started).total_seconds())
         if self.error:
             result["error"] = self.error
             result["error_code"] = self.error_code.value if self.error_code else None
@@ -128,6 +146,27 @@ class BackupResult:
     error_code: Optional[str] = None
 
 
+@dataclass
+class UpdateHistoryEntry:
+    """Single update attempt record for history persistence."""
+    date: str
+    from_version: str
+    to_version: str
+    status: str
+    error: Optional[str] = None
+    duration_seconds: Optional[int] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "date": self.date,
+            "from_version": self.from_version,
+            "to_version": self.to_version,
+            "status": self.status,
+            "error": self.error,
+            "duration_seconds": self.duration_seconds,
+        }
+
+
 def parse_version(v: str) -> tuple:
     """Parse 'v1.2.3' or '1.2.3-beta' into comparable tuple."""
     clean = v.strip().lstrip('v')
@@ -147,6 +186,22 @@ class UpdateService:
         self._update_status = UpdateStatus()
         self._update_lock = threading.Lock()
         self._last_download: Optional[DownloadResult] = None
+        self._update_meta: dict = {}
+
+    _TERMINAL_STATES = frozenset({
+        UpdateState.DONE, UpdateState.ERROR,
+        UpdateState.ROLLED_BACK, UpdateState.ROLLBACK_FAILED,
+    })
+
+    def _set_status(self, **kwargs) -> None:
+        kwargs.setdefault('target_version', self._update_meta.get('target_version'))
+        kwargs.setdefault('from_version', self._update_meta.get('from_version'))
+        kwargs.setdefault('started_at', self._update_meta.get('started_at'))
+        if kwargs.get('state') in self._TERMINAL_STATES and 'duration_seconds' not in kwargs:
+            start_time = self._update_meta.get('start_time')
+            if start_time is not None:
+                kwargs['duration_seconds'] = int(time.time() - start_time)
+        self._update_status = UpdateStatus(**kwargs)
 
     def check_for_update(self) -> UpdateCheckResult:
         """Check GitHub API for latest release and compare versions."""
@@ -260,12 +315,18 @@ class UpdateService:
             current_step=status.current_step,
             error=status.error,
             error_code=status.error_code,
+            target_version=status.target_version,
+            from_version=status.from_version,
+            started_at=status.started_at,
+            duration_seconds=status.duration_seconds,
         )
 
     def start_update(self) -> bool:
         if not self._update_lock.acquire(blocking=False):
             return False
-        self._update_status = UpdateStatus(
+        started_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        self._update_meta = {'started_at': started_at, 'start_time': time.time()}
+        self._set_status(
             state=UpdateState.DOWNLOADING,
             current_step="Vérification version...",
         )
@@ -274,10 +335,19 @@ class UpdateService:
         return True
 
     def _run_update(self) -> None:
+        start_time = time.time()
+        from_version = ""
+        to_version = ""
         try:
             check = self.check_for_update()
+            from_version = check.current_version
+            to_version = check.latest_version or ""
+            self._update_meta.update({
+                'from_version': from_version,
+                'target_version': to_version,
+            })
             if not check.update_available:
-                self._update_status = UpdateStatus(
+                self._set_status(
                     state=UpdateState.ERROR,
                     error="Mise à jour non disponible (re-vérification échouée).",
                     error_code=UpdateErrorCode.GITHUB_ERROR,
@@ -286,7 +356,7 @@ class UpdateService:
 
             tarball_url = check.tarball_url
             if not tarball_url:
-                self._update_status = UpdateStatus(
+                self._set_status(
                     state=UpdateState.ERROR,
                     error="URL de téléchargement non disponible.",
                     error_code=UpdateErrorCode.DOWNLOAD_ERROR,
@@ -294,7 +364,7 @@ class UpdateService:
                 return
 
             if not any(tarball_url.startswith(host) for host in ALLOWED_DOWNLOAD_HOSTS):
-                self._update_status = UpdateStatus(
+                self._set_status(
                     state=UpdateState.ERROR,
                     error="URL de téléchargement non autorisée.",
                     error_code=UpdateErrorCode.DOWNLOAD_ERROR,
@@ -316,14 +386,14 @@ class UpdateService:
                     "backup_path", install_dir + ".backup"
                 )
                 if not os.path.isabs(backup_path):
-                    self._update_status = UpdateStatus(
+                    self._set_status(
                         state=UpdateState.ERROR,
                         error="backup_path doit être un chemin absolu.",
                         error_code=UpdateErrorCode.BACKUP_FAILED,
                     )
                     return
 
-                self._update_status = UpdateStatus(
+                self._set_status(
                     state=UpdateState.BACKING_UP,
                     progress_percent=0,
                     current_step="Création backup version actuelle...",
@@ -333,19 +403,19 @@ class UpdateService:
                     install_dir, backup_path
                 )
                 if not backup_result.success:
-                    self._update_status = UpdateStatus(
+                    self._set_status(
                         state=UpdateState.ERROR,
                         error=backup_result.error,
                         error_code=UpdateErrorCode.BACKUP_FAILED,
                     )
                     return
-                self._update_status = UpdateStatus(
+                self._set_status(
                     state=UpdateState.BACKING_UP,
                     progress_percent=100,
                     current_step="Backup créée",
                 )
 
-            self._update_status = UpdateStatus(
+            self._set_status(
                 state=UpdateState.DOWNLOADING,
                 current_step="Téléchargement en cours...",
             )
@@ -354,7 +424,7 @@ class UpdateService:
 
             if not result.success:
                 self._cleanup_temp_dir(target_dir)
-                self._update_status = UpdateStatus(
+                self._set_status(
                     state=UpdateState.ERROR,
                     error=result.error,
                     error_code=result.error_code,
@@ -363,7 +433,7 @@ class UpdateService:
 
             self._last_download = result
 
-            self._update_status = UpdateStatus(
+            self._set_status(
                 state=UpdateState.EXTRACTING,
                 progress_percent=50,
                 current_step="Extraction et application...",
@@ -373,7 +443,7 @@ class UpdateService:
 
             if not updater.apply_update(result.file_path):
                 self._cleanup_temp_dir(target_dir)
-                self._update_status = UpdateStatus(
+                self._set_status(
                     state=UpdateState.ERROR,
                     error="Échec de l'extraction ou de l'application.",
                     error_code=UpdateErrorCode.DOWNLOAD_ERROR,
@@ -382,7 +452,7 @@ class UpdateService:
 
             self._cleanup_temp_dir(target_dir)
 
-            self._update_status = UpdateStatus(
+            self._set_status(
                 state=UpdateState.RESTARTING,
                 progress_percent=90,
                 current_step="Redémarrage du service...",
@@ -396,7 +466,7 @@ class UpdateService:
             rollback_on_failure = config.get("rollback_on_failure", True)
             health_timeout = config.get("health_check_timeout", DEFAULT_HEALTH_CHECK_TIMEOUT)
 
-            self._update_status = UpdateStatus(
+            self._set_status(
                 state=UpdateState.HEALTH_CHECKING,
                 progress_percent=92,
                 current_step="Vérification santé post-update...",
@@ -407,7 +477,7 @@ class UpdateService:
             health_ok = self._health_check(health_url, health_timeout)
 
             if health_ok:
-                self._update_status = UpdateStatus(
+                self._set_status(
                     state=UpdateState.DONE,
                     progress_percent=100,
                     current_step="Mise à jour réussie",
@@ -419,13 +489,13 @@ class UpdateService:
                     health_timeout, backup_path if backup_enabled else "N/A",
                 )
                 if not backup_enabled or not backup_path:
-                    self._update_status = UpdateStatus(
+                    self._set_status(
                         state=UpdateState.ROLLBACK_FAILED,
                         error="Rollback impossible : aucun backup disponible.",
                         error_code=UpdateErrorCode.ROLLBACK_FAILED,
                     )
                 else:
-                    self._update_status = UpdateStatus(
+                    self._set_status(
                         state=UpdateState.ROLLING_BACK,
                         progress_percent=95,
                         current_step="Restauration version précédente...",
@@ -433,31 +503,48 @@ class UpdateService:
                     restore_ok = updater.restore_from_backup(install_dir, backup_path)
                     if restore_ok:
                         updater.restart_service()
-                        self._update_status = UpdateStatus(
+                        self._set_status(
                             state=UpdateState.ROLLED_BACK,
                             progress_percent=100,
                             current_step="Update échouée, version précédente restaurée",
+                            error=f"Health check échoué après {health_timeout}s",
                         )
                     else:
-                        self._update_status = UpdateStatus(
+                        self._set_status(
                             state=UpdateState.ROLLBACK_FAILED,
                             error="Échec du rollback. Intervention manuelle requise.",
                             error_code=UpdateErrorCode.ROLLBACK_FAILED,
                         )
             else:
-                self._update_status = UpdateStatus(
+                self._set_status(
                     state=UpdateState.ERROR,
                     error="Health check échoué. Rollback désactivé.",
                     error_code=UpdateErrorCode.HEALTH_CHECK_FAILED,
                 )
         except Exception as e:
             logger.error("Erreur inattendue pendant la mise à jour : %s", e)
-            self._update_status = UpdateStatus(
+            self._set_status(
                 state=UpdateState.ERROR,
                 error=f"Erreur inattendue : {e}",
                 error_code=UpdateErrorCode.DOWNLOAD_ERROR,
             )
         finally:
+            final_state = self._update_status.state
+            if final_state != UpdateState.IDLE:
+                terminal_states = {
+                    UpdateState.DONE, UpdateState.ERROR,
+                    UpdateState.ROLLED_BACK, UpdateState.ROLLBACK_FAILED,
+                }
+                status_str = final_state.value if final_state in terminal_states else UpdateState.ERROR.value
+                entry = UpdateHistoryEntry(
+                    date=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    from_version=from_version,
+                    to_version=to_version,
+                    status=status_str,
+                    error=self._update_status.error,
+                    duration_seconds=int(time.time() - start_time),
+                )
+                self._save_history_entry(entry)
             self._update_lock.release()
 
     def download_release(self, release_url: str, target_dir: str) -> DownloadResult:
@@ -579,6 +666,42 @@ class UpdateService:
     @staticmethod
     def _load_update_config() -> dict:
         return UpdateService._load_full_config().get('update', {})
+
+    @staticmethod
+    def _get_history_path() -> str:
+        from pathlib import Path
+        return str(Path(__file__).parent.parent.parent / 'data' / 'update_history.json')
+
+    @staticmethod
+    def _load_history_file(path: str) -> list:
+        try:
+            if os.path.exists(path):
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        return data
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("[services.update_service] Fichier historique corrompu, réinitialisation : %s", e)
+        return []
+
+    def _save_history_entry(self, entry: UpdateHistoryEntry) -> None:
+        history_path = self._get_history_path()
+        history = self._load_history_file(history_path)
+        history.append(entry.to_dict())
+        if len(history) > MAX_HISTORY_ENTRIES:
+            history = history[-MAX_HISTORY_ENTRIES:]
+        try:
+            os.makedirs(os.path.dirname(history_path), exist_ok=True)
+            with open(history_path, 'w', encoding='utf-8') as f:
+                json.dump(history, f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            logger.error("[services.update_service] Erreur sauvegarde historique : %s", e)
+
+    def get_update_history(self) -> list:
+        history_path = self._get_history_path()
+        history = self._load_history_file(history_path)
+        history.reverse()
+        return history
 
     @staticmethod
     def _cleanup_temp(path: str) -> None:

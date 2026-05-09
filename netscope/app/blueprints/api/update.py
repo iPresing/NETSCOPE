@@ -38,6 +38,28 @@ def update_status():
     return jsonify(status.to_dict()), 200
 
 
+@api_bp.route('/update/history')
+def update_history():
+    """Get update history (past attempts).
+
+    Returns:
+        JSON with success flag and history list sorted by date descending
+    """
+    from app.services.update_service import get_update_service
+
+    service = get_update_service()
+    try:
+        history = service.get_update_history()
+        return jsonify({"success": True, "history": history}), 200
+    except Exception as e:
+        logger.error("[api.update] Erreur lecture historique : %s", e)
+        return jsonify({
+            "success": False,
+            "error": "Impossible de lire l'historique des mises à jour.",
+            "error_code": "UPDATE_HISTORY_READ_ERROR",
+        }), 500
+
+
 @api_bp.route('/update/apply', methods=['POST'])
 def apply_update():
     """Trigger OTA update process.

@@ -83,4 +83,4 @@ class TestBackupStatusPolling:
         response = client.get('/admin/update')
         html = response.data.decode('utf-8')
         assert 'backing_up' in html
-        assert 'Création backup' in html
+        assert 'Création de la sauvegarde' in html

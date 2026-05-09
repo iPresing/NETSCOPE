@@ -72,15 +72,13 @@ class TestUpdatePageVersion:
         date_label = [l for l in labels if 'installation' in l.get_text().lower()]
         assert len(date_label) == 1
 
-    def test_update_history_table_has_dynamic_version(self, client):
-        expected = get_version_service().get_version()
+    def test_update_history_table_has_dynamic_tbody(self, client):
         response = client.get('/admin/update')
         soup = BeautifulSoup(response.data, 'html.parser')
         table = soup.find('table', class_='data-table')
         assert table is not None
-        first_row = table.find('tbody').find('tr')
-        cells = first_row.find_all('td')
-        assert f'v{expected}' in cells[0].get_text()
+        tbody = table.find('tbody', id='update-history-tbody')
+        assert tbody is not None
 
 
 class TestFooterVersion:

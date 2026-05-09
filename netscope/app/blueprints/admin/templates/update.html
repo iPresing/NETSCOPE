@@ -80,16 +80,16 @@
 
     <section id="update-progress-section" class="card hidden">
         <h3>Progression de la Mise à Jour</h3>
+        <p id="update-target-version" class="text-muted hidden"></p>
         <div class="progress-container">
             <div class="progress-bar" id="update-progress-bar" style="width: 0%">
                 <span id="update-progress-label">0%</span>
             </div>
         </div>
         <p id="update-step-label" class="text-muted"></p>
+        <div id="update-done-display" class="alert alert-success hidden"></div>
+        <div id="update-warning-display" class="alert alert-warning hidden"></div>
         <div id="update-error-display" class="alert alert-danger hidden"></div>
-        <div id="update-done-display" class="alert alert-success hidden">
-            Mise à jour terminée avec succès !
-        </div>
     </section>
 
     <section class="update-history card">
@@ -97,19 +97,14 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Version</th>
                     <th>Date</th>
+                    <th>Versions</th>
                     <th>Statut</th>
-                    <th>Notes</th>
+                    <th>Détails</th>
                 </tr>
             </thead>
-            <tbody>
-                <tr>
-                    <td>v{{ netscope_version }}</td>
-                    <td>{{ system_info.install_date if system_info else '--' }}</td>
-                    <td><span class="badge badge-success">Actuelle</span></td>
-                    <td>Installation initiale</td>
-                </tr>
+            <tbody id="update-history-tbody">
+                <tr><td colspan="4" class="text-muted">Chargement...</td></tr>
             </tbody>
         </table>
     </section>
@@ -125,45 +120,118 @@
 </div>
 {% endblock %}
 
+{% block head %}
+<style>
+.progress-bar-info { background-color: var(--accent-color, #3498db); }
+.progress-bar-warning { background-color: #f39c12; }
+.progress-bar-success { background-color: #27ae60; }
+.progress-bar-danger { background-color: #e74c3c; }
+@keyframes pulse-bar {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.progress-bar-pulse { animation: pulse-bar 1.5s ease-in-out infinite; }
+</style>
+{% endblock head %}
+
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const btn = document.getElementById('btn-check-update');
-    const spinner = document.getElementById('update-spinner');
-    const resultDiv = document.getElementById('update-result');
+    var btn = document.getElementById('btn-check-update');
+    var spinner = document.getElementById('update-spinner');
+    var resultDiv = document.getElementById('update-result');
+    var pollInterval = null;
 
-    if (!btn) return;
+    var STATE_CONFIG = {
+        idle:            { label: 'Aucune mise à jour en cours',       cssClass: '',                    pulse: false },
+        backing_up:      { label: 'Création de la sauvegarde...',      cssClass: 'progress-bar-warning', pulse: false },
+        downloading:     { label: 'Téléchargement en cours...',        cssClass: 'progress-bar-info',    pulse: false },
+        extracting:      { label: 'Extraction...',                     cssClass: 'progress-bar-info',    pulse: false },
+        restarting:      { label: 'Redémarrage du service...',         cssClass: 'progress-bar-info',    pulse: true },
+        health_checking: { label: 'Vérification santé...',            cssClass: 'progress-bar-info',    pulse: true },
+        done:            { label: 'Mise à jour réussie',               cssClass: 'progress-bar-success', pulse: false },
+        rolling_back:    { label: 'Restauration version précédente...', cssClass: 'progress-bar-warning', pulse: true },
+        rolled_back:     { label: 'Version précédente restaurée',      cssClass: 'progress-bar-warning', pulse: false },
+        rollback_failed: { label: 'Échec du rollback',                 cssClass: 'progress-bar-danger',  pulse: false },
+        error:           { label: 'Erreur',                            cssClass: 'progress-bar-danger',  pulse: false }
+    };
 
-    btn.addEventListener('click', async function() {
-        btn.disabled = true;
-        spinner.classList.remove('hidden');
-        resultDiv.classList.add('hidden');
-        resultDiv.textContent = '';
+    var TERMINAL_STATES = ['done', 'error', 'rolled_back', 'rollback_failed'];
 
+    function escapeHtml(text) {
+        if (!text) return '';
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatDate(isoDate) {
         try {
-            const response = await fetch('/api/update/check');
-            const data = await response.json();
-            renderUpdateResult(data);
-        } catch (err) {
-            resultDiv.innerHTML = '<div class="alert alert-danger">Erreur de communication avec le serveur.</div>';
-        } finally {
-            btn.disabled = false;
-            spinner.classList.add('hidden');
-            resultDiv.classList.remove('hidden');
+            return new Date(isoDate).toLocaleDateString('fr-FR', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+        } catch (e) {
+            return isoDate;
         }
-    });
+    }
+
+    function formatDateTime(isoDate) {
+        try {
+            var d = new Date(isoDate);
+            return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+                   ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+            return isoDate || '—';
+        }
+    }
+
+    function formatDuration(seconds) {
+        if (seconds == null) return '—';
+        if (seconds < 60) return seconds + 's';
+        var min = Math.floor(seconds / 60);
+        var sec = seconds % 60;
+        return min + 'min ' + sec + 's';
+    }
+
+    function renderStatusBadge(status) {
+        var badges = {
+            done: '<span class="badge badge-success">Succès</span>',
+            error: '<span class="badge badge-danger">Erreur</span>',
+            rolled_back: '<span class="badge badge-warning">Restaurée</span>',
+            rollback_failed: '<span class="badge badge-danger">Rollback échoué</span>'
+        };
+        return badges[status] || '<span class="badge">' + escapeHtml(status) + '</span>';
+    }
+
+    // === Check update button ===
+    if (btn) {
+        btn.addEventListener('click', async function() {
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+            resultDiv.textContent = '';
+            try {
+                var response = await fetch('/api/update/check');
+                var data = await response.json();
+                renderUpdateResult(data);
+            } catch (err) {
+                resultDiv.innerHTML = '<div class="alert alert-danger">Erreur de communication avec le serveur.</div>';
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                resultDiv.classList.remove('hidden');
+            }
+        });
+    }
 
     function renderUpdateResult(data) {
         if (data.error) {
             resultDiv.innerHTML =
-                '<div class="alert alert-danger">' +
-                '<strong>Erreur :</strong> ' + escapeHtml(data.error) +
-                '</div>';
+                '<div class="alert alert-danger"><strong>Erreur :</strong> ' + escapeHtml(data.error) + '</div>';
             return;
         }
-
         if (data.update_available) {
-            let html = '<div class="alert alert-info">';
+            var html = '<div class="alert alert-info">';
             html += '<strong>Nouvelle version disponible !</strong><br>';
             html += '<span class="text-muted">Version actuelle :</span> v' + escapeHtml(data.current_version);
             html += ' &rarr; <strong>v' + escapeHtml(data.latest_version) + '</strong><br>';
@@ -181,51 +249,138 @@ document.addEventListener('DOMContentLoaded', function() {
             resultDiv.innerHTML = html;
         } else {
             resultDiv.innerHTML =
-                '<div class="alert alert-success">' +
-                '<span class="badge badge-success">&#10003;</span> ' +
-                'Vous êtes à jour (v' + escapeHtml(data.current_version) + ')' +
-                '</div>';
+                '<div class="alert alert-success"><span class="badge badge-success">&#10003;</span> ' +
+                'Vous êtes à jour (v' + escapeHtml(data.current_version) + ')</div>';
         }
     }
 
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+    // === Progress UI ===
+    function updateProgressUI(data) {
+        var progressBar = document.getElementById('update-progress-bar');
+        var progressLabel = document.getElementById('update-progress-label');
+        var stepLabel = document.getElementById('update-step-label');
+        var targetVersion = document.getElementById('update-target-version');
 
-    function formatDate(isoDate) {
-        try {
-            return new Date(isoDate).toLocaleDateString('fr-FR', {
-                year: 'numeric', month: 'long', day: 'numeric'
-            });
-        } catch (e) {
-            return isoDate;
+        var config = STATE_CONFIG[data.state] || STATE_CONFIG.error;
+
+        progressBar.style.width = data.progress_percent + '%';
+        progressLabel.textContent = data.progress_percent + '%';
+
+        progressBar.className = 'progress-bar';
+        if (config.cssClass) progressBar.classList.add(config.cssClass);
+        if (config.pulse) progressBar.classList.add('progress-bar-pulse');
+
+        stepLabel.textContent = data.current_step || config.label;
+
+        if (data.target_version) {
+            targetVersion.textContent = 'Mise à jour vers v' + escapeHtml(data.target_version);
+            targetVersion.classList.remove('hidden');
         }
     }
 
+    function renderTerminalState(data) {
+        var errorDisplay = document.getElementById('update-error-display');
+        var doneDisplay = document.getElementById('update-done-display');
+        var warningDisplay = document.getElementById('update-warning-display');
+
+        errorDisplay.classList.add('hidden');
+        doneDisplay.classList.add('hidden');
+        warningDisplay.classList.add('hidden');
+
+        if (data.state === 'done') {
+            var html = '<strong>Mise à jour réussie !</strong>';
+            if (data.from_version && data.target_version) {
+                html += '<br>v' + escapeHtml(data.from_version) + ' → v' + escapeHtml(data.target_version);
+            }
+            if (data.started_at) {
+                html += '<br><span class="text-muted">Démarrée : ' + escapeHtml(formatDateTime(data.started_at)) + '</span>';
+            }
+            if (data.duration_seconds != null) {
+                html += '<br><span class="text-muted">Durée : ' + formatDuration(data.duration_seconds) + '</span>';
+            }
+            doneDisplay.innerHTML = html;
+            doneDisplay.classList.remove('hidden');
+        } else if (data.state === 'rolled_back') {
+            var html = '<strong>Mise à jour échouée — version précédente restaurée</strong>';
+            if (data.from_version) {
+                html += '<br>Version restaurée : v' + escapeHtml(data.from_version);
+            }
+            if (data.error) {
+                html += '<br>Raison : ' + escapeHtml(data.error);
+            }
+            warningDisplay.innerHTML = html;
+            warningDisplay.classList.remove('hidden');
+            enableRetryButtons();
+        } else if (data.state === 'rollback_failed') {
+            var html = '<strong>Échec critique — rollback échoué</strong>';
+            if (data.error) {
+                html += '<br>' + escapeHtml(data.error);
+            }
+            html += '<br><br><strong>Étapes de récupération manuelle :</strong>';
+            html += '<ol><li>Vérifier les fichiers dans le dossier de backup</li>';
+            html += '<li>Restaurer manuellement depuis le backup</li>';
+            html += '<li>Redémarrer le service NETSCOPE</li></ol>';
+            errorDisplay.innerHTML = html;
+            errorDisplay.classList.remove('hidden');
+            enableRetryButtons();
+        } else if (data.state === 'error') {
+            var html = '<strong>Erreur :</strong> ' + escapeHtml(data.error || 'Erreur inconnue');
+            html += '<br><button class="btn btn-sm btn-primary" style="margin-top:8px" onclick="triggerUpdate()">Réessayer</button>';
+            errorDisplay.innerHTML = html;
+            errorDisplay.classList.remove('hidden');
+            enableRetryButtons();
+        }
+    }
+
+    function enableRetryButtons() {
+        var applyBtns = document.querySelectorAll('[id^="btn-apply-update"]');
+        applyBtns.forEach(function(b) { b.disabled = false; });
+    }
+
+    // === Polling ===
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(async function() {
+            try {
+                var response = await fetch('/api/update/status');
+                var data = await response.json();
+                updateProgressUI(data);
+                if (TERMINAL_STATES.indexOf(data.state) !== -1) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                    renderTerminalState(data);
+                    loadUpdateHistory();
+                }
+            } catch (err) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+                var errorDisplay = document.getElementById('update-error-display');
+                errorDisplay.textContent = 'Connexion perdue pendant la mise à jour.';
+                errorDisplay.classList.remove('hidden');
+            }
+        }, 2000);
+    }
+
+    // === Trigger update ===
     window.triggerUpdate = async function() {
-        if (!confirm('Êtes-vous sûr de vouloir lancer la mise à jour ?')) {
-            return;
-        }
+        if (!confirm('Êtes-vous sûr de vouloir lancer la mise à jour ?')) return;
 
         var applyBtns = document.querySelectorAll('[id^="btn-apply-update"]');
         applyBtns.forEach(function(b) { b.disabled = true; });
 
         var progressSection = document.getElementById('update-progress-section');
-        var progressBar = document.getElementById('update-progress-bar');
-        var progressLabel = document.getElementById('update-progress-label');
-        var stepLabel = document.getElementById('update-step-label');
         var errorDisplay = document.getElementById('update-error-display');
         var doneDisplay = document.getElementById('update-done-display');
+        var warningDisplay = document.getElementById('update-warning-display');
 
         progressSection.classList.remove('hidden');
         errorDisplay.classList.add('hidden');
         doneDisplay.classList.add('hidden');
-        progressBar.style.width = '0%';
-        progressLabel.textContent = '0%';
-        stepLabel.textContent = 'Démarrage...';
+        warningDisplay.classList.add('hidden');
+
+        document.getElementById('update-progress-bar').style.width = '0%';
+        document.getElementById('update-progress-label').textContent = '0%';
+        document.getElementById('update-step-label').textContent = 'Démarrage...';
 
         try {
             var response = await fetch('/api/update/apply', { method: 'POST' });
@@ -236,7 +391,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 applyBtns.forEach(function(b) { b.disabled = false; });
                 return;
             }
-            pollUpdateStatus();
+            startPolling();
         } catch (err) {
             errorDisplay.textContent = 'Erreur de communication avec le serveur.';
             errorDisplay.classList.remove('hidden');
@@ -244,77 +399,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    function pollUpdateStatus() {
-        var interval = setInterval(async function() {
-            try {
-                var response = await fetch('/api/update/status');
-                var data = await response.json();
-
-                var progressBar = document.getElementById('update-progress-bar');
-                var progressLabel = document.getElementById('update-progress-label');
-                var stepLabel = document.getElementById('update-step-label');
-                var errorDisplay = document.getElementById('update-error-display');
-                var doneDisplay = document.getElementById('update-done-display');
-
-                progressBar.style.width = data.progress_percent + '%';
-                progressLabel.textContent = data.progress_percent + '%';
-                stepLabel.textContent = data.current_step || '';
-
-                if (data.state === 'backing_up') {
-                    stepLabel.textContent = data.current_step || 'Création backup...';
+    // === Auto-resume (AC2) ===
+    async function checkActiveUpdate() {
+        try {
+            var response = await fetch('/api/update/status');
+            var data = await response.json();
+            if (data.state !== 'idle') {
+                document.getElementById('update-progress-section').classList.remove('hidden');
+                updateProgressUI(data);
+                if (TERMINAL_STATES.indexOf(data.state) === -1) {
+                    startPolling();
+                } else {
+                    renderTerminalState(data);
                 }
-
-                if (data.state === 'health_checking') {
-                    stepLabel.textContent = data.current_step || 'Vérification santé post-update...';
-                }
-
-                if (data.state === 'rolling_back') {
-                    stepLabel.textContent = data.current_step || 'Restauration version précédente...';
-                }
-
-                if (data.state === 'done') {
-                    clearInterval(interval);
-                    progressBar.style.width = '100%';
-                    progressLabel.textContent = '100%';
-                    doneDisplay.classList.remove('hidden');
-                    stepLabel.textContent = 'Mise à jour réussie';
-                }
-
-                if (data.state === 'rolled_back') {
-                    clearInterval(interval);
-                    progressBar.style.width = '100%';
-                    progressLabel.textContent = '100%';
-                    errorDisplay.textContent = 'Update échouée, version précédente restaurée';
-                    errorDisplay.classList.remove('hidden');
-                    var applyBtns = document.querySelectorAll('[id^="btn-apply-update"]');
-                    applyBtns.forEach(function(b) { b.disabled = false; });
-                }
-
-                if (data.state === 'rollback_failed') {
-                    clearInterval(interval);
-                    progressBar.style.width = '100%';
-                    progressLabel.textContent = '100%';
-                    errorDisplay.textContent = data.error || 'Échec du rollback. Intervention manuelle requise.';
-                    errorDisplay.classList.remove('hidden');
-                    var applyBtns = document.querySelectorAll('[id^="btn-apply-update"]');
-                    applyBtns.forEach(function(b) { b.disabled = false; });
-                }
-
-                if (data.state === 'error') {
-                    clearInterval(interval);
-                    errorDisplay.textContent = data.error || 'Erreur inconnue';
-                    errorDisplay.classList.remove('hidden');
-                    var applyBtns = document.querySelectorAll('[id^="btn-apply-update"]');
-                    applyBtns.forEach(function(b) { b.disabled = false; });
-                }
-            } catch (err) {
-                clearInterval(interval);
-                var errorDisplay = document.getElementById('update-error-display');
-                errorDisplay.textContent = 'Connexion perdue pendant la mise à jour.';
-                errorDisplay.classList.remove('hidden');
             }
-        }, 2000);
+        } catch (err) { /* silent */ }
     }
+
+    // === History (AC5) ===
+    async function loadUpdateHistory() {
+        var tbody = document.getElementById('update-history-tbody');
+        try {
+            var response = await fetch('/api/update/history');
+            var data = await response.json();
+            if (!data.success || !data.history || data.history.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Aucune mise à jour effectuée</td></tr>';
+                return;
+            }
+            var html = '';
+            data.history.forEach(function(entry) {
+                html += '<tr>';
+                html += '<td>' + escapeHtml(formatDateTime(entry.date)) + '</td>';
+                html += '<td>v' + escapeHtml(entry.from_version || '?') + ' → v' + escapeHtml(entry.to_version || '?') + '</td>';
+                html += '<td>' + renderStatusBadge(entry.status) + '</td>';
+                html += '<td>' + (entry.error ? escapeHtml(entry.error) : formatDuration(entry.duration_seconds)) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Erreur de chargement</td></tr>';
+        }
+    }
+
+    // === Init ===
+    checkActiveUpdate();
+    loadUpdateHistory();
 });
 </script>
 {% endblock %}
