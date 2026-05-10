@@ -58,7 +58,7 @@ NETSCOPE est un outil de surveillance réseau conçu pour fonctionner sur Raspbe
 Ouvrez un navigateur et accédez à l'adresse du Raspberry Pi :
 
 ```
-http://<adresse-ip-du-pi>:5000
+http://<adresse-ip-du-pi>
 ```
 
 L'interface s'ouvre directement sur le **Dashboard**.
@@ -353,7 +353,7 @@ NETSCOPE expose une API REST minimale.
 ### Exemple
 
 ```bash
-curl http://<ip-du-pi>:5000/api/health
+curl http://<ip-du-pi>/api/health
 ```
 
 Réponse :
@@ -371,7 +371,7 @@ Réponse :
 ### L'interface ne se charge pas
 
 - Vérifiez que le service NETSCOPE est lancé : `systemctl status netscope`
-- Vérifiez le port 5000 : `ss -tlnp | grep 5000`
+- Vérifiez le port 80 : `ss -tlnp | grep 80`
 - Consultez les logs : `journalctl -u netscope -f`
 
 ### La capture ne démarre pas

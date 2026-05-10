@@ -156,14 +156,14 @@ sudo venv/bin/python run.py
 
 > **`sudo` est requis** car la capture réseau (tcpdump/scapy) nécessite les droits root.
 
-L'application démarre sur **`http://<IP_DU_PI>:5000`**.
+L'application démarre sur **`http://<IP_DU_PI>`** (port 80).
 
 ### Accéder à l'interface web
 
 | Mode de connexion | URL |
 |---|---|
-| Via Wi-Fi (même réseau) | `http://<IP_DU_PI>:5000` |
-| Via AP NETSCOPE_PROBE | `http://192.168.88.1:5000` |
+| Via Wi-Fi (même réseau) | `http://<IP_DU_PI>` |
+| Via AP NETSCOPE_PROBE | `http://192.168.88.1` |
 
 ---
 
@@ -209,5 +209,5 @@ sudo venv/bin/python run.py
 |---|---|
 | `Permission denied` sur tcpdump | Lancer avec `sudo` |
 | Pi introuvable sur le réseau | Vérifier la config Wi-Fi dans Imager, ou brancher un écran/clavier |
-| Port 5000 inaccessible | Vérifier le firewall : `sudo iptables -L` |
+| Port 80 inaccessible | Vérifier le firewall : `sudo iptables -L` |
 | Module `scapy` introuvable | Vérifier que le venv est activé : `source venv/bin/activate` |
