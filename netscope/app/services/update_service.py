@@ -26,7 +26,8 @@ GITHUB_API_TIMEOUT = 10
 DOWNLOAD_TIMEOUT = 300
 DOWNLOAD_CHUNK_SIZE = 8192
 MIN_DISK_SPACE_MB = 100
-USER_AGENT = "NETSCOPE-Updater/0.1.0"
+def _get_user_agent() -> str:
+    return f"NETSCOPE-Updater/{get_version_service().get_version()}"
 ALLOWED_DOWNLOAD_HOSTS = ("https://api.github.com/", "https://github.com/")
 HEALTH_CHECK_POLL_INTERVAL = 2
 DEFAULT_HEALTH_CHECK_TIMEOUT = 30
@@ -212,7 +213,7 @@ class UpdateService:
                 self._check_url,
                 headers={
                     "Accept": "application/vnd.github.v3+json",
-                    "User-Agent": USER_AGENT,
+                    "User-Agent": _get_user_agent(),
                 },
                 timeout=GITHUB_API_TIMEOUT,
             )
@@ -575,7 +576,7 @@ class UpdateService:
                 timeout=DOWNLOAD_TIMEOUT,
                 headers={
                     "Accept": "application/octet-stream",
-                    "User-Agent": USER_AGENT,
+                    "User-Agent": _get_user_agent(),
                 },
             )
             response.raise_for_status()
@@ -640,7 +641,7 @@ class UpdateService:
         deadline = time.monotonic() + timeout_seconds
         while time.monotonic() < deadline:
             try:
-                resp = requests.get(url, timeout=5, headers={"User-Agent": USER_AGENT})
+                resp = requests.get(url, timeout=5, headers={"User-Agent": _get_user_agent()})
                 if resp.status_code == 200:
                     return True
             except (requests.ConnectionError, requests.Timeout):

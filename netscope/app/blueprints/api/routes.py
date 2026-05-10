@@ -4,6 +4,7 @@ import logging
 from flask import jsonify, current_app
 
 from . import api_bp
+from app.services.version_service import get_version_service
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def health_check():
     """
     return jsonify({
         'status': 'ok',
-        'version': '0.1.0'
+        'version': get_version_service().get_version()
     }), 200
 
 

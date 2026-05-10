@@ -32,6 +32,8 @@ class TestAdminPageE2E:
 
         labels = [el.get_text().strip() for el in info_grid.find_all(class_='info-label')]
         assert 'Version:' in labels
+        assert "Modèle:" in labels
+        assert "Date d'installation:" in labels
         assert 'Uptime:' in labels
 
         values = [el.get_text().strip() for el in info_grid.find_all(class_='info-value')]

@@ -31,9 +31,12 @@ class TestAdminIndexVersion:
     def test_admin_index_shows_pi_model(self, client):
         response = client.get('/admin/')
         soup = BeautifulSoup(response.data, 'html.parser')
-        info_values = [el.get_text() for el in soup.find_all(class_='info-value')]
-        has_model = any('Unknown' in v or 'Raspberry' in v or 'Pi' in v for v in info_values)
-        assert has_model
+        model_label = soup.find(class_='info-label', string=lambda t: t and 'Modèle' in t)
+        assert model_label is not None, "Label 'Modèle' not found in admin page"
+        model_item = model_label.find_parent(class_='info-item')
+        model_value = model_item.find(class_='info-value')
+        assert model_value is not None
+        assert model_value.get_text().strip() != ''
 
     def test_admin_index_shows_install_date(self, client):
         response = client.get('/admin/')

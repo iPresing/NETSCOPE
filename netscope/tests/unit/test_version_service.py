@@ -151,6 +151,18 @@ class TestGetUptimeFormatted:
             result = service.get_uptime_formatted()
         assert result == '5m'
 
+    def test_format_under_60_seconds(self):
+        service = VersionService()
+        with patch.object(service, 'get_system_uptime', return_value=30.0):
+            result = service.get_uptime_formatted()
+        assert result == '< 1m'
+
+    def test_format_zero_seconds(self):
+        service = VersionService()
+        with patch.object(service, 'get_system_uptime', return_value=0.0):
+            result = service.get_uptime_formatted()
+        assert result == '< 1m'
+
     def test_format_none_uptime(self):
         service = VersionService()
         with patch.object(service, 'get_system_uptime', return_value=None):
@@ -176,6 +188,7 @@ class TestGetSystemInfo:
 
         assert isinstance(info, SystemInfo)
         assert info.version == '1.5.0'
+        assert info.install_date.endswith(' UTC')
         assert info.pi_model == 'Raspberry Pi 4 Model B'
         assert info.uptime_seconds == 7200.0
         assert info.uptime_formatted == '2h 0m'

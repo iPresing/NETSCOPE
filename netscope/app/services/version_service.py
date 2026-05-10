@@ -104,6 +104,8 @@ class VersionService:
             return f'{days}j {hours}h {minutes}m'
         if hours > 0:
             return f'{hours}h {minutes}m'
+        if minutes == 0:
+            return '< 1m'
         return f'{minutes}m'
 
     def _read_version_file(self) -> str:

@@ -110,5 +110,5 @@ update:
 # =============================================================================
 application:
   name: NETSCOPE
-  version: "0.1.0"
+  # version is managed by the VERSION file at project root
   debug: false
