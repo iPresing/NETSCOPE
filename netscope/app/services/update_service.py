@@ -574,8 +574,8 @@ class UpdateService:
                 release_url,
                 stream=True,
                 timeout=DOWNLOAD_TIMEOUT,
+                allow_redirects=True,
                 headers={
-                    "Accept": "application/octet-stream",
                     "User-Agent": _get_user_agent(),
                 },
             )
@@ -623,10 +623,14 @@ class UpdateService:
             )
         except requests.HTTPError as e:
             self._cleanup_temp(temp_path)
-            status = e.response.status_code if e.response else "inconnu"
+            if e.response is not None:
+                detail = f"HTTP {e.response.status_code}"
+            else:
+                detail = str(e)
+            logger.error(f"Download failed (url={release_url}, error={detail})")
             return DownloadResult(
                 success=False,
-                error=f"Erreur HTTP lors du téléchargement : {status}.",
+                error=f"Erreur HTTP lors du téléchargement : {detail}.",
                 error_code=UpdateErrorCode.DOWNLOAD_ERROR,
             )
         except OSError as e:
