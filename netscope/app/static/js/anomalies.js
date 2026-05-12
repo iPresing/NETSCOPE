@@ -285,9 +285,9 @@
      */
     function loadAnomalies() {
         console.debug('[anomalies] Loading anomalies page');
-        console.debug('[anomalies] Fetching /api/anomalies?latest=true&include_breakdown=true');
+        console.debug('[anomalies] Fetching /api/anomalies?latest=false&include_breakdown=true');
 
-        fetch('/api/anomalies?latest=true&include_breakdown=true')
+        fetch('/api/anomalies?latest=false&include_breakdown=true')
             .then(function(response) {
                 if (!response.ok) {
                     throw new Error('HTTP error! status: ' + response.status);
@@ -311,7 +311,7 @@
                         ', normal=' + (byCrit.normal || 0) + ')');
 
                     // Story 5.1 — maintenir l'état du bouton Export CSV
-                    currentCaptureId = data.result.capture_id || null;
+                    currentCaptureId = data.result.capture_id || (rawAnomalies.length > 0 ? rawAnomalies[0].capture_id : null);
                     currentAnomalyCount = total;
                     updateExportButtonState();
                 } else {

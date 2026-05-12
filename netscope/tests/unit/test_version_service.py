@@ -71,7 +71,7 @@ class TestGetVersion:
     def test_get_version_reads_actual_version_file(self):
         service = VersionService()
         result = service.get_version()
-        assert result == '0.1.0'
+        assert result == '0.2.0'
 
 
 class TestGetInstallDate:

@@ -64,7 +64,7 @@ class TestHealthEndpoint:
         response = client.get('/api/health')
         data = response.get_json()
         assert 'version' in data
-        assert data['version'] == '0.1.0'
+        assert data['version'] == '0.2.0'
 
 
 class TestConfigClasses:

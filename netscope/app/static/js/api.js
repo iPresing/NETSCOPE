@@ -1,6 +1,6 @@
 /**
  * NETSCOPE API Client
- * Version: 0.1.0
+ * Version: 0.2.0
  *
  * Client-side API wrapper for NETSCOPE backend endpoints.
  * Uses Vanilla ES6+ fetch API.

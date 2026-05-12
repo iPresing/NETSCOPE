@@ -1,6 +1,6 @@
 /**
  * NETSCOPE Main JavaScript
- * Version: 0.1.0
+ * Version: 0.2.0
  *
  * Core JavaScript functionality for NETSCOPE dashboard.
  * Uses Vanilla ES6+ - no frameworks.

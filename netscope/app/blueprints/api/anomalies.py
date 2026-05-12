@@ -100,12 +100,17 @@ def get_anomalies():
                 if a.id not in whitelisted_ids:
                     by_criticality[a.criticality_level.value] += 1
 
+            latest_capture_id = None
+            if anomaly_dicts:
+                latest_capture_id = anomaly_dicts[0].get("capture_id")
+
             return jsonify({
                 "success": True,
                 "result": {
                     "anomalies": anomaly_dicts,
                     "total": len(all_anomalies),
                     "by_criticality": by_criticality,
+                    "capture_id": latest_capture_id,
                 },
             }), 200
 
