@@ -62,11 +62,11 @@ class TestCheckUpdateEndpointRegression:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
-            "tag_name": "v0.2.0",
+            "tag_name": "v0.3.0",
             "body": "changes",
             "published_at": "2026-05-01",
             "html_url": "https://github.com/test",
-            "tarball_url": "https://api.github.com/repos/test/tarball/v0.2.0",
+            "tarball_url": "https://api.github.com/repos/test/tarball/v0.3.0",
         }
         mock_get.return_value = mock_resp
 

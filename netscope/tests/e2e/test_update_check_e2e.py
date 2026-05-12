@@ -11,11 +11,11 @@ from bs4 import BeautifulSoup
 
 
 MOCK_RELEASE_NEW = {
-    "tag_name": "v0.2.0",
-    "name": "Release 0.2.0",
+    "tag_name": "v0.3.0",
+    "name": "Release 0.3.0",
     "body": "## Changelog\n- New feature added",
     "published_at": "2026-05-01T10:00:00Z",
-    "html_url": "https://github.com/iPresing/NETSCOPE/releases/tag/v0.2.0",
+    "html_url": "https://github.com/iPresing/NETSCOPE/releases/tag/v0.3.0",
 }
 
 MOCK_RELEASE_SAME = {
@@ -84,7 +84,7 @@ class TestUpdateCheckApiEndToEnd:
 
         assert data['update_available'] is True
         assert data['current_version'] == '0.1.0'
-        assert data['latest_version'] == '0.2.0'
+        assert data['latest_version'] == '0.3.0'
         assert 'Changelog' in data['changelog']
         assert '2026-05-01' in data['published_at']
         assert 'github.com' in data['release_url']

@@ -51,8 +51,8 @@ def _mock_successful_preflight(service, config, install_dir):
     mock_check = UpdateCheckResult(
         update_available=True,
         current_version="0.1.0",
-        latest_version="0.2.0",
-        tarball_url="https://github.com/iPresing/NETSCOPE/archive/v0.2.0.tar.gz",
+        latest_version="0.3.0",
+        tarball_url="https://github.com/iPresing/NETSCOPE/archive/v0.3.0.tar.gz",
     )
     mock_download = DownloadResult(success=True, file_path="/tmp/fake.tar.gz", file_size=1000)
     full_config = {"update": config, "network": {"web_port": 80}}

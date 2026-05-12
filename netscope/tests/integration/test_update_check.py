@@ -9,11 +9,11 @@ import pytest
 
 
 MOCK_RELEASE = {
-    "tag_name": "v0.2.0",
-    "name": "Release 0.2.0",
+    "tag_name": "v0.3.0",
+    "name": "Release 0.3.0",
     "body": "## Changes\n- Feature X",
     "published_at": "2026-05-01T10:00:00Z",
-    "html_url": "https://github.com/iPresing/NETSCOPE/releases/tag/v0.2.0",
+    "html_url": "https://github.com/iPresing/NETSCOPE/releases/tag/v0.3.0",
 }
 
 
@@ -54,7 +54,7 @@ class TestApiUpdateCheck:
 
         data = response.get_json()
         assert data['update_available'] is True
-        assert data['latest_version'] == '0.2.0'
+        assert data['latest_version'] == '0.3.0'
         assert data['changelog'] == '## Changes\n- Feature X'
         assert data['release_url'] is not None
 
@@ -126,7 +126,7 @@ class TestAdminUpdateCheckServerRendering:
         response = client.post('/admin/update/check')
         html = response.data.decode('utf-8')
         assert 'Nouvelle version disponible' in html
-        assert 'v0.2.0' in html
+        assert 'v0.3.0' in html
 
     @patch('app.services.update_service.requests.get')
     def test_post_renders_up_to_date(self, mock_get, client):

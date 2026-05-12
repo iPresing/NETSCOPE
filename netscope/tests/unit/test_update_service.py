@@ -36,11 +36,11 @@ def service():
 @pytest.fixture
 def mock_github_release():
     return {
-        "tag_name": "v0.2.0",
-        "name": "Release 0.2.0",
+        "tag_name": "v0.3.0",
+        "name": "Release 0.3.0",
         "body": "## Changelog\n- New feature",
         "published_at": "2026-05-01T10:00:00Z",
-        "html_url": "https://github.com/iPresing/NETSCOPE/releases/tag/v0.2.0",
+        "html_url": "https://github.com/iPresing/NETSCOPE/releases/tag/v0.3.0",
     }
 
 
@@ -55,7 +55,7 @@ class TestParseVersion:
         assert parse_version(" v1.0.0 ") == (1, 0, 0)
 
     def test_compare_versions(self):
-        assert parse_version("0.2.0") > parse_version("0.1.0")
+        assert parse_version("0.3.0") > parse_version("0.1.0")
         assert parse_version("1.0.0") > parse_version("0.9.9")
         assert parse_version("0.1.0") == parse_version("v0.1.0")
 
@@ -66,7 +66,7 @@ class TestParseVersion:
         assert parse_version("1.0.0+build.123") == (1, 0, 0)
 
     def test_prerelease_compare(self):
-        assert parse_version("0.2.0-rc.1") > parse_version("0.1.0")
+        assert parse_version("0.3.0-rc.1") > parse_version("0.1.0")
 
     def test_invalid_version_raises(self):
         with pytest.raises(ValueError):
@@ -78,7 +78,7 @@ class TestUpdateCheckResultToDict:
         result = UpdateCheckResult(
             update_available=True,
             current_version="0.1.0",
-            latest_version="0.2.0",
+            latest_version="0.3.0",
             changelog="changes",
             published_at="2026-05-01",
             release_url="https://example.com",
@@ -86,7 +86,7 @@ class TestUpdateCheckResultToDict:
         d = result.to_dict()
         assert d["update_available"] is True
         assert d["current_version"] == "0.1.0"
-        assert d["latest_version"] == "0.2.0"
+        assert d["latest_version"] == "0.3.0"
         assert "error" not in d
 
     def test_error_result_to_dict(self):
@@ -116,7 +116,7 @@ class TestCheckForUpdateSuccess:
 
         assert result.update_available is True
         assert result.current_version == "0.1.0"
-        assert result.latest_version == "0.2.0"
+        assert result.latest_version == "0.3.0"
         assert result.changelog == "## Changelog\n- New feature"
         assert result.published_at == "2026-05-01T10:00:00Z"
         assert result.error is None
@@ -124,8 +124,8 @@ class TestCheckForUpdateSuccess:
     @patch('app.services.update_service.get_version_service')
     @patch('app.services.update_service.requests.get')
     def test_already_up_to_date(self, mock_get, mock_version_svc, service, mock_github_release):
-        mock_version_svc.return_value.get_version.return_value = "0.2.0"
-        mock_github_release["tag_name"] = "v0.2.0"
+        mock_version_svc.return_value.get_version.return_value = "0.3.0"
+        mock_github_release["tag_name"] = "v0.3.0"
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_github_release
@@ -134,14 +134,14 @@ class TestCheckForUpdateSuccess:
         result = service.check_for_update()
 
         assert result.update_available is False
-        assert result.current_version == "0.2.0"
+        assert result.current_version == "0.3.0"
         assert result.error is None
 
     @patch('app.services.update_service.get_version_service')
     @patch('app.services.update_service.requests.get')
     def test_current_newer_than_remote(self, mock_get, mock_version_svc, service, mock_github_release):
         mock_version_svc.return_value.get_version.return_value = "0.3.0"
-        mock_github_release["tag_name"] = "v0.2.0"
+        mock_github_release["tag_name"] = "v0.3.0"
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_github_release

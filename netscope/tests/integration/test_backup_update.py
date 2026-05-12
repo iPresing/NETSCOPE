@@ -141,8 +141,8 @@ class TestBackupRunUpdateWiring:
         mock_check.return_value = UpdateCheckResult(
             update_available=True,
             current_version="0.1.0",
-            latest_version="0.2.0",
-            tarball_url="https://api.github.com/repos/test/tarball/v0.2.0",
+            latest_version="0.3.0",
+            tarball_url="https://api.github.com/repos/test/tarball/v0.3.0",
         )
         mock_backup.return_value = BackupResult(
             True, backup_path="/opt/netscope.backup", size_bytes=1000
@@ -175,8 +175,8 @@ class TestBackupRunUpdateWiring:
         mock_check.return_value = UpdateCheckResult(
             update_available=True,
             current_version="0.1.0",
-            latest_version="0.2.0",
-            tarball_url="https://api.github.com/repos/test/tarball/v0.2.0",
+            latest_version="0.3.0",
+            tarball_url="https://api.github.com/repos/test/tarball/v0.3.0",
         )
         mock_download.return_value = DownloadResult(
             success=True, file_path="/tmp/test.tar.gz", file_size=5000

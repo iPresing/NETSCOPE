@@ -18,12 +18,12 @@ from app.services.update_service import (
 
 
 MOCK_RELEASE = {
-    "tag_name": "v0.2.0",
-    "name": "Release 0.2.0",
+    "tag_name": "v0.3.0",
+    "name": "Release 0.3.0",
     "body": "## Changelog\n- OTA update support",
     "published_at": "2026-05-08T10:00:00Z",
-    "html_url": "https://github.com/iPresing/NETSCOPE/releases/tag/v0.2.0",
-    "tarball_url": "https://api.github.com/repos/iPresing/NETSCOPE/tarball/v0.2.0",
+    "html_url": "https://github.com/iPresing/NETSCOPE/releases/tag/v0.3.0",
+    "tarball_url": "https://api.github.com/repos/iPresing/NETSCOPE/tarball/v0.3.0",
 }
 
 
@@ -41,7 +41,7 @@ class TestUpdatePageWithUpdateAvailable:
         data = response.get_json()
 
         assert data['update_available'] is True
-        assert data['latest_version'] == '0.2.0'
+        assert data['latest_version'] == '0.3.0'
 
     def test_update_page_loads(self, client):
         response = client.get('/admin/update')

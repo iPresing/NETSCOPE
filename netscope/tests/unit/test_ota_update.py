@@ -247,8 +247,8 @@ class TestStartUpdate:
         mock_check.return_value = UpdateCheckResult(
             update_available=True,
             current_version="0.1.0",
-            latest_version="0.2.0",
-            tarball_url="https://api.github.com/repos/x/tarball/v0.2.0",
+            latest_version="0.3.0",
+            tarball_url="https://api.github.com/repos/x/tarball/v0.3.0",
         )
         mock_response = MagicMock()
         mock_response.headers = {}
@@ -277,7 +277,7 @@ class TestStartUpdate:
         from app.services.update_service import UpdateCheckResult
         mock_check.return_value = UpdateCheckResult(
             update_available=False,
-            current_version="0.2.0",
+            current_version="0.3.0",
         )
 
         service._update_lock.acquire()
@@ -295,7 +295,7 @@ class TestStartUpdate:
         mock_check.return_value = UpdateCheckResult(
             update_available=True,
             current_version="0.1.0",
-            latest_version="0.2.0",
+            latest_version="0.3.0",
             tarball_url="",
         )
 
@@ -315,7 +315,7 @@ class TestStartUpdate:
         mock_check.return_value = UpdateCheckResult(
             update_available=True,
             current_version="0.1.0",
-            latest_version="0.2.0",
+            latest_version="0.3.0",
             tarball_url="https://evil.com/malware.tar.gz",
         )
 
