@@ -83,8 +83,15 @@ def get_anomalies():
             # Get anomalies for specific capture
             collection = store.get_by_capture(capture_id)
         elif get_latest:
-            # Get anomalies from latest capture
-            collection = store.get_latest()
+            # Use tcpdump manager's latest session ID (same as dashboard)
+            # to avoid stale _latest_capture_id from empty captures
+            from app.core.capture import get_tcpdump_manager
+            manager = get_tcpdump_manager()
+            latest_result = manager.get_latest_result()
+            if latest_result and latest_result.session:
+                collection = store.get_by_capture(latest_result.session.id)
+            else:
+                collection = store.get_latest()
         else:
             # Get all anomalies (build a combined response)
             all_anomalies = store.get_all_anomalies()

@@ -285,9 +285,9 @@
      */
     function loadAnomalies() {
         console.debug('[anomalies] Loading anomalies page');
-        console.debug('[anomalies] Fetching /api/anomalies?latest=false&include_breakdown=true');
+        console.debug('[anomalies] Fetching /api/anomalies?latest=true&include_breakdown=true');
 
-        fetch('/api/anomalies?latest=false&include_breakdown=true')
+        fetch('/api/anomalies?latest=true&include_breakdown=true')
             .then(function(response) {
                 if (!response.ok) {
                     throw new Error('HTTP error! status: ' + response.status);
@@ -345,8 +345,8 @@
             exportModeEl.disabled = !hasCapture;
             exportModeEl.setAttribute('aria-disabled', hasCapture ? 'false' : 'true');
             exportModeEl.title = hasCapture
-                ? "Choisir le mode d’export"
-                : ‘Lancez une capture pour activer le sélecteur’;
+                ? "Choisir le mode d'export"
+                : 'Lancez une capture pour activer le selecteur';
         }
 
         var buttons = [
